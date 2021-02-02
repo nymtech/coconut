@@ -11,3 +11,127 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+use bls12_381::{Scalar, G1Projective};
+use crate::scheme::setup::Parameters;
+use rand_core::{CryptoRng, RngCore};
+
+pub struct Ciphertext(G1Projective, G1Projective);
+
+pub struct EncryptionResult {
+    ciphertext: Ciphertext,
+    k: Scalar,
+}
+
+impl EncryptionResult {}
+
+
+pub struct PrivateKey(Scalar);
+
+
+impl PrivateKey {
+    /// Decrypt takes the ElGamal encryption of a message and returns a point on the G1 curve
+    /// that represents original h^m.
+    pub fn decrypt(&self, ciphertext: &Ciphertext) -> G1Projective {
+        let (c1, c2) = &(ciphertext.0, ciphertext.1);
+
+        // (gamma^k * h^m) / (g1^{d * k})   |   note: gamma = g1^d
+        c2 - c1 * self.0
+    }
+
+    pub fn public_key<R: RngCore + CryptoRng>(&self, params: &Parameters<R>) -> PublicKey {
+        PublicKey(params.gen1() * self.0)
+    }
+}
+
+
+// TODO: perhaps be more explicit and apart from gamma also store generator and group order?
+pub struct PublicKey(G1Projective);
+
+impl PublicKey {
+    /// Encrypt encrypts the given message in the form of h^m,
+    /// where h is a point on the G1 curve using the given public key.
+    /// The random k is returned alongside the encryption
+    /// as it is required by the Coconut Scheme to create proofs of knowledge.
+    pub fn encrypt<R: RngCore + CryptoRng>(
+        &self,
+        params: &mut Parameters<R>,
+        h: &G1Projective,
+        msg: &Scalar,
+    ) -> EncryptionResult {
+        let k = params.random_scalar();
+        // c1 = g1^k
+        let c1 = params.gen1() * k;
+        // c2 = gamma^k * h^m
+        let c2 = self.0 * k + h * msg;
+
+        EncryptionResult {
+            ciphertext: Ciphertext(c1, c2),
+            k
+        }
+    }
+}
+
+pub struct KeyPair {
+    private_key: PrivateKey,
+    public_key: PublicKey,
+}
+
+pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
+    let private_key = params.random_scalar();
+    let gamma = params.gen1() * private_key;
+
+    KeyPair {
+        private_key: PrivateKey(private_key),
+        public_key: PublicKey(gamma)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keygen() {
+        let mut params = Parameters::default();
+        let keypair = super::keygen(&mut params);
+
+        let expected = params.gen1() * keypair.private_key.0;
+        let gamma = keypair.public_key.0;
+        assert_eq!(expected, gamma, "Public key, gamma, should be equal to g1^d, where d is the private key");
+    }
+
+    #[test]
+    fn encryption() {
+        let mut params = Parameters::default();
+        let keypair = super::keygen(&mut params);
+
+        let r = params.random_scalar();
+        let h = params.gen1() * r;
+        let m = params.random_scalar();
+
+        let enc = keypair.public_key.encrypt(&mut params, &h, &m);
+
+        let expected_c1 = params.gen1() * enc.k;
+        assert_eq!(expected_c1, enc.ciphertext.0, "c1 should be equal to g1^k");
+
+        let expected_c2 = keypair.public_key.0 * enc.k + h * m;
+        assert_eq!(expected_c2, enc.ciphertext.1, "c2 should be equal to gamma^k * h^m");
+    }
+
+    #[test]
+    fn decryption() {
+        let mut params = Parameters::default();
+        let keypair = super::keygen(&mut params);
+
+        let r = params.random_scalar();
+        let h = params.gen1() * r;
+        let m = params.random_scalar();
+
+        let enc = keypair.public_key.encrypt(&mut params, &h, &m);
+        let dec = keypair.private_key.decrypt(&enc.ciphertext);
+
+        let expected = h * m;
+        assert_eq!(expected, dec, "after ElGamal decryption, original h^m should be obtained");
+    }
+}
