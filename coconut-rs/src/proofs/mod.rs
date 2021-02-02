@@ -12,15 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
-mod elgamal;
-mod proofs;
-mod scheme;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+// TODO: look at https://crates.io/crates/merlin to perhaps use it instead?

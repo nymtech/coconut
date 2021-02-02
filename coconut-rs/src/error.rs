@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod error;
-mod elgamal;
-mod proofs;
-mod scheme;
+use std::fmt::{self, Display, Formatter};
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+/// A `Result` alias where the `Err` case is `coconut_rs::Error`.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Possible Coconut errors
+// for time being let's define it as an enum. If we find it lacking, we could go with sphinx/std::io
+// approach and create a struct with a representation
+
+#[derive(Debug, Clone)]
+pub enum Error {}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            _ => Ok(())
+        }
     }
 }
+
