@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::num::{NonZeroU64, NonZeroUsize};
-use std::ops::Deref;
-
 use bls12_381::{G2Projective, Scalar};
 use rand_core::{CryptoRng, RngCore};
+use std::num::NonZeroU64;
 
 // use generic_array::{ArrayLength, GenericArray};
 use crate::error::Result;
@@ -28,6 +26,9 @@ use crate::utils::evaluate_polynomial;
 pub struct SecretKey {
     x: Scalar,
     ys: Vec<Scalar>,
+
+    /// Optional index value specifying polynomial point used during threshold key generation.
+    index: Option<u64>,
 }
 
 impl SecretKey {
@@ -39,6 +40,7 @@ impl SecretKey {
         VerificationKey {
             alpha: g2 * self.x,
             beta: self.ys.iter().map(|y| g2 * y).collect(),
+            index: self.index,
         }
     }
 }
@@ -47,54 +49,14 @@ pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
     alpha: G2Projective,
     beta: Vec<G2Projective>,
+
+    /// Optional index value specifying polynomial point used during threshold key generation.
+    index: Option<u64>,
 }
 
 pub struct KeyPair {
     secret_key: SecretKey,
     verification_key: VerificationKey,
-}
-
-pub struct ThresholdSecretKey {
-    secret_key: SecretKey,
-    index: u64,
-}
-
-impl ThresholdSecretKey {
-    pub fn verification_key<R: RngCore + CryptoRng>(
-        &self,
-        params: &Parameters<R>,
-    ) -> ThresholdVerificationKey {
-        ThresholdVerificationKey {
-            verification_key: self.secret_key.verification_key(params),
-            index: self.index,
-        }
-    }
-}
-
-impl Deref for ThresholdSecretKey {
-    type Target = SecretKey;
-
-    fn deref(&self) -> &Self::Target {
-        &self.secret_key
-    }
-}
-
-pub struct ThresholdVerificationKey {
-    verification_key: VerificationKey,
-    index: u64,
-}
-
-impl Deref for ThresholdVerificationKey {
-    type Target = VerificationKey;
-
-    fn deref(&self) -> &Self::Target {
-        &self.verification_key
-    }
-}
-
-pub struct ThresholdKeyPair {
-    secret_key: ThresholdSecretKey,
-    verification_key: ThresholdVerificationKey,
 }
 
 /// Generate a single Coconut keypair ((x, y1, y2...), (g2, g2^x, g2^y1, ...)).
@@ -115,8 +77,12 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> Result<KeyP
     let beta = ys.iter().map(|y| params.gen2() * y).collect::<Vec<_>>();
 
     Ok(KeyPair {
-        secret_key: SecretKey { x, ys },
-        verification_key: VerificationKey { alpha, beta },
+        secret_key: SecretKey { x, ys, index: None },
+        verification_key: VerificationKey {
+            alpha,
+            beta,
+            index: None,
+        },
     })
 }
 
@@ -129,7 +95,7 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     params: &mut Parameters<R>,
     threshold: NonZeroU64,
     num_authorities: NonZeroU64,
-) -> Result<Vec<ThresholdKeyPair>> {
+) -> Result<Vec<KeyPair>> {
     let attributes = params.additional_g1_generators().len();
     if attributes == 0 {
         // return Err
@@ -162,14 +128,17 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     // finally set the keys
     let secret_keys = x
         .zip(y)
-        .map(|(x, ys)| SecretKey { x, ys })
         .zip(polynomial_indices.iter())
-        .map(|(secret_key, &index)| ThresholdSecretKey { secret_key, index });
+        .map(|((x, ys), index)| SecretKey {
+            x,
+            ys,
+            index: Some(*index),
+        });
 
     let keypairs = secret_keys
         .map(|secret_key| {
             let verification_key = secret_key.verification_key(params);
-            ThresholdKeyPair {
+            KeyPair {
                 secret_key,
                 verification_key,
             }
