@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bls12_381::Scalar;
+
 pub mod error;
 mod elgamal;
 mod proofs;
 mod scheme;
+mod utils;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub type Attribute = Scalar;
