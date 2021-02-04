@@ -12,14 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bls12_381::{G2Projective, Scalar};
-use rand_core::{CryptoRng, RngCore};
+use core::borrow::Borrow;
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Mul};
 use std::num::NonZeroU64;
 
-// use generic_array::{ArrayLength, GenericArray};
+use bls12_381::{G2Projective, Scalar};
+use itertools::Itertools;
+use rand_core::{CryptoRng, RngCore};
+
 use crate::error::Result;
 use crate::scheme::setup::Parameters;
-use crate::utils::evaluate_polynomial;
+use crate::utils::{
+    evaluate_polynomial, generate_lagrangian_coefficients_at_origin,
+    perform_lagrangian_interpolation_at_origin,
+};
 
 // TODO: some type alias to indicate number of attributes and also size of ys
 
@@ -52,6 +59,67 @@ pub struct VerificationKey {
 
     /// Optional index value specifying polynomial point used during threshold key generation.
     index: Option<u64>,
+}
+
+impl<T> Sum<T> for VerificationKey
+where
+    T: Borrow<VerificationKey>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        let identity_key = VerificationKey {
+            alpha: G2Projective::identity(),
+            beta: vec![G2Projective::identity(); 42],
+            index: None,
+        };
+
+        iter.fold(identity_key, |acc, item| acc + item.borrow())
+    }
+}
+
+impl<'b> Add<&'b VerificationKey> for VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn add(self, rhs: &'b VerificationKey) -> VerificationKey {
+        &self + rhs
+    }
+}
+
+impl<'a, 'b> Mul<&'b Scalar> for &'a VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn mul(self, rhs: &'b Scalar) -> Self::Output {
+        VerificationKey {
+            alpha: self.alpha * rhs,
+            beta: self.beta.iter().map(|b_i| b_i * rhs).collect(),
+            index: None,
+        }
+    }
+}
+
+impl<'a, 'b> Add<&'b VerificationKey> for &'a VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn add(self, rhs: &'b VerificationKey) -> VerificationKey {
+        assert_eq!(self.beta.len(), rhs.beta.len());
+        assert!(self.index.is_none() && rhs.index.is_none());
+
+        VerificationKey {
+            alpha: self.alpha + rhs.alpha,
+            beta: self
+                .beta
+                .iter()
+                .zip(rhs.beta.iter())
+                .map(|(self_beta, rhs_beta)| self_beta + rhs_beta)
+                .collect(),
+            index: None,
+        }
+    }
 }
 
 pub struct KeyPair {
@@ -146,4 +214,49 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
         .collect();
 
     Ok(keypairs)
+}
+
+fn check_threshold_keys(keys: &[VerificationKey]) -> bool {
+    // if keys are threshold, they all should have an unique, non-zero, index set
+    keys.iter()
+        .unique_by(|vk| vk.index.unwrap_or_default())
+        .count()
+        == keys.len()
+}
+
+fn check_same_key_size(keys: &[VerificationKey]) -> bool {
+    keys.iter().map(|vk| vk.beta.len()).all_equal()
+}
+
+fn threshold_key_aggregation(keys: &[VerificationKey]) -> VerificationKey {
+    let indices = keys.iter().map(|vk| vk.index.unwrap()).collect::<Vec<_>>();
+    let coefficients = generate_lagrangian_coefficients_at_origin(&indices);
+
+    keys.iter()
+        .zip(coefficients.iter())
+        .map(|(vk_i, li_i)| vk_i * li_i)
+        .sum()
+}
+
+// TODO: move to different file
+pub fn aggregate_verification_keys<R>(keys: &[VerificationKey]) -> Result<VerificationKey> {
+    if keys.is_empty() {
+        todo!("return error")
+    }
+
+    if !check_same_key_size(keys) {
+        todo!("return error")
+    }
+
+    // either all keys have to be threshold or none of them
+    if check_threshold_keys(keys) {
+        // threshold
+        Ok(threshold_key_aggregation(keys))
+    } else if !keys.iter().all(|vk| vk.index.is_none()) {
+        // those are not proper threshold keys but neither they are non-threshold
+        todo!("return error")
+    } else {
+        // non-threshold
+        Ok(keys.iter().sum())
+    }
 }
