@@ -13,3 +13,13 @@
 // limitations under the License.
 
 // TODO: implement https://crates.io/crates/signature traits?
+
+pub use keygen::{SecretKey, VerificationKey};
+
+pub mod keygen;
+pub mod setup;
+pub mod signature;
+
+// struct Coconut<R, T, N> {
+//
+// }

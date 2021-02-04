@@ -16,11 +16,10 @@
 // use digest::Update;
 // use generic_array::{ArrayLength, GenericArray};
 
-use std::any::Any;
 use std::iter::Sum;
 use std::ops::Mul;
 
-use bls12_381::{G2Projective, Scalar};
+use bls12_381::Scalar;
 
 use crate::error::Result;
 
@@ -76,6 +75,7 @@ where
 {
     if points.len() != values.len() {
         // return Err
+        todo!("return an error here")
     }
 
     let coefficients = generate_lagrangian_coefficients_at_origin(points);
@@ -85,6 +85,97 @@ where
         .map(|(coeff, val)| val * coeff)
         .sum())
 }
+
+pub(crate) fn perform_lagrangian_interpolation_at_origin_with_coefficients<T>(
+    coefficients: &[Scalar],
+    values: &[T],
+) -> T
+where
+    T: Sum,
+    for<'a, 'b> &'a T: Mul<&'b Scalar, Output = T>,
+{
+    coefficients
+        .iter()
+        .zip(values.iter())
+        .map(|(coeff, val)| val * coeff)
+        .sum()
+}
+
+// // TODO: very likely after some changes this can also be used to sum threshold signatures.
+// // I'm not entirely sure yet what trait bounds need to be introduced, but it will be clearer once
+// // we get there
+// // trait SumThresholdExt: ExactSizeIterator {
+// //     fn sum_threshold(self, coefficients: Vec<Scalar>) -> SumThreshold<Self>
+// //     where
+// //         Self: Sized,
+// //     {
+// //         assert_eq!(self.len(), coefficients.len());
+// //
+// //         SumThreshold::new(self, coefficients)
+// //     }
+// // }
+//
+// trait Threshold {
+//     fn index(self) -> u64;
+// }
+//
+// trait SumThresholdExt<T = Self>: Sized {
+//     fn sum_threshold<I: Iterator<Item=T>>(iter: I) -> Self
+//         where
+//             I::Item: Threshold;
+//     // where
+//     //     Self: Sized + Threshold,
+//     // {
+//     //     let indices = se
+//     //     // let coefficients = generate_lagrangian_coefficients_at_origin
+//     //     todo!()
+//     //     // assert_eq!(self.len(), coefficients.len());
+//     //     //
+//     //     // SumThreshold::new(self, coefficients)
+//     // }
+// }
+//
+// impl<T> SumThresholdExt for &[T]
+//     where
+//         T: Threshold,
+// {
+//     fn sum_threshold(slice: &[T]) -> Self {
+//         let indices = slice.iter().map(|item| item.index());
+//         let coefficients = generate_lagrangian_coefficients_at_origin(&indices);
+//
+//         unimplemented!()
+//     }
+// }
+//
+// pub(crate) struct SumThreshold<I>
+// // where
+// //     I: Iterator,
+// //     I::Item: Sum,
+// {
+//     iter: I,
+//     coefficients: Vec<Scalar>,
+// }
+//
+// impl<I> SumThreshold<I> {
+//     fn new(iter: I, coefficients: Vec<Scalar>) -> Self {
+//         SumThreshold { iter, coefficients }
+//     }
+// }
+//
+// impl<I> Iterator for SumThreshold<I>
+//     where
+//         I: Iterator,
+// {
+//     type Item = ();
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         unimplemented!()
+//     }
+//
+//     fn size_hint(&self) -> (usize, Option<usize>) {
+//         (self.coefficients.len(), Some(self.coefficients.len()))
+//     }
+// }
 
 // pub trait PointHash {
 //

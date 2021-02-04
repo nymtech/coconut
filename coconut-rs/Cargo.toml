@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 bls12_381 = "0.4.0"
+itertools = "0.10.0"
 #digest = "0.9.0"
 #generic-array = "0.14.4"
 rand_core = "0.6.1"

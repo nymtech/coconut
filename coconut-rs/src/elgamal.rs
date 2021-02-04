@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bls12_381::{Scalar, G1Projective};
 use crate::scheme::setup::Parameters;
+use bls12_381::{G1Projective, Scalar};
 use rand_core::{CryptoRng, RngCore};
 
 pub struct Ciphertext(G1Projective, G1Projective);
@@ -25,9 +25,7 @@ pub struct EncryptionResult {
 
 impl EncryptionResult {}
 
-
 pub struct PrivateKey(Scalar);
-
 
 impl PrivateKey {
     /// Decrypt takes the ElGamal encryption of a message and returns a point on the G1 curve
@@ -43,7 +41,6 @@ impl PrivateKey {
         PublicKey(params.gen1() * self.0)
     }
 }
-
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
 pub struct PublicKey(G1Projective);
@@ -67,7 +64,7 @@ impl PublicKey {
 
         EncryptionResult {
             ciphertext: Ciphertext(c1, c2),
-            k
+            k,
         }
     }
 }
@@ -83,7 +80,7 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
 
     KeyPair {
         private_key: PrivateKey(private_key),
-        public_key: PublicKey(gamma)
+        public_key: PublicKey(gamma),
     }
 }
 
@@ -98,7 +95,10 @@ mod tests {
 
         let expected = params.gen1() * keypair.private_key.0;
         let gamma = keypair.public_key.0;
-        assert_eq!(expected, gamma, "Public key, gamma, should be equal to g1^d, where d is the private key");
+        assert_eq!(
+            expected, gamma,
+            "Public key, gamma, should be equal to g1^d, where d is the private key"
+        );
     }
 
     #[test]
@@ -116,7 +116,10 @@ mod tests {
         assert_eq!(expected_c1, enc.ciphertext.0, "c1 should be equal to g1^k");
 
         let expected_c2 = keypair.public_key.0 * enc.k + h * m;
-        assert_eq!(expected_c2, enc.ciphertext.1, "c2 should be equal to gamma^k * h^m");
+        assert_eq!(
+            expected_c2, enc.ciphertext.1,
+            "c2 should be equal to gamma^k * h^m"
+        );
     }
 
     #[test]
@@ -132,6 +135,9 @@ mod tests {
         let dec = keypair.private_key.decrypt(&enc.ciphertext);
 
         let expected = h * m;
-        assert_eq!(expected, dec, "after ElGamal decryption, original h^m should be obtained");
+        assert_eq!(
+            expected, dec,
+            "after ElGamal decryption, original h^m should be obtained"
+        );
     }
 }

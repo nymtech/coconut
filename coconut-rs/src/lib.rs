@@ -14,8 +14,8 @@
 
 use bls12_381::Scalar;
 
-pub mod error;
 mod elgamal;
+pub mod error;
 mod proofs;
 mod scheme;
 mod utils;
