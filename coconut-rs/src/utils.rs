@@ -306,4 +306,17 @@ mod tests {
             perform_lagrangian_interpolation_at_origin(&points, &values).unwrap()
         );
     }
+
+    #[test]
+    fn hash_g1_sanity_check() {
+        let mut rng = rand_core::OsRng;
+        let mut msg1 = [0u8; 1024];
+        rng.fill_bytes(&mut msg1);
+        let mut msg2 = [0u8; 1024];
+        rng.fill_bytes(&mut msg2);
+
+        assert_eq!(hash_g1(msg1), hash_g1(msg1));
+        assert_eq!(hash_g1(msg2), hash_g1(msg2));
+        assert_ne!(hash_g1(msg1), hash_g1(msg2));
+    }
 }
