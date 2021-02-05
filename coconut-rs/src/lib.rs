@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use bls12_381::Scalar;
+use rand_chacha::ChaChaRng;
+use sha3::Sha3_256;
 
 mod elgamal;
 pub mod error;
@@ -21,3 +23,6 @@ mod scheme;
 mod utils;
 
 pub type Attribute = Scalar;
+
+pub(crate) type G1HashDigest = Sha3_256;
+pub(crate) type G1HashPRNG = ChaChaRng;

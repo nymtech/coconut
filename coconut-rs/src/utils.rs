@@ -16,10 +16,19 @@
 // use digest::Update;
 // use generic_array::{ArrayLength, GenericArray};
 
+use bls12_381::{G1Projective, Scalar};
 use std::iter::Sum;
 use std::ops::Mul;
 
-use bls12_381::Scalar;
+use crate::error::Result;
+use crate::{G1HashDigest, G1HashPRNG};
+use digest::generic_array::ArrayLength;
+use digest::Digest;
+use ff::{Field, PrimeField};
+use group::Group;
+use rand_chacha::ChaChaRng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
+use sha3::Sha3_256;
 
 use crate::error::Result;
 
@@ -99,6 +108,32 @@ where
         .zip(values.iter())
         .map(|(coeff, val)| val * coeff)
         .sum()
+}
+
+// A temporary way of hashing particular message into G1.
+// Implementation idea was taken from `threshold_crypto`:
+// https://github.com/poanetwork/threshold_crypto/blob/7709462f2df487ada3bb3243060504b5881f2628/src/lib.rs#L691
+// Eventually it should get replaced by, most likely, the osswu map
+// method once ideally it's implemented inside the pairing crate.
+pub fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
+    _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
+}
+
+#[doc(hidden)]
+fn _hash_g1<D, R, M>(msg: M) -> G1Projective
+where
+    D: Digest,
+    R: RngCore + SeedableRng,
+    R::Seed: From<digest::Output<D>>,
+    M: AsRef<[u8]>,
+{
+    let mut h = D::new();
+    h.update(msg);
+    let digest = h.finalize();
+
+    let mut seeded_rng = R::from_seed(digest.into());
+
+    G1Projective::random(&mut seeded_rng)
 }
 
 // // TODO: very likely after some changes this can also be used to sum threshold signatures.
