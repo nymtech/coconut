@@ -15,15 +15,20 @@
 use crate::scheme::setup::Parameters;
 use bls12_381::{G1Projective, Scalar};
 use rand_core::{CryptoRng, RngCore};
+use std::ops::Deref;
 
 pub struct Ciphertext(G1Projective, G1Projective);
 
 pub struct EncryptionResult {
     ciphertext: Ciphertext,
-    k: Scalar,
+    ephemeral_key: Scalar,
 }
 
-impl EncryptionResult {}
+impl EncryptionResult {
+    pub(crate) fn ephemeral_key(&self) -> &Scalar {
+        &self.ephemeral_key
+    }
+}
 
 pub struct PrivateKey(Scalar);
 
@@ -64,8 +69,16 @@ impl PublicKey {
 
         EncryptionResult {
             ciphertext: Ciphertext(c1, c2),
-            k,
+            ephemeral_key: k,
         }
+    }
+}
+
+impl Deref for PublicKey {
+    type Target = G1Projective;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -112,10 +125,10 @@ mod tests {
 
         let enc = keypair.public_key.encrypt(&mut params, &h, &m);
 
-        let expected_c1 = params.gen1() * enc.k;
+        let expected_c1 = params.gen1() * enc.ephemeral_key;
         assert_eq!(expected_c1, enc.ciphertext.0, "c1 should be equal to g1^k");
 
-        let expected_c2 = keypair.public_key.0 * enc.k + h * m;
+        let expected_c2 = keypair.public_key.0 * enc.ephemeral_key + h * m;
         assert_eq!(
             expected_c2, enc.ciphertext.1,
             "c2 should be equal to gamma^k * h^m"
