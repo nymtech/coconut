@@ -23,10 +23,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::error::Result;
 use crate::scheme::setup::Parameters;
-use crate::utils::{
-    evaluate_polynomial, generate_lagrangian_coefficients_at_origin,
-    perform_lagrangian_interpolation_at_origin,
-};
+use crate::utils::{perform_lagrangian_interpolation_at_origin, Polynomial};
 
 // TODO: some type alias to indicate number of attributes and also size of ys
 
@@ -98,6 +95,15 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a VerificationKey {
             beta: self.beta.iter().map(|b_i| b_i * rhs).collect(),
             index: None,
         }
+    }
+}
+
+impl<'a> Mul<Scalar> for &'a VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn mul(self, rhs: Scalar) -> Self::Output {
+        self * rhs
     }
 }
 
@@ -174,9 +180,9 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     }
 
     // generate polynomials
-    let v = params.n_random_scalars(threshold.get());
-    let w = (0..num_authorities.get())
-        .map(|_| params.n_random_scalars(threshold.get()))
+    let v = Polynomial::new_random(params, threshold.get() - 1);
+    let ws = (0..num_authorities.get())
+        .map(|_| Polynomial::new_random(params, threshold.get() - 1))
         .collect::<Vec<_>>();
 
     // TODO: potentially if we had some known authority identifier we could use that instead
@@ -186,10 +192,10 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     // generate polynomial shares
     let x = polynomial_indices
         .iter()
-        .map(|&id| evaluate_polynomial(&v, &Scalar::from(id)));
+        .map(|&id| v.evaluate(&Scalar::from(id)));
     let y = polynomial_indices.iter().map(|&id| {
-        w.iter()
-            .map(|w| evaluate_polynomial(&w, &Scalar::from(id)))
+        ws.iter()
+            .map(|w| w.evaluate(&Scalar::from(id)))
             .collect::<Vec<_>>()
     });
 
@@ -228,16 +234,6 @@ fn check_same_key_size(keys: &[VerificationKey]) -> bool {
     keys.iter().map(|vk| vk.beta.len()).all_equal()
 }
 
-fn threshold_key_aggregation(keys: &[VerificationKey]) -> VerificationKey {
-    let indices = keys.iter().map(|vk| vk.index.unwrap()).collect::<Vec<_>>();
-    let coefficients = generate_lagrangian_coefficients_at_origin(&indices);
-
-    keys.iter()
-        .zip(coefficients.iter())
-        .map(|(vk_i, li_i)| vk_i * li_i)
-        .sum()
-}
-
 // TODO: move to different file
 pub fn aggregate_verification_keys<R>(keys: &[VerificationKey]) -> Result<VerificationKey> {
     if keys.is_empty() {
@@ -250,8 +246,8 @@ pub fn aggregate_verification_keys<R>(keys: &[VerificationKey]) -> Result<Verifi
 
     // either all keys have to be threshold or none of them
     if check_threshold_keys(keys) {
-        // threshold
-        Ok(threshold_key_aggregation(keys))
+        let indices = keys.iter().map(|vk| vk.index.unwrap()).collect::<Vec<_>>();
+        perform_lagrangian_interpolation_at_origin(&indices, keys)
     } else if !keys.iter().all(|vk| vk.index.is_none()) {
         // those are not proper threshold keys but neither they are non-threshold
         todo!("return error")

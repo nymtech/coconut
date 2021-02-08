@@ -58,7 +58,7 @@ where
         Scalar::random(&mut self.rng)
     }
 
-    pub(crate) fn n_random_scalars(&mut self, n: u64) -> Vec<Scalar> {
+    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar> {
         (0..n).map(|_| self.random_scalar()).collect()
     }
 }

@@ -16,33 +16,59 @@
 // use digest::Update;
 // use generic_array::{ArrayLength, GenericArray};
 
+use core::iter::Sum;
+use core::ops::Mul;
+
 use bls12_381::{G1Projective, Scalar};
-use std::iter::Sum;
-use std::ops::Mul;
-
-use crate::error::Result;
-use crate::{G1HashDigest, G1HashPRNG};
-use digest::generic_array::ArrayLength;
 use digest::Digest;
-use ff::{Field, PrimeField};
+use ff::Field;
 use group::Group;
-use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-use sha3::Sha3_256;
 
 use crate::error::Result;
+use crate::scheme::setup::Parameters;
+use crate::{G1HashDigest, G1HashPRNG};
 
-/// Evaluates a polynomial defined by the slice of coefficients at point x.
-pub(crate) fn evaluate_polynomial(coefficients: &[Scalar], x: &Scalar) -> Scalar {
-    coefficients
-        .iter()
-        .enumerate()
-        .map(|(i, coefficient)| coefficient * x.pow(&[i as u64, 0, 0, 0])) // coefficient[n] * x ^ n
-        .sum()
+pub struct Polynomial {
+    coefficients: Vec<Scalar>,
+}
+
+impl Polynomial {
+    // for polynomial of degree n, we generate n+1 values
+    // (for example for degree 1, like y = x + 2, we need [2,1])
+    pub(crate) fn new_random<R: RngCore + CryptoRng>(
+        params: &mut Parameters<R>,
+        degree: u64,
+    ) -> Self {
+        Polynomial {
+            coefficients: params.n_random_scalars((degree + 1) as usize),
+        }
+    }
+
+    /// Evaluates the polynomial at point x.
+    pub(crate) fn evaluate(&self, x: &Scalar) -> Scalar {
+        if self.coefficients.is_empty() {
+            Scalar::zero()
+        // if x is zero then we can ignore most of the expensive computation and
+        // just return the last term of the polynomial
+        } else if x.is_zero() {
+            // we checked that coefficients are not empty so unwrap here is fine
+            *self.coefficients.first().unwrap()
+        } else {
+            self.coefficients
+                .iter()
+                .enumerate()
+                // coefficient[n] * x ^ n
+                .map(|(i, coefficient)| coefficient * x.pow(&[i as u64, 0, 0, 0]))
+                .sum()
+        }
+    }
+
+    // pub(crate) fn interpolate_at_origin(&self) {}
 }
 
 #[inline]
-pub(crate) fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
+fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
     let x = Scalar::zero();
 
     points
@@ -215,17 +241,6 @@ where
 // pub trait PointHash {
 //
 // }
-//
-// fn hash_to_g1<D, M>(msg: M) -> G1Affine
-// where
-//     D: Update,
-//     D::OutputSize: ArrayLength<u8>,
-//     M: AsRef<[u8]>
-// {
-//
-//
-//     todo!()
-// }
 
 #[cfg(test)]
 mod tests {
@@ -234,42 +249,33 @@ mod tests {
     #[test]
     fn polynomial_evaluation() {
         // y = 42 (it should be 42 regardless of x)
-        let coeff = &[Scalar::from(42)];
+        let poly = Polynomial {
+            coefficients: vec![Scalar::from(42)],
+        };
 
-        assert_eq!(
-            Scalar::from(42),
-            evaluate_polynomial(coeff, &Scalar::from(1))
-        );
-        assert_eq!(
-            Scalar::from(42),
-            evaluate_polynomial(coeff, &Scalar::from(0))
-        );
-        assert_eq!(
-            Scalar::from(42),
-            evaluate_polynomial(coeff, &Scalar::from(10))
-        );
+        assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(1)));
+        assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(0)));
+        assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(10)));
 
         // y = x + 10, at x = 2 (exp: 12)
-        let coeff = &[Scalar::from(10), Scalar::from(1)];
+        let poly = Polynomial {
+            coefficients: vec![Scalar::from(10), Scalar::from(1)],
+        };
 
-        assert_eq!(
-            Scalar::from(12),
-            evaluate_polynomial(coeff, &Scalar::from(2))
-        );
+        assert_eq!(Scalar::from(12), poly.evaluate(&Scalar::from(2)));
 
         // y = x^4 - 5x^2 + 2x - 3, at x = 3 (exp: 39)
-        let coeff = &[
-            (-Scalar::from(3)),
-            Scalar::from(2),
-            (-Scalar::from(5)),
-            Scalar::zero(),
-            Scalar::from(1),
-        ];
+        let poly = Polynomial {
+            coefficients: vec![
+                (-Scalar::from(3)),
+                Scalar::from(2),
+                (-Scalar::from(5)),
+                Scalar::zero(),
+                Scalar::from(1),
+            ],
+        };
 
-        assert_eq!(
-            Scalar::from(39),
-            evaluate_polynomial(coeff, &Scalar::from(3))
-        );
+        assert_eq!(Scalar::from(39), poly.evaluate(&Scalar::from(3)));
     }
 
     #[test]

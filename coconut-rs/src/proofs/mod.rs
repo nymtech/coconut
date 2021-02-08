@@ -32,7 +32,8 @@ use crate::{elgamal, Attribute};
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
 
-pub struct Pis {
+// TODO what is s??
+pub struct ProofOfS {
     challenge: Scalar,
     // TODO: is this really a blinder?
     response_blinder: Scalar,
@@ -91,7 +92,7 @@ where
         .collect()
 }
 
-impl Pis {
+impl ProofOfS {
     /// Construct proof of correctness of the ciphertexts and the commitment.
     pub(crate) fn construct<R: RngCore + CryptoRng>(
         params: &mut Parameters<R>,
@@ -173,7 +174,7 @@ impl Pis {
                 .collect::<Vec<_>>(),
         );
 
-        Pis {
+        ProofOfS {
             challenge,
             response_blinder,
             response_keys,

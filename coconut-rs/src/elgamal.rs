@@ -18,17 +18,18 @@ use rand_core::{CryptoRng, RngCore};
 use std::ops::Deref;
 
 pub struct Ciphertext(G1Projective, G1Projective);
+pub type EphemeralKey = Scalar;
 
-pub struct EncryptionResult {
-    ciphertext: Ciphertext,
-    ephemeral_key: Scalar,
-}
-
-impl EncryptionResult {
-    pub(crate) fn ephemeral_key(&self) -> &Scalar {
-        &self.ephemeral_key
-    }
-}
+// pub struct EncryptionResult {
+//     ciphertext: Ciphertext,
+//     ephemeral_key: EphemeralKey,
+// }
+//
+// impl EncryptionResult {
+//     pub(crate) fn ephemeral_key(&self) -> &EphemeralKey {
+//         &self.ephemeral_key
+//     }
+// }
 
 pub struct PrivateKey(Scalar);
 
@@ -60,17 +61,14 @@ impl PublicKey {
         params: &mut Parameters<R>,
         h: &G1Projective,
         msg: &Scalar,
-    ) -> EncryptionResult {
+    ) -> (Ciphertext, EphemeralKey) {
         let k = params.random_scalar();
         // c1 = g1^k
         let c1 = params.gen1() * k;
         // c2 = gamma^k * h^m
         let c2 = self.0 * k + h * msg;
 
-        EncryptionResult {
-            ciphertext: Ciphertext(c1, c2),
-            ephemeral_key: k,
-        }
+        (Ciphertext(c1, c2), k)
     }
 }
 
@@ -123,14 +121,14 @@ mod tests {
         let h = params.gen1() * r;
         let m = params.random_scalar();
 
-        let enc = keypair.public_key.encrypt(&mut params, &h, &m);
+        let (ciphertext, ephemeral_key) = keypair.public_key.encrypt(&mut params, &h, &m);
 
-        let expected_c1 = params.gen1() * enc.ephemeral_key;
-        assert_eq!(expected_c1, enc.ciphertext.0, "c1 should be equal to g1^k");
+        let expected_c1 = params.gen1() * ephemeral_key;
+        assert_eq!(expected_c1, ciphertext.0, "c1 should be equal to g1^k");
 
-        let expected_c2 = keypair.public_key.0 * enc.ephemeral_key + h * m;
+        let expected_c2 = keypair.public_key.0 * ephemeral_key + h * m;
         assert_eq!(
-            expected_c2, enc.ciphertext.1,
+            expected_c2, ciphertext.1,
             "c2 should be equal to gamma^k * h^m"
         );
     }
@@ -144,8 +142,8 @@ mod tests {
         let h = params.gen1() * r;
         let m = params.random_scalar();
 
-        let enc = keypair.public_key.encrypt(&mut params, &h, &m);
-        let dec = keypair.private_key.decrypt(&enc.ciphertext);
+        let (ciphertext, ephemeral_key) = keypair.public_key.encrypt(&mut params, &h, &m);
+        let dec = keypair.private_key.decrypt(&ciphertext);
 
         let expected = h * m;
         assert_eq!(

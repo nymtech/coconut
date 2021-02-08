@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bls12_381::{G1Affine, G1Projective};
+use group::GroupEncoding;
+use rand_core::{CryptoRng, RngCore};
+
 use crate::error::Result;
+use crate::proofs::ProofOfS;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SecretKey;
+use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
-use bls12_381::{G1Affine, G1Projective};
-use rand_core::{CryptoRng, RngCore};
 
 pub struct Signature(G1Projective, G1Projective);
 
@@ -46,11 +50,11 @@ struct SignatureShare {
     index: Option<u64>,
 }
 
-// TODO: is `derive` a correct word here?
 /// Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-fn derive_group_element(
-    private_attributes: &[&Attribute],
-    public_attributes: &[&Attribute],
+// TODO: is it an actual commitment?
+fn construct_attribute_commitment(
+    private_attributes: &[Attribute],
+    public_attributes: &[Attribute],
     generators: &[G1Affine],
 ) -> G1Projective {
     private_attributes
@@ -61,12 +65,19 @@ fn derive_group_element(
         .sum()
 }
 
+// Lambda
+pub struct BlindSignRequest {
+    commitment: G1Projective,                         // cm
+    attributes_ciphertexts: Vec<elgamal::Ciphertext>, // c
+    pi_s: ProofOfS,                                   // pi_s
+}
+
 pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     params: &mut Parameters<R>,
     pub_key: &elgamal::PublicKey,
-    private_attributes: &[&Attribute],
-    public_attributes: &[&Attribute],
-) -> Result<Signature> {
+    private_attributes: &[Attribute],
+    public_attributes: &[Attribute],
+) -> Result<BlindSignRequest> {
     if private_attributes.is_empty() {
         // return Err
     }
@@ -77,10 +88,30 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     }
 
     // prepare commitment
-    let attr_cm = derive_group_element(private_attributes, public_attributes, hs);
-    let r = params.random_scalar();
-    let cm = params.gen1() * r + attr_cm;
-    // h = hashG1(cm)...
+    let attr_cm = construct_attribute_commitment(private_attributes, public_attributes, hs);
+    let blinding_factor = params.random_scalar();
+    let commitment = params.gen1() * blinding_factor + attr_cm;
 
-    todo!()
+    // build ElGamal encryption
+    let commitment_hash = hash_g1(commitment.to_bytes());
+    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = private_attributes
+        .iter()
+        .map(|m| pub_key.encrypt(params, &commitment_hash, m))
+        .unzip();
+
+    let pi_s = ProofOfS::construct(
+        params,
+        pub_key,
+        &ephemeral_keys,
+        &commitment,
+        &blinding_factor,
+        private_attributes,
+        public_attributes,
+    );
+
+    Ok(BlindSignRequest {
+        commitment,
+        attributes_ciphertexts,
+        pi_s,
+    })
 }
