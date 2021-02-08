@@ -14,6 +14,7 @@
 
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
+use std::borrow::Borrow;
 use std::ops::Deref;
 
 use bls12_381::{G1Projective, Scalar};
@@ -26,17 +27,17 @@ use sha2::Sha256;
 use crate::error::Result;
 use crate::scheme::setup::Parameters;
 use crate::{elgamal, Attribute};
-use std::borrow::Borrow;
 
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
 
 pub struct Pis {
     challenge: Scalar,
-    rr: Scalar,
-    // is this a blinder?
-    rk: Vec<Scalar>,
-
+    // TODO: is this really a blinder?
+    response_blinder: Scalar,
+    // rr
+    response_keys: Vec<Scalar>,
+    // rk
     response_attributes: Vec<Scalar>, // rm
 }
 
@@ -99,7 +100,7 @@ impl Pis {
         blinding_factor: &Scalar,
         private_attributes: &[Attribute],
         public_attributes: &[Attribute],
-    ) -> Result<Self> {
+    ) -> Self {
         // note: this is only called from `prepare_blind_sign` that already checks
         // whether private attributes are non-empty and whether we don't have too many
         // attributes in total to sign.
@@ -172,8 +173,12 @@ impl Pis {
                 .collect::<Vec<_>>(),
         );
 
-        // return  challenge, rk, rm, rr
-        todo!()
+        Pis {
+            challenge,
+            response_blinder,
+            response_keys,
+            response_attributes,
+        }
     }
 
     // fn verify(&)
