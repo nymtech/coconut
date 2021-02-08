@@ -26,6 +26,7 @@ use sha2::Sha256;
 
 use crate::error::Result;
 use crate::scheme::setup::Parameters;
+use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
 
 // as per the reference python implementation
@@ -95,7 +96,7 @@ impl Pis {
     pub(crate) fn construct<R: RngCore + CryptoRng>(
         params: &mut Parameters<R>,
         pub_key: &elgamal::PublicKey,
-        encryption_results: &[elgamal::EncryptionResult],
+        ephemeral_keys: &[elgamal::EphemeralKey],
         commitment: &G1Projective,
         blinding_factor: &Scalar,
         private_attributes: &[Attribute],
@@ -104,28 +105,39 @@ impl Pis {
         // note: this is only called from `prepare_blind_sign` that already checks
         // whether private attributes are non-empty and whether we don't have too many
         // attributes in total to sign.
-        // we also know, due to the single call place, that encryption_results.len() == private_attributes.len()
+        // we also know, due to the single call place, that ephemeral_keys.len() == private_attributes.len()
 
         // witness creation
         let witness_blinder = params.random_scalar();
-        let witness_keys = params.n_random_scalars(encryption_results.len());
+        let witness_keys = params.n_random_scalars(ephemeral_keys.len());
         let witness_attributes =
             params.n_random_scalars(private_attributes.len() + public_attributes.len());
 
         // make h
-        let h: G1Projective = todo!();
+        let h = hash_g1(commitment.to_bytes());
 
         // witnesses commitments
         let g1 = params.gen1();
+        let hs_bytes = params
+            .additional_g1_generators()
+            .iter()
+            .map(|h| h.to_bytes())
+            .collect::<Vec<_>>();
 
         // Aw[i] = (wk[i] * g1)
-        let Aw = witness_keys.iter().map(|wk_i| g1 * wk_i);
+        let Aw_bytes = witness_keys
+            .iter()
+            .map(|wk_i| g1 * wk_i)
+            .map(|witness| witness.to_bytes())
+            .collect::<Vec<_>>();
 
         // Bw[i] = (wm[i] * h) + (wk[i] * gamma)
-        let Bw = witness_keys
+        let Bw_bytes = witness_keys
             .iter()
             .zip(witness_attributes.iter())
-            .map(|(wk_i, wm_i)| pub_key.deref() * wk_i + h * wm_i);
+            .map(|(wk_i, wm_i)| pub_key.deref() * wk_i + h * wm_i)
+            .map(|witness| witness.to_bytes())
+            .collect::<Vec<_>>();
 
         // Cw = (wr * g1) + (wm[0] * hs[0]) + ... + (wm[i] * hs[i])
         let commitment_attributes = g1 * witness_blinder
@@ -135,35 +147,23 @@ impl Pis {
                 .map(|(wm_i, hs_i)| hs_i * wm_i)
                 .sum::<G1Projective>();
 
-        // challenge
+        // challenge ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(commitment.to_bytes().as_ref()))
                 .chain(std::iter::once(h.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
-                .chain(
-                    params
-                        .additional_g1_generators()
-                        .iter()
-                        .map(|hs| hs.to_bytes().as_ref()),
-                )
-                .chain(Aw.map(|aw| aw.to_bytes().as_ref()))
-                .chain(Bw.map(|bw| bw.to_bytes().as_ref())),
+                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
+                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
+                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
         );
 
         // responses
         let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
 
         // TODO: maybe make `produce_responses` take an iterator instead?
-        let response_keys = produce_responses(
-            &witness_keys,
-            &challenge,
-            &encryption_results
-                .iter()
-                .map(|er| er.ephemeral_key())
-                .collect::<Vec<_>>(),
-        );
+        let response_keys = produce_responses(&witness_keys, &challenge, ephemeral_keys);
         let response_attributes = produce_responses(
             &witness_attributes,
             &challenge,
