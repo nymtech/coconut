@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
-use bls12_381::{G1Affine, G2Affine, Scalar};
+use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
+use group::Curve;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::error::Result;
+use crate::utils::hash_g1;
+
 pub struct Parameters<R> {
-    // .... or Projective?
     g1: G1Affine,
     hs: Vec<G1Affine>,
     g2: G2Affine,
+    _g2_prepared_miller: G2Prepared,
     rng: R,
 }
 
@@ -31,12 +34,15 @@ where
 {
     pub fn new(rng: R, num_attributes: u32) -> Parameters<R> {
         // requires hash to point
-        let hs = todo!();
+        let hs = (1..=num_attributes)
+            .map(|i| hash_g1(format!("h{}", i)).to_affine())
+            .collect();
 
         Parameters {
             g1: G1Affine::generator(),
             hs,
             g2: G2Affine::generator(),
+            _g2_prepared_miller: G2Prepared::from(G2Affine::generator()),
             rng,
         }
     }
@@ -47,6 +53,10 @@ where
 
     pub(crate) fn gen2(&self) -> &G2Affine {
         &self.g2
+    }
+
+    pub(crate) fn prepared_miller_g2(&self) -> &G2Prepared {
+        &self._g2_prepared_miller
     }
 
     // TODO: rename
@@ -72,6 +82,7 @@ impl Default for Parameters<rand_core::OsRng> {
             g1: G1Affine::generator(),
             hs: Vec::new(),
             g2: G2Affine::generator(),
+            _g2_prepared_miller: G2Prepared::from(G2Affine::generator()),
             rng: rand_core::OsRng,
         }
     }
