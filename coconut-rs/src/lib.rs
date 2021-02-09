@@ -19,7 +19,7 @@ use sha3::Sha3_256;
 mod elgamal;
 pub mod error;
 mod proofs;
-mod scheme;
+pub mod scheme;
 mod utils;
 
 pub type Attribute = Scalar;

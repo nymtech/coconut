@@ -28,8 +28,8 @@ use crate::utils::{perform_lagrangian_interpolation_at_origin, Polynomial};
 // TODO: some type alias to indicate number of attributes and also size of ys
 
 pub struct SecretKey {
-    x: Scalar,
-    ys: Vec<Scalar>,
+    pub(crate) x: Scalar,
+    pub(crate) ys: Vec<Scalar>,
 
     /// Optional index value specifying polynomial point used during threshold key generation.
     index: Option<u64>,
@@ -49,10 +49,12 @@ impl SecretKey {
     }
 }
 
+// TODO: perhaps change points to affine representation
+// to make verification slightly more efficient?
 pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
-    alpha: G2Projective,
-    beta: Vec<G2Projective>,
+    pub(crate) alpha: G2Projective,
+    pub(crate) beta: Vec<G2Projective>,
 
     /// Optional index value specifying polynomial point used during threshold key generation.
     index: Option<u64>,
@@ -66,6 +68,7 @@ where
     where
         I: Iterator<Item = T>,
     {
+        todo!("wtf is this beta identity?");
         let identity_key = VerificationKey {
             alpha: G2Projective::identity(),
             beta: vec![G2Projective::identity(); 42],
@@ -103,7 +106,7 @@ impl<'a> Mul<Scalar> for &'a VerificationKey {
 
     #[inline]
     fn mul(self, rhs: Scalar) -> Self::Output {
-        self * rhs
+        self * &rhs
     }
 }
 
@@ -129,8 +132,8 @@ impl<'a, 'b> Add<&'b VerificationKey> for &'a VerificationKey {
 }
 
 pub struct KeyPair {
-    secret_key: SecretKey,
-    verification_key: VerificationKey,
+    pub secret_key: SecretKey,
+    pub verification_key: VerificationKey,
 }
 
 /// Generate a single Coconut keypair ((x, y1, y2...), (g2, g2^x, g2^y1, ...)).

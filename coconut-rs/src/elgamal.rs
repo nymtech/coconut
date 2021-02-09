@@ -14,11 +14,30 @@
 
 use crate::scheme::setup::Parameters;
 use bls12_381::{G1Projective, Scalar};
+use core::ops::{Deref, Mul};
 use rand_core::{CryptoRng, RngCore};
-use std::ops::Deref;
+
+pub type EphemeralKey = Scalar;
 
 pub struct Ciphertext(G1Projective, G1Projective);
-pub type EphemeralKey = Scalar;
+
+impl Ciphertext {
+    // TODO: how to rename?
+    pub(crate) fn c1(&self) -> &G1Projective {
+        &self.0
+    }
+
+    // TODO: how to rename?
+    pub(crate) fn c2(&self) -> &G1Projective {
+        &self.1
+    }
+}
+
+impl From<(G1Projective, G1Projective)> for Ciphertext {
+    fn from(raw: (G1Projective, G1Projective)) -> Self {
+        Ciphertext(raw.0, raw.1)
+    }
+}
 
 // pub struct EncryptionResult {
 //     ciphertext: Ciphertext,
@@ -77,6 +96,14 @@ impl Deref for PublicKey {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a, 'b> Mul<&'b Scalar> for &'a PublicKey {
+    type Output = G1Projective;
+
+    fn mul(self, rhs: &'b Scalar) -> Self::Output {
+        self.0 * rhs
     }
 }
 

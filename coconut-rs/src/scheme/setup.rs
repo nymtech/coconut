@@ -28,10 +28,7 @@ pub struct Parameters<R> {
     rng: R,
 }
 
-impl<R> Parameters<R>
-where
-    R: RngCore + CryptoRng,
-{
+impl<R> Parameters<R> {
     pub fn new(rng: R, num_attributes: u32) -> Parameters<R> {
         // requires hash to point
         let hs = (1..=num_attributes)
@@ -64,11 +61,17 @@ where
         &self.hs
     }
 
-    pub(crate) fn random_scalar(&mut self) -> Scalar {
+    pub(crate) fn random_scalar(&mut self) -> Scalar
+    where
+        R: RngCore + CryptoRng,
+    {
         Scalar::random(&mut self.rng)
     }
 
-    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar> {
+    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar>
+    where
+        R: RngCore + CryptoRng,
+    {
         (0..n).map(|_| self.random_scalar()).collect()
     }
 }
