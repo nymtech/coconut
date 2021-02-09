@@ -14,20 +14,17 @@
 
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
-use std::borrow::Borrow;
-use std::ops::Deref;
-
+use crate::scheme::setup::Parameters;
+use crate::utils::hash_g1;
+use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, Scalar};
 use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use group::GroupEncoding;
+use itertools::izip;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
-
-use crate::error::Result;
-use crate::scheme::setup::Parameters;
-use crate::utils::hash_g1;
-use crate::{elgamal, Attribute};
+use std::borrow::Borrow;
 
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
@@ -136,7 +133,7 @@ impl ProofOfS {
         let Bw_bytes = witness_keys
             .iter()
             .zip(witness_attributes.iter())
-            .map(|(wk_i, wm_i)| pub_key.deref() * wk_i + h * wm_i)
+            .map(|(wk_i, wm_i)| pub_key * wk_i + h * wm_i)
             .map(|witness| witness.to_bytes())
             .collect::<Vec<_>>();
 
@@ -182,5 +179,72 @@ impl ProofOfS {
         }
     }
 
-    // fn verify(&)
+    pub(crate) fn verify<R>(
+        &self,
+        params: &Parameters<R>,
+        pub_key: &elgamal::PublicKey,
+        commitment: &G1Projective,
+        attributes_ciphertexts: &[elgamal::Ciphertext],
+    ) -> bool {
+        if self.response_keys.len() != attributes_ciphertexts.len() {
+            return false;
+        }
+
+        // recompute h
+        let h = hash_g1(commitment.to_bytes());
+
+        // recompute witnesses commitments
+
+        let g1 = params.gen1();
+        let hs_bytes = params
+            .additional_g1_generators()
+            .iter()
+            .map(|h| h.to_bytes())
+            .collect::<Vec<_>>();
+
+        // Aw[i] = (c * c1[i]) + (rk[i] * g1)
+        let Aw_bytes = attributes_ciphertexts
+            .iter()
+            .map(|ciphertext| ciphertext.c1())
+            .zip(self.response_keys.iter())
+            .map(|(c1, res_attr)| c1 * self.challenge + g1 * res_attr)
+            .map(|witness| witness.to_bytes())
+            .collect::<Vec<_>>();
+
+        // Bw[i] = (c * c2[i]) + (rk[i] * gamma) + (rm[i] * h)
+        let Bw_bytes = izip!(
+            attributes_ciphertexts
+                .iter()
+                .map(|ciphertext| ciphertext.c2()),
+            self.response_keys.iter(),
+            self.response_attributes.iter()
+        )
+        .map(|(c2, res_key, res_attr)| c2 * self.challenge + pub_key * res_key + h * res_attr)
+        .map(|witness| witness.to_bytes())
+        .collect::<Vec<_>>();
+
+        // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[n] * hs[n])
+        let commitment_attributes = commitment * self.challenge
+            + g1 * self.response_blinder
+            + self
+                .response_attributes
+                .iter()
+                .zip(params.additional_g1_generators().iter())
+                .map(|(res_attr, hs)| hs * res_attr)
+                .sum::<G1Projective>();
+
+        // compute the challenge prime ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
+        let challenge = compute_challenge::<ChallengeDigest, _, _>(
+            std::iter::once(params.gen1().to_bytes().as_ref())
+                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
+                .chain(std::iter::once(commitment.to_bytes().as_ref()))
+                .chain(std::iter::once(h.to_bytes().as_ref()))
+                .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
+                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
+                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
+                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
+        );
+
+        challenge == self.challenge
+    }
 }
