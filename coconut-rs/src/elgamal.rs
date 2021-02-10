@@ -112,6 +112,16 @@ pub struct KeyPair {
     public_key: PublicKey,
 }
 
+impl KeyPair {
+    pub(crate) fn public_key(&self) -> &PublicKey {
+        &self.public_key
+    }
+
+    pub(crate) fn private_key(&self) -> &PrivateKey {
+        &self.private_key
+    }
+}
+
 pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
     let private_key = params.random_scalar();
     let gamma = params.gen1() * private_key;

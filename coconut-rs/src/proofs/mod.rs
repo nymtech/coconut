@@ -15,9 +15,11 @@
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
 use crate::scheme::setup::Parameters;
+use crate::scheme::signature::Signature;
+use crate::scheme::VerificationKey;
 use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
-use bls12_381::{G1Projective, Scalar};
+use bls12_381::{G1Projective, G2Projective, Scalar};
 use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use group::GroupEncoding;
@@ -243,6 +245,135 @@ impl ProofOfS {
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
                 .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
+        );
+
+        challenge == self.challenge
+    }
+}
+
+// TODO what is v?
+pub struct ProofOfV {
+    // c
+    challenge: Scalar,
+
+    // rm
+    response_attributes: Vec<Scalar>,
+
+    // rt
+    response_blinder: Scalar,
+}
+
+impl ProofOfV {
+    pub(crate) fn construct<R: RngCore + CryptoRng>(
+        params: &mut Parameters<R>,
+        verification_key: &VerificationKey,
+        signature: &Signature,
+        private_attributes: &[Attribute],
+        blinding_factor: &Scalar,
+    ) -> Self {
+        // create the witnesses
+        let witness_blinder = params.random_scalar();
+        let witness_attributes = params.n_random_scalars(private_attributes.len());
+
+        let h = signature.base();
+
+        let hs_bytes = params
+            .additional_g1_generators()
+            .iter()
+            .map(|h| h.to_bytes())
+            .collect::<Vec<_>>();
+
+        let beta_bytes = verification_key
+            .beta
+            .iter()
+            .map(|beta_i| beta_i.to_bytes())
+            .collect::<Vec<_>>();
+
+        // witnesses commitments
+        // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
+        // TODO: kappa commitment??
+        let Aw = params.gen2() * witness_blinder
+            + verification_key.alpha
+            + witness_attributes
+                .iter()
+                .zip(verification_key.beta.iter())
+                .map(|(wm_i, beta_i)| beta_i * wm_i)
+                .sum::<G2Projective>();
+
+        let Bw = h * witness_blinder;
+
+        let challenge = compute_challenge::<ChallengeDigest, _, _>(
+            std::iter::once(params.gen1().to_bytes().as_ref())
+                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
+                .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
+                .chain(std::iter::once(Aw.to_bytes().as_ref()))
+                .chain(std::iter::once(Bw.to_bytes().as_ref()))
+                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
+                .chain(beta_bytes.iter().map(|b| b.as_ref())),
+        );
+
+        // responses
+        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
+        let response_attributes =
+            produce_responses(&witness_attributes, &challenge, private_attributes);
+
+        ProofOfV {
+            challenge,
+            response_attributes,
+            response_blinder,
+        }
+    }
+
+    pub(crate) fn private_attributes(&self) -> usize {
+        self.response_attributes.len()
+    }
+
+    pub(crate) fn verify<R>(
+        &self,
+        params: &Parameters<R>,
+        verification_key: &VerificationKey,
+        signature: &Signature,
+        kappa: &G2Projective,
+        nu: &G1Projective,
+    ) -> bool {
+        // TODO: Scalar:one() or Scalar::from(1) ??
+
+        let hs_bytes = params
+            .additional_g1_generators()
+            .iter()
+            .map(|h| h.to_bytes())
+            .collect::<Vec<_>>();
+
+        let beta_bytes = verification_key
+            .beta
+            .iter()
+            .map(|beta_i| beta_i.to_bytes())
+            .collect::<Vec<_>>();
+
+        // re-compute witnesses commitments
+        // Aw = (c * kappa) + (rt * g2) + ((1 - c) * alpha) + (rm[0] * beta[0]) + ... + (rm[i] * beta[i])
+        let Aw = kappa * self.challenge
+            + params.gen2() * self.response_blinder
+            + verification_key.alpha * (Scalar::one() - self.challenge)
+            + self
+                .response_attributes
+                .iter()
+                .zip(verification_key.beta.iter())
+                .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+                .sum::<G2Projective>();
+
+        // Bw = (c * nu) + (rt * h)
+        let Bw = nu * self.challenge + signature.base() * self.response_blinder;
+
+        // compute the challenge prime ([g1, g2, alpha, Aw, Bw]+hs+beta)
+        let challenge = compute_challenge::<ChallengeDigest, _, _>(
+            std::iter::once(params.gen1().to_bytes().as_ref())
+                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
+                .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
+                .chain(std::iter::once(Aw.to_bytes().as_ref()))
+                .chain(std::iter::once(Bw.to_bytes().as_ref()))
+                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
+                .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
 
         challenge == self.challenge

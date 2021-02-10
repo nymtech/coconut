@@ -21,30 +21,35 @@ use group::{Curve, Group, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::error::Result;
-use crate::proofs::ProofOfS;
+use crate::proofs::{ProofOfS, ProofOfV};
 use crate::scheme::setup::Parameters;
 use crate::scheme::{SecretKey, VerificationKey};
 use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
 
+// (h, s)
 pub struct Signature(G1Projective, G1Projective);
+
+impl Signature {
+    // TODO: name: is it 'base'?
+    pub(crate) fn base(&self) -> &G1Projective {
+        &self.0
+    }
+}
 
 type PartialSignature = Signature;
 
 impl Signature {
-    fn randomise<R: RngCore + CryptoRng>(&self, params: &Parameters<R>) -> Signature {
-        todo!()
+    fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
+        let r = params.random_scalar();
+        Signature(self.0 * r, self.1 * r)
     }
 }
 
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
 impl BlindedSignature {
-    fn unblind<R: RngCore + CryptoRng>(
-        self,
-        params: &Parameters<R>,
-        private_key: &elgamal::PrivateKey,
-    ) -> Signature {
+    pub fn unblind(self, private_key: &elgamal::PrivateKey) -> Signature {
         let sig2 = private_key.decrypt(&self.1);
         Signature(self.0, sig2)
     }
@@ -73,11 +78,12 @@ fn construct_attribute_commitment(
 
 // Lambda
 pub struct BlindSignRequest {
-    commitment: G1Projective,
     // cm
-    attributes_ciphertexts: Vec<elgamal::Ciphertext>,
+    commitment: G1Projective,
     // c
-    pi_s: ProofOfS, // pi_s
+    attributes_ciphertexts: Vec<elgamal::Ciphertext>,
+    // pi_s
+    pi_s: ProofOfS,
 }
 
 impl BlindSignRequest {
@@ -139,7 +145,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     params: &mut Parameters<R>,
     secret_key: &SecretKey,
     pub_key: &elgamal::PublicKey,
-    blind_sign_request: BlindSignRequest,
+    blind_sign_request: &BlindSignRequest,
     public_attributes: &[Attribute],
 ) -> Result<BlindedSignature> {
     let num_private = blind_sign_request.attributes_ciphertexts.len();
@@ -185,6 +191,118 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
         .sum();
 
     Ok(BlindedSignature(h, (sig_1, sig_2).into()))
+}
+
+// Theta
+pub struct Theta {
+    kappa: G2Projective,
+    nu: G1Projective,
+    credential: Signature,
+    pi_v: ProofOfV,
+}
+
+impl Theta {
+    fn verify_proof<R>(&self, params: &Parameters<R>, verification_key: &VerificationKey) -> bool {
+        self.pi_v.verify(
+            params,
+            verification_key,
+            &self.credential,
+            &self.kappa,
+            &self.nu,
+        )
+    }
+}
+
+pub fn prove_credential<R: RngCore + CryptoRng>(
+    params: &mut Parameters<R>,
+    verification_key: &VerificationKey,
+    signature: &Signature,
+    private_attributes: &[Attribute],
+) -> Theta {
+    if private_attributes.is_empty() {
+        todo!("return an error")
+    }
+
+    if private_attributes.len() > verification_key.beta.len() {
+        todo!("return an error")
+    }
+
+    // TODO: should randomization be part of this procedure or should
+    // it be up to the user?
+    let signature_prime = signature.randomise(params);
+
+    let blinding_factor = params.random_scalar();
+    let kappa = params.gen2() * blinding_factor
+        + verification_key.alpha
+        + private_attributes
+            .iter()
+            .zip(verification_key.beta.iter())
+            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+            .sum::<G2Projective>();
+    let nu = signature_prime.base() * blinding_factor;
+
+    let pi_v = ProofOfV::construct(
+        params,
+        verification_key,
+        &signature_prime,
+        private_attributes,
+        &blinding_factor,
+    );
+
+    // kappa = alpha * beta^m * g2^r
+    // nu = h^r
+
+    Theta {
+        kappa,
+        nu,
+        credential: signature_prime,
+        pi_v,
+    }
+}
+
+pub fn verify_credential<R>(
+    params: &Parameters<R>,
+    verification_key: &VerificationKey,
+    theta: &Theta,
+    public_attributes: &[Attribute],
+) -> bool {
+    if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta.len() {
+        todo!("return an error")
+    }
+
+    if !theta.verify_proof(params, verification_key) {
+        return false;
+    }
+
+    let kappa = if public_attributes.is_empty() {
+        theta.kappa
+    } else {
+        theta.kappa
+            + public_attributes
+                .iter()
+                .zip(
+                    verification_key
+                        .beta
+                        .iter()
+                        .skip(theta.pi_v.private_attributes()),
+                )
+                .map(|(pub_attr, beta_i)| beta_i * pub_attr)
+                .sum::<G2Projective>()
+    };
+
+    let multi_miller = multi_miller_loop(&[
+        (
+            &theta.credential.0.to_affine(),
+            &G2Prepared::from(kappa.to_affine()),
+        ),
+        (
+            &(theta.credential.1 + theta.nu).neg().to_affine(),
+            params.prepared_miller_g2(),
+        ),
+    ]);
+
+    multi_miller.final_exponentiation().is_identity().into()
+        && !bool::from(theta.credential.0.is_identity())
 }
 
 // TODO: possibly completely remove those two functions.
@@ -281,6 +399,80 @@ mod tests {
             &keypair1.verification_key,
             &attributes,
             &sig2,
+        ));
+    }
+
+    #[test]
+    fn verification_on_two_public_and_two_private_attributes() {
+        let rng = OsRng;
+
+        let mut params = Parameters::new(rng, 4);
+        let public_attributes = params.n_random_scalars(2);
+        let private_attributes = params.n_random_scalars(2);
+        let elgamal_keypair = elgamal::keygen(&mut params);
+
+        let keypair1 = keygen(&mut params).unwrap();
+        let keypair2 = keygen(&mut params).unwrap();
+
+        let lambda = prepare_blind_sign(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &private_attributes,
+            &public_attributes,
+        )
+        .unwrap();
+
+        let sig1 = blind_sign(
+            &mut params,
+            &keypair1.secret_key,
+            elgamal_keypair.public_key(),
+            &lambda,
+            &public_attributes,
+        )
+        .unwrap()
+        .unblind(elgamal_keypair.private_key());
+        let sig2 = blind_sign(
+            &mut params,
+            &keypair2.secret_key,
+            elgamal_keypair.public_key(),
+            &lambda,
+            &public_attributes,
+        )
+        .unwrap()
+        .unblind(elgamal_keypair.private_key());
+
+        let theta1 = prove_credential(
+            &mut params,
+            &keypair1.verification_key,
+            &sig1,
+            &private_attributes,
+        );
+        let theta2 = prove_credential(
+            &mut params,
+            &keypair2.verification_key,
+            &sig2,
+            &private_attributes,
+        );
+
+        assert!(verify_credential(
+            &params,
+            &keypair1.verification_key,
+            &theta1,
+            &public_attributes
+        ));
+
+        assert!(verify_credential(
+            &params,
+            &keypair2.verification_key,
+            &theta2,
+            &public_attributes
+        ));
+
+        assert!(!verify_credential(
+            &params,
+            &keypair1.verification_key,
+            &theta2,
+            &public_attributes
         ));
     }
 }
