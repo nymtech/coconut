@@ -16,18 +16,18 @@
 // use digest::Update;
 // use generic_array::{ArrayLength, GenericArray};
 
+use crate::error::Result;
+use crate::scheme::keygen::SignerIndex;
+use crate::scheme::setup::Parameters;
+use crate::{G1HashDigest, G1HashPRNG};
+use bls12_381::{G1Projective, Scalar};
 use core::iter::Sum;
 use core::ops::Mul;
-
-use bls12_381::{G1Projective, Scalar};
 use digest::Digest;
 use ff::Field;
 use group::Group;
+use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-
-use crate::error::Result;
-use crate::scheme::setup::Parameters;
-use crate::{G1HashDigest, G1HashPRNG};
 
 pub struct Polynomial {
     coefficients: Vec<Scalar>,
@@ -96,24 +96,47 @@ fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
         .collect()
 }
 
+/// Performs a Lagrange interpolation at the origin for a polynomial defined by SignerIndex, `points` and T, `values`.
+/// It can be used for Scalars, G1 and G2 points.
+pub(crate) fn perform_lagrangian_interpolation_at_origin_2<T>(value_pairs: &[(T, SignerIndex)]) -> T
+where
+    T: Sum,
+    for<'a> &'a T: Mul<Scalar, Output = T>,
+{
+    // split the tuple
+    let (values, points): (Vec<_>, Vec<_>) = value_pairs
+        .iter()
+        .map(|val_pair| (&val_pair.0, val_pair.1))
+        .unzip();
+
+    let coefficients = generate_lagrangian_coefficients_at_origin(&*points);
+
+    coefficients
+        .into_iter()
+        .zip(values.into_iter())
+        .map(|(coeff, val)| val * coeff)
+        .sum()
+}
+
 /// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
 /// It can be used for Scalars, G1 and G2 points.
 pub(crate) fn perform_lagrangian_interpolation_at_origin<T>(
-    points: &[u64],
+    points: &[SignerIndex],
     values: &[T],
 ) -> Result<T>
 where
     T: Sum,
-    // first time I've had to use it, for reference it's called higher ranked trait bounds:
+    // It's the first time I've had to use it, for reference it's called higher ranked trait bounds:
     // https://github.com/rust-lang/rfcs/blob/master/text/0387-higher-ranked-trait-bounds.md
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
-    if points.len() != values.len() {
-        // return Err
+    if points.is_empty() || points.len() != values.len() {
         todo!("return an error here")
     }
 
     let coefficients = generate_lagrangian_coefficients_at_origin(points);
+    // unwrap in the sum is fine as we've assured we don't have
+    // an empty slice
     Ok(coefficients
         .into_iter()
         .zip(values.iter())
@@ -160,6 +183,20 @@ where
     let mut seeded_rng = R::from_seed(digest.into());
 
     G1Projective::random(&mut seeded_rng)
+}
+
+pub(crate) fn check_unique_indices(indices: &[SignerIndex]) -> bool {
+    // if keys are threshold, they all should have an unique index set
+    indices.iter().unique_by(|&index| index).count() == indices.len()
+}
+
+pub trait Aggregatable {
+    type Item;
+
+    fn aggregate<I: Iterator<Item = Self::Item>>(
+        a: I,
+        b: Option<&[SignerIndex]>,
+    ) -> Result<Self::Item>;
 }
 
 // // TODO: very likely after some changes this can also be used to sum threshold signatures.

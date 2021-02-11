@@ -16,11 +16,11 @@ use bls12_381::Scalar;
 use rand_chacha::ChaChaRng;
 use sha3::Sha3_256;
 
-mod elgamal;
+pub mod elgamal;
 pub mod error;
-mod proofs;
+pub mod proofs;
 pub mod scheme;
-mod utils;
+pub mod utils;
 
 pub type Attribute = Scalar;
 

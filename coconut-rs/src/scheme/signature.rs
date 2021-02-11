@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ops::Neg;
+use core::ops::Neg;
 
-use bls12_381::{
-    multi_miller_loop, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, Scalar,
-};
+use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
 use group::{Curve, Group, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::error::Result;
 use crate::proofs::{ProofOfS, ProofOfV};
+use crate::scheme::keygen::SignerIndex;
 use crate::scheme::setup::Parameters;
 use crate::scheme::{SecretKey, VerificationKey};
-use crate::utils::hash_g1;
+use crate::utils::{check_unique_indices, hash_g1, perform_lagrangian_interpolation_at_origin};
 use crate::{elgamal, Attribute};
 
 // (h, s)
@@ -260,6 +259,18 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
     }
 }
 
+/// Checks whether e(P, Q) * e(-R, S) == id
+fn check_billinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
+    // checking e(P, Q) * e(-R, S) == id
+    // is equivalent to checking e(P, Q) == e(R, S)
+    // but requires only a single final exponentiation rather than two of them
+    // and therefore, as seen via benchmarks.rs, is almost 50% faster
+    // (1.47ms vs 2.45ms, tested on R9 5900X)
+
+    let multi_miller = multi_miller_loop(&[(p, q), (&r.neg(), s)]);
+    multi_miller.final_exponentiation().is_identity().into()
+}
+
 pub fn verify_credential<R>(
     params: &Parameters<R>,
     verification_key: &VerificationKey,
@@ -290,26 +301,45 @@ pub fn verify_credential<R>(
                 .sum::<G2Projective>()
     };
 
-    let multi_miller = multi_miller_loop(&[
-        (
-            &theta.credential.0.to_affine(),
-            &G2Prepared::from(kappa.to_affine()),
-        ),
-        (
-            &(theta.credential.1 + theta.nu).neg().to_affine(),
-            params.prepared_miller_g2(),
-        ),
-    ]);
+    check_billinear_pairing(
+        &theta.credential.0.to_affine(),
+        &G2Prepared::from(kappa.to_affine()),
+        &(theta.credential.1 + theta.nu).to_affine(),
+        params.prepared_miller_g2(),
+    ) && !bool::from(theta.credential.0.is_identity())
+}
 
-    multi_miller.final_exponentiation().is_identity().into()
-        && !bool::from(theta.credential.0.is_identity())
+pub fn aggregate_signatures(
+    sigs: &[PartialSignature],
+    indices: Option<&[SignerIndex]>,
+) -> Result<Signature> {
+    if sigs.is_empty() {
+        todo!("return error")
+    }
+
+    // TODO: is it possible to avoid this allocation?
+    let h = sigs[0].0;
+    let sigmas = sigs.iter().map(|sig| sig.1).collect::<Vec<_>>();
+
+    if let Some(indices) = indices {
+        if !check_unique_indices(indices) {
+            todo!("return error")
+        }
+        Ok(Signature(
+            h,
+            perform_lagrangian_interpolation_at_origin(indices, &sigmas)?,
+        ))
+    } else {
+        // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
+        Ok(Signature(h, sigmas.iter().sum()))
+    }
 }
 
 // TODO: possibly completely remove those two functions.
 // They only exist to have a simpler and smaller code snippets to test
 // basic functionalities.
 /// Creates a Coconut Signature under a given secret key on a set of public attributes only.
-fn sign<R: RngCore + CryptoRng>(
+pub fn sign<R: RngCore + CryptoRng>(
     params: &mut Parameters<R>,
     secret_key: &SecretKey,
     public_attributes: &[Attribute],
@@ -338,7 +368,7 @@ fn sign<R: RngCore + CryptoRng>(
     Ok(Signature(h, sig2))
 }
 
-fn verify<R: RngCore + CryptoRng>(
+pub fn verify<R: RngCore + CryptoRng>(
     params: &Parameters<R>,
     verification_key: &VerificationKey,
     public_attributes: &[Attribute],
@@ -352,12 +382,12 @@ fn verify<R: RngCore + CryptoRng>(
             .sum::<G2Projective>())
     .to_affine();
 
-    let multi_miller = multi_miller_loop(&[
-        (&sig.0.to_affine(), &G2Prepared::from(kappa)),
-        (&sig.1.neg().to_affine(), params.prepared_miller_g2()),
-    ]);
-
-    multi_miller.final_exponentiation().is_identity().into() && !bool::from(sig.0.is_identity())
+    check_billinear_pairing(
+        &sig.0.to_affine(),
+        &G2Prepared::from(kappa),
+        &sig.1.to_affine(),
+        params.prepared_miller_g2(),
+    ) && !bool::from(sig.0.is_identity())
 }
 
 #[cfg(test)]
@@ -458,21 +488,21 @@ mod tests {
             &params,
             &keypair1.verification_key,
             &theta1,
-            &public_attributes
+            &public_attributes,
         ));
 
         assert!(verify_credential(
             &params,
             &keypair2.verification_key,
             &theta2,
-            &public_attributes
+            &public_attributes,
         ));
 
         assert!(!verify_credential(
             &params,
             &keypair1.verification_key,
             &theta2,
-            &public_attributes
+            &public_attributes,
         ));
     }
 }

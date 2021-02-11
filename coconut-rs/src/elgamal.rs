@@ -39,17 +39,6 @@ impl From<(G1Projective, G1Projective)> for Ciphertext {
     }
 }
 
-// pub struct EncryptionResult {
-//     ciphertext: Ciphertext,
-//     ephemeral_key: EphemeralKey,
-// }
-//
-// impl EncryptionResult {
-//     pub(crate) fn ephemeral_key(&self) -> &EphemeralKey {
-//         &self.ephemeral_key
-//     }
-// }
-
 pub struct PrivateKey(Scalar);
 
 impl PrivateKey {

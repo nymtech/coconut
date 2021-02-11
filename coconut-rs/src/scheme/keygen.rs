@@ -12,27 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::error::Result;
+use crate::scheme::setup::Parameters;
+use crate::utils::{check_unique_indices, perform_lagrangian_interpolation_at_origin, Polynomial};
+use bls12_381::{G2Projective, Scalar};
 use core::borrow::Borrow;
 use core::iter::Sum;
-use core::ops::{Add, AddAssign, Mul};
-use std::num::NonZeroU64;
-
-use bls12_381::{G2Projective, Scalar};
+use core::num::NonZeroU64;
+use core::ops::{Add, Mul};
 use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::error::Result;
-use crate::scheme::setup::Parameters;
-use crate::utils::{perform_lagrangian_interpolation_at_origin, Polynomial};
+pub type SignerIndex = u64;
 
 // TODO: some type alias to indicate number of attributes and also size of ys
 
 pub struct SecretKey {
     pub(crate) x: Scalar,
     pub(crate) ys: Vec<Scalar>,
-
-    /// Optional index value specifying polynomial point used during threshold key generation.
-    index: Option<u64>,
 }
 
 impl SecretKey {
@@ -44,7 +41,6 @@ impl SecretKey {
         VerificationKey {
             alpha: g2 * self.x,
             beta: self.ys.iter().map(|y| g2 * y).collect(),
-            index: self.index,
         }
     }
 }
@@ -55,28 +51,6 @@ pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
     pub(crate) alpha: G2Projective,
     pub(crate) beta: Vec<G2Projective>,
-
-    /// Optional index value specifying polynomial point used during threshold key generation.
-    index: Option<u64>,
-}
-
-impl<T> Sum<T> for VerificationKey
-where
-    T: Borrow<VerificationKey>,
-{
-    fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = T>,
-    {
-        todo!("wtf is this beta identity?");
-        let identity_key = VerificationKey {
-            alpha: G2Projective::identity(),
-            beta: vec![G2Projective::identity(); 42],
-            index: None,
-        };
-
-        iter.fold(identity_key, |acc, item| acc + item.borrow())
-    }
 }
 
 impl<'b> Add<&'b VerificationKey> for VerificationKey {
@@ -88,25 +62,12 @@ impl<'b> Add<&'b VerificationKey> for VerificationKey {
     }
 }
 
-impl<'a, 'b> Mul<&'b Scalar> for &'a VerificationKey {
+impl Add<VerificationKey> for VerificationKey {
     type Output = VerificationKey;
 
     #[inline]
-    fn mul(self, rhs: &'b Scalar) -> Self::Output {
-        VerificationKey {
-            alpha: self.alpha * rhs,
-            beta: self.beta.iter().map(|b_i| b_i * rhs).collect(),
-            index: None,
-        }
-    }
-}
-
-impl<'a> Mul<Scalar> for &'a VerificationKey {
-    type Output = VerificationKey;
-
-    #[inline]
-    fn mul(self, rhs: Scalar) -> Self::Output {
-        self * &rhs
+    fn add(self, rhs: VerificationKey) -> VerificationKey {
+        &self + &rhs
     }
 }
 
@@ -116,7 +77,6 @@ impl<'a, 'b> Add<&'b VerificationKey> for &'a VerificationKey {
     #[inline]
     fn add(self, rhs: &'b VerificationKey) -> VerificationKey {
         assert_eq!(self.beta.len(), rhs.beta.len());
-        assert!(self.index.is_none() && rhs.index.is_none());
 
         VerificationKey {
             alpha: self.alpha + rhs.alpha,
@@ -126,7 +86,60 @@ impl<'a, 'b> Add<&'b VerificationKey> for &'a VerificationKey {
                 .zip(rhs.beta.iter())
                 .map(|(self_beta, rhs_beta)| self_beta + rhs_beta)
                 .collect(),
-            index: None,
+        }
+    }
+}
+
+impl<'a, 'b> Mul<&'b Scalar> for &'a VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn mul(self, rhs: &'b Scalar) -> Self::Output {
+        VerificationKey {
+            alpha: self.alpha * rhs,
+            beta: self.beta.iter().map(|b_i| b_i * rhs).collect(),
+        }
+    }
+}
+
+impl<'a> Mul<Scalar> for &'a VerificationKey {
+    type Output = VerificationKey;
+
+    #[inline]
+    fn mul(self, rhs: Scalar) -> Self::Output {
+        self.mul(&rhs)
+    }
+}
+
+impl<T> Sum<T> for VerificationKey
+where
+    T: Borrow<VerificationKey>,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = T>,
+    {
+        let mut peekable = iter.peekable();
+        let head_attributes = match peekable.peek() {
+            Some(head) => head.borrow().beta.len(),
+            None => {
+                // this is really weird edge case. You're trying to sum an EMPTY iterator
+                // of VerificationKey. So should it panic here or just return some nonsense value?
+                return VerificationKey::identity(0);
+            }
+        };
+
+        peekable.fold(VerificationKey::identity(head_attributes), |acc, item| {
+            acc + item.borrow()
+        })
+    }
+}
+
+impl VerificationKey {
+    fn identity(beta_size: usize) -> Self {
+        VerificationKey {
+            alpha: G2Projective::identity(),
+            beta: vec![G2Projective::identity(); beta_size],
         }
     }
 }
@@ -134,6 +147,9 @@ impl<'a, 'b> Add<&'b VerificationKey> for &'a VerificationKey {
 pub struct KeyPair {
     pub secret_key: SecretKey,
     pub verification_key: VerificationKey,
+
+    /// Optional index value specifying polynomial point used during threshold key generation.
+    index: Option<u64>,
 }
 
 /// Generate a single Coconut keypair ((x, y1, y2...), (g2, g2^x, g2^y1, ...)).
@@ -154,12 +170,9 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> Result<KeyP
     let beta = ys.iter().map(|y| params.gen2() * y).collect::<Vec<_>>();
 
     Ok(KeyPair {
-        secret_key: SecretKey { x, ys, index: None },
-        verification_key: VerificationKey {
-            alpha,
-            beta,
-            index: None,
-        },
+        secret_key: SecretKey { x, ys },
+        verification_key: VerificationKey { alpha, beta },
+        index: None,
     })
 }
 
@@ -203,21 +216,16 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     });
 
     // finally set the keys
-    let secret_keys = x
-        .zip(y)
-        .zip(polynomial_indices.iter())
-        .map(|((x, ys), index)| SecretKey {
-            x,
-            ys,
-            index: Some(*index),
-        });
+    let secret_keys = x.zip(y).map(|(x, ys)| SecretKey { x, ys });
 
     let keypairs = secret_keys
-        .map(|secret_key| {
+        .zip(polynomial_indices.iter())
+        .map(|(secret_key, index)| {
             let verification_key = secret_key.verification_key(params);
             KeyPair {
                 secret_key,
                 verification_key,
+                index: Some(*index),
             }
         })
         .collect();
@@ -225,20 +233,15 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     Ok(keypairs)
 }
 
-fn check_threshold_keys(keys: &[VerificationKey]) -> bool {
-    // if keys are threshold, they all should have an unique, non-zero, index set
-    keys.iter()
-        .unique_by(|vk| vk.index.unwrap_or_default())
-        .count()
-        == keys.len()
-}
-
 fn check_same_key_size(keys: &[VerificationKey]) -> bool {
     keys.iter().map(|vk| vk.beta.len()).all_equal()
 }
 
 // TODO: move to different file
-pub fn aggregate_verification_keys<R>(keys: &[VerificationKey]) -> Result<VerificationKey> {
+pub fn aggregate_verification_keys(
+    keys: &[VerificationKey],
+    indices: Option<&[SignerIndex]>,
+) -> Result<VerificationKey> {
     if keys.is_empty() {
         todo!("return error")
     }
@@ -247,15 +250,13 @@ pub fn aggregate_verification_keys<R>(keys: &[VerificationKey]) -> Result<Verifi
         todo!("return error")
     }
 
-    // either all keys have to be threshold or none of them
-    if check_threshold_keys(keys) {
-        let indices = keys.iter().map(|vk| vk.index.unwrap()).collect::<Vec<_>>();
-        perform_lagrangian_interpolation_at_origin(&indices, keys)
-    } else if !keys.iter().all(|vk| vk.index.is_none()) {
-        // those are not proper threshold keys but neither they are non-threshold
-        todo!("return error")
+    if let Some(indices) = indices {
+        if !check_unique_indices(indices) {
+            todo!("return error")
+        }
+        perform_lagrangian_interpolation_at_origin(indices, keys)
     } else {
-        // non-threshold
+        // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
         Ok(keys.iter().sum())
     }
 }
