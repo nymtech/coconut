@@ -168,7 +168,7 @@ mod tests {
         let h = params.gen1() * r;
         let m = params.random_scalar();
 
-        let (ciphertext, ephemeral_key) = keypair.public_key.encrypt(&mut params, &h, &m);
+        let (ciphertext, _) = keypair.public_key.encrypt(&mut params, &h, &m);
         let dec = keypair.private_key.decrypt(&ciphertext);
 
         let expected = h * m;

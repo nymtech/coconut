@@ -12,31 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::ops::Neg;
-
+use crate::error::Result;
+use crate::proofs::{ProofOfS, ProofOfV};
+use crate::scheme::setup::Parameters;
+use crate::scheme::SignerIndex;
+use crate::scheme::{SecretKey, VerificationKey};
+use crate::utils::{hash_g1, Aggregatable};
+use crate::{elgamal, Attribute};
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
+use core::ops::Neg;
 use group::{Curve, Group, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::error::Result;
-use crate::proofs::{ProofOfS, ProofOfV};
-use crate::scheme::keygen::SignerIndex;
-use crate::scheme::setup::Parameters;
-use crate::scheme::{SecretKey, VerificationKey};
-use crate::utils::{check_unique_indices, hash_g1, perform_lagrangian_interpolation_at_origin};
-use crate::{elgamal, Attribute};
-
 // (h, s)
-pub struct Signature(G1Projective, G1Projective);
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
 
 impl Signature {
-    // TODO: name: is it 'base'?
-    pub(crate) fn base(&self) -> &G1Projective {
+    // TODO: naming
+    pub(crate) fn sig1(&self) -> &G1Projective {
         &self.0
+    }
+
+    // TODO: naming
+    pub(crate) fn sig2(&self) -> &G1Projective {
+        &self.1
     }
 }
 
-type PartialSignature = Signature;
+pub type PartialSignature = Signature;
 
 impl Signature {
     fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
@@ -61,7 +66,7 @@ struct SignatureShare {
 }
 
 /// Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-// TODO: is it an actual commitment?
+// TODO: is it actually already a commitment?
 fn construct_attribute_commitment(
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
@@ -96,6 +101,7 @@ impl BlindSignRequest {
     }
 }
 
+/// Builds cryptographic material required for blind sign.
 pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     params: &mut Parameters<R>,
     pub_key: &elgamal::PublicKey,
@@ -103,12 +109,12 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     public_attributes: &[Attribute],
 ) -> Result<BlindSignRequest> {
     if private_attributes.is_empty() {
-        // return Err
+        todo!("return an error")
     }
 
     let hs = params.additional_g1_generators();
     if hs.len() < private_attributes.len() + public_attributes.len() {
-        // return Err
+        todo!("return an error")
     }
 
     // prepare commitment
@@ -194,9 +200,13 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
 
 // Theta
 pub struct Theta {
+    // kappa
     kappa: G2Projective,
+    // nu
     nu: G1Projective,
+    // sigma
     credential: Signature,
+    // pi_v
     pi_v: ProofOfV,
 }
 
@@ -238,7 +248,7 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
             .zip(verification_key.beta.iter())
             .map(|(priv_attr, beta_i)| beta_i * priv_attr)
             .sum::<G2Projective>();
-    let nu = signature_prime.base() * blinding_factor;
+    let nu = signature_prime.sig1() * blinding_factor;
 
     let pi_v = ProofOfV::construct(
         params,
@@ -278,7 +288,7 @@ pub fn verify_credential<R>(
     public_attributes: &[Attribute],
 ) -> bool {
     if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta.len() {
-        todo!("return an error")
+        return false;
     }
 
     if !theta.verify_proof(params, verification_key) {
@@ -288,17 +298,18 @@ pub fn verify_credential<R>(
     let kappa = if public_attributes.is_empty() {
         theta.kappa
     } else {
-        theta.kappa
-            + public_attributes
-                .iter()
-                .zip(
-                    verification_key
-                        .beta
-                        .iter()
-                        .skip(theta.pi_v.private_attributes()),
-                )
-                .map(|(pub_attr, beta_i)| beta_i * pub_attr)
-                .sum::<G2Projective>()
+        let signed_public_attributes = public_attributes
+            .iter()
+            .zip(
+                verification_key
+                    .beta
+                    .iter()
+                    .skip(theta.pi_v.private_attributes()),
+            )
+            .map(|(pub_attr, beta_i)| beta_i * pub_attr)
+            .sum::<G2Projective>();
+
+        theta.kappa + signed_public_attributes
     };
 
     check_billinear_pairing(
@@ -313,26 +324,27 @@ pub fn aggregate_signatures(
     sigs: &[PartialSignature],
     indices: Option<&[SignerIndex]>,
 ) -> Result<Signature> {
-    if sigs.is_empty() {
-        todo!("return error")
-    }
-
-    // TODO: is it possible to avoid this allocation?
-    let h = sigs[0].0;
-    let sigmas = sigs.iter().map(|sig| sig.1).collect::<Vec<_>>();
-
-    if let Some(indices) = indices {
-        if !check_unique_indices(indices) {
-            todo!("return error")
-        }
-        Ok(Signature(
-            h,
-            perform_lagrangian_interpolation_at_origin(indices, &sigmas)?,
-        ))
-    } else {
-        // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
-        Ok(Signature(h, sigmas.iter().sum()))
-    }
+    Aggregatable::aggregate(sigs, indices)
+    // if sigs.is_empty() {
+    //     todo!("return error")
+    // }
+    //
+    // // TODO: is it possible to avoid this allocation?
+    // let h = sigs[0].0;
+    // let sigmas = sigs.iter().map(|sig| sig.1).collect::<Vec<_>>();
+    //
+    // if let Some(indices) = indices {
+    //     if !check_unique_indices(indices) {
+    //         todo!("return error")
+    //     }
+    //     Ok(Signature(
+    //         h,
+    //         perform_lagrangian_interpolation_at_origin(indices, &sigmas)?,
+    //     ))
+    // } else {
+    //     // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
+    //     Ok(Signature(h, sigmas.iter().sum()))
+    // }
 }
 
 // TODO: possibly completely remove those two functions.
@@ -394,7 +406,7 @@ pub fn verify<R: RngCore + CryptoRng>(
 mod tests {
     use rand_core::OsRng;
 
-    use crate::scheme::keygen::keygen;
+    use crate::scheme::keygen::{aggregate_verification_keys, keygen, ttp_keygen};
 
     use super::*;
 
@@ -402,11 +414,11 @@ mod tests {
     fn verification_on_two_public_attributes() {
         let rng = OsRng;
 
-        let mut params = Parameters::new(rng, 2);
+        let mut params = Parameters::new(rng, 2).unwrap();
         let attributes = params.n_random_scalars(2);
 
-        let keypair1 = keygen(&mut params).unwrap();
-        let keypair2 = keygen(&mut params).unwrap();
+        let keypair1 = keygen(&mut params);
+        let keypair2 = keygen(&mut params);
         let sig1 = sign(&mut params, &keypair1.secret_key, &attributes).unwrap();
         let sig2 = sign(&mut params, &keypair2.secret_key, &attributes).unwrap();
 
@@ -436,13 +448,13 @@ mod tests {
     fn verification_on_two_public_and_two_private_attributes() {
         let rng = OsRng;
 
-        let mut params = Parameters::new(rng, 4);
+        let mut params = Parameters::new(rng, 4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
         let elgamal_keypair = elgamal::keygen(&mut params);
 
-        let keypair1 = keygen(&mut params).unwrap();
-        let keypair2 = keygen(&mut params).unwrap();
+        let keypair1 = keygen(&mut params);
+        let keypair2 = keygen(&mut params);
 
         let lambda = prepare_blind_sign(
             &mut params,
@@ -505,4 +517,145 @@ mod tests {
             &public_attributes,
         ));
     }
+
+    #[test]
+    fn verification_on_two_public_and_two_private_attributes_from_two_signers() {
+        let rng = OsRng;
+
+        let mut params = Parameters::new(rng, 4).unwrap();
+        let public_attributes = params.n_random_scalars(2);
+        let private_attributes = params.n_random_scalars(2);
+        let elgamal_keypair = elgamal::keygen(&mut params);
+
+        let keypairs = ttp_keygen(&mut params, 2, 3).unwrap();
+
+        let lambda = prepare_blind_sign(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &private_attributes,
+            &public_attributes,
+        )
+        .unwrap();
+
+        let sigs = keypairs
+            .iter()
+            .map(|keypair| {
+                blind_sign(
+                    &mut params,
+                    &keypair.secret_key,
+                    elgamal_keypair.public_key(),
+                    &lambda,
+                    &public_attributes,
+                )
+                .unwrap()
+                .unblind(elgamal_keypair.private_key())
+            })
+            .collect::<Vec<_>>();
+
+        let vks = keypairs
+            .into_iter()
+            .map(|keypair| keypair.verification_key)
+            .collect::<Vec<_>>();
+
+        let aggr_vk = aggregate_verification_keys(&vks[..2], Some(&[1, 2])).unwrap();
+        let aggr_sig = aggregate_signatures(&sigs[..2], Some(&[1, 2])).unwrap();
+
+        let theta = prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes);
+
+        assert!(verify_credential(
+            &params,
+            &aggr_vk,
+            &theta,
+            &public_attributes,
+        ));
+
+        // taking different subset of keys and credentials
+        let aggr_vk = aggregate_verification_keys(&vks[1..], Some(&[2, 3])).unwrap();
+        let aggr_sig = aggregate_signatures(&sigs[1..], Some(&[2, 3])).unwrap();
+
+        let theta = prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes);
+
+        assert!(verify_credential(
+            &params,
+            &aggr_vk,
+            &theta,
+            &public_attributes,
+        ));
+    }
+
+    #[test]
+    fn signature_aggregation_works_for_any_subset_of_signatures() {
+        let rng = OsRng;
+
+        let mut params = Parameters::new(rng, 2).unwrap();
+        let attributes = params.n_random_scalars(2);
+
+        let keypairs = ttp_keygen(&mut params, 3, 5).unwrap();
+
+        let (sks, vks): (Vec<_>, Vec<_>) = keypairs
+            .into_iter()
+            .map(|keypair| (keypair.secret_key, keypair.verification_key))
+            .unzip();
+
+        let sigs = sks
+            .iter()
+            .map(|sk| sign(&mut params, sk, &attributes).unwrap())
+            .collect::<Vec<_>>();
+
+        let aggr_sig1 = aggregate_signatures(&sigs[..3], Some(&[1, 2, 3])).unwrap();
+        let aggr_sig2 = aggregate_signatures(&sigs[2..], Some(&[3, 4, 5])).unwrap();
+        assert_eq!(aggr_sig1, aggr_sig2);
+
+        // verify credential for good measure
+        let aggr_vk = aggregate_verification_keys(&vks[..3], Some(&[1, 2, 3])).unwrap();
+        assert!(verify(&params, &aggr_vk, &attributes, &aggr_sig1));
+
+        // TODO: should those two actually work or not?
+        // aggregating threshold+1
+        let aggr_more = aggregate_signatures(&sigs[1..], Some(&[2, 3, 4, 5])).unwrap();
+        assert_eq!(aggr_sig1, aggr_more);
+
+        // aggregating all
+        let aggr_all = aggregate_signatures(&sigs, Some(&[1, 2, 3, 4, 5])).unwrap();
+        assert_eq!(aggr_all, aggr_sig1);
+
+        // not taking enough points (threshold was 3)
+        let aggr_not_enough = aggregate_signatures(&sigs[..2], Some(&[1, 2])).unwrap();
+        assert_ne!(aggr_not_enough, aggr_sig1);
+
+        // taking wrong index
+        let aggr_bad = aggregate_signatures(&sigs[2..], Some(&[42, 123, 100])).unwrap();
+        assert_ne!(aggr_sig1, aggr_bad);
+    }
+
+    fn random_signature() -> Signature {
+        let mut rng = OsRng;
+        Signature(
+            G1Projective::random(&mut rng),
+            G1Projective::random(&mut rng),
+        )
+    }
+
+    #[test]
+    fn signature_aggregation_doesnt_work_for_empty_set_of_signatures() {
+        let signatures: Vec<Signature> = vec![];
+        assert!(aggregate_signatures(&signatures, None).is_err());
+    }
+
+    #[test]
+    fn signature_aggregation_doesnt_work_if_indices_have_invalid_length() {
+        let signatures = vec![random_signature()];
+
+        assert!(aggregate_signatures(&signatures, Some(&[])).is_err());
+        assert!(aggregate_signatures(&signatures, Some(&[1, 2])).is_err());
+    }
+
+    #[test]
+    fn signature_aggregation_doesnt_work_for_non_unique_indices() {
+        let signatures = vec![random_signature(), random_signature()];
+
+        assert!(aggregate_signatures(&signatures, Some(&[1, 1])).is_err());
+    }
+
+    // TODO: test for aggregating non-threshold keys
 }

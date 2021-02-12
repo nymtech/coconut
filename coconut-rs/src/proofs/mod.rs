@@ -69,7 +69,7 @@ where
         .checked_sub(D::OutputSize::to_usize())
         .unwrap_or_default();
 
-    &mut bytes[pad_size..].copy_from_slice(&digest);
+    bytes[pad_size..].copy_from_slice(&digest);
 
     Scalar::from_bytes_wide(&bytes)
 }
@@ -275,7 +275,7 @@ impl ProofOfV {
         let witness_blinder = params.random_scalar();
         let witness_attributes = params.n_random_scalars(private_attributes.len());
 
-        let h = signature.base();
+        let h = signature.sig1();
 
         let hs_bytes = params
             .additional_g1_generators()
@@ -363,7 +363,7 @@ impl ProofOfV {
                 .sum::<G2Projective>();
 
         // Bw = (c * nu) + (rt * h)
-        let Bw = nu * self.challenge + signature.base() * self.response_blinder;
+        let Bw = nu * self.challenge + signature.sig1() * self.response_blinder;
 
         // compute the challenge prime ([g1, g2, alpha, Aw, Bw]+hs+beta)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(

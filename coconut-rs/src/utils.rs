@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// use bls12_381::G1Affine;
-// use digest::Update;
-// use generic_array::{ArrayLength, GenericArray};
-
 use crate::error::Result;
-use crate::scheme::keygen::SignerIndex;
 use crate::scheme::setup::Parameters;
+use crate::scheme::signature::{PartialSignature, Signature};
+use crate::scheme::SignerIndex;
 use crate::{G1HashDigest, G1HashPRNG};
 use bls12_381::{G1Projective, Scalar};
 use core::iter::Sum;
@@ -96,38 +93,33 @@ fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
         .collect()
 }
 
-/// Performs a Lagrange interpolation at the origin for a polynomial defined by SignerIndex, `points` and T, `values`.
-/// It can be used for Scalars, G1 and G2 points.
-pub(crate) fn perform_lagrangian_interpolation_at_origin_2<T>(value_pairs: &[(T, SignerIndex)]) -> T
-where
-    T: Sum,
-    for<'a> &'a T: Mul<Scalar, Output = T>,
-{
-    // split the tuple
-    let (values, points): (Vec<_>, Vec<_>) = value_pairs
-        .iter()
-        .map(|val_pair| (&val_pair.0, val_pair.1))
-        .unzip();
-
-    let coefficients = generate_lagrangian_coefficients_at_origin(&*points);
-
-    coefficients
-        .into_iter()
-        .zip(values.into_iter())
-        .map(|(coeff, val)| val * coeff)
-        .sum()
-}
+// /// Performs a Lagrange interpolation at the origin for a polynomial defined by SignerIndex, `points` and T, `values`.
+// /// It can be used for Scalars, G1 and G2 points.
+// pub(crate) fn perform_lagrangian_interpolation_at_origin_2<T>(value_pairs: &[(T, SignerIndex)]) -> T
+// where
+//     T: Sum,
+//     for<'a> &'a T: Mul<Scalar, Output = T>,
+// {
+//     // split the tuple
+//     let (values, points): (Vec<_>, Vec<_>) = value_pairs
+//         .iter()
+//         .map(|val_pair| (&val_pair.0, val_pair.1))
+//         .unzip();
+//
+//     let coefficients = generate_lagrangian_coefficients_at_origin(&*points);
+//
+//     coefficients
+//         .into_iter()
+//         .zip(values.into_iter())
+//         .map(|(coeff, val)| val * coeff)
+//         .sum()
+// }
 
 /// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
 /// It can be used for Scalars, G1 and G2 points.
-pub(crate) fn perform_lagrangian_interpolation_at_origin<T>(
-    points: &[SignerIndex],
-    values: &[T],
-) -> Result<T>
+fn perform_lagrangian_interpolation_at_origin<T>(points: &[SignerIndex], values: &[T]) -> Result<T>
 where
     T: Sum,
-    // It's the first time I've had to use it, for reference it's called higher ranked trait bounds:
-    // https://github.com/rust-lang/rfcs/blob/master/text/0387-higher-ranked-trait-bounds.md
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
     if points.is_empty() || points.len() != values.len() {
@@ -135,8 +127,7 @@ where
     }
 
     let coefficients = generate_lagrangian_coefficients_at_origin(points);
-    // unwrap in the sum is fine as we've assured we don't have
-    // an empty slice
+
     Ok(coefficients
         .into_iter()
         .zip(values.iter())
@@ -144,27 +135,27 @@ where
         .sum())
 }
 
-pub(crate) fn perform_lagrangian_interpolation_at_origin_with_coefficients<T>(
-    coefficients: &[Scalar],
-    values: &[T],
-) -> T
-where
-    T: Sum,
-    for<'a, 'b> &'a T: Mul<&'b Scalar, Output = T>,
-{
-    coefficients
-        .iter()
-        .zip(values.iter())
-        .map(|(coeff, val)| val * coeff)
-        .sum()
-}
+// pub(crate) fn perform_lagrangian_interpolation_at_origin_with_coefficients<T>(
+//     coefficients: &[Scalar],
+//     values: &[T],
+// ) -> T
+// where
+//     T: Sum,
+//     for<'a, 'b> &'a T: Mul<&'b Scalar, Output = T>,
+// {
+//     coefficients
+//         .iter()
+//         .zip(values.iter())
+//         .map(|(coeff, val)| val * coeff)
+//         .sum()
+// }
 
 // A temporary way of hashing particular message into G1.
 // Implementation idea was taken from `threshold_crypto`:
 // https://github.com/poanetwork/threshold_crypto/blob/7709462f2df487ada3bb3243060504b5881f2628/src/lib.rs#L691
 // Eventually it should get replaced by, most likely, the osswu map
 // method once ideally it's implemented inside the pairing crate.
-pub fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
+pub(crate) fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
     _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
 }
 
@@ -185,99 +176,49 @@ where
     G1Projective::random(&mut seeded_rng)
 }
 
-pub(crate) fn check_unique_indices(indices: &[SignerIndex]) -> bool {
-    // if keys are threshold, they all should have an unique index set
-    indices.iter().unique_by(|&index| index).count() == indices.len()
+pub(crate) trait Aggregatable: Sized {
+    fn aggregate(aggretable: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self>;
+
+    fn check_unique_indices(indices: &[SignerIndex]) -> bool {
+        // if aggregation is a threshold one, all indices should be unique
+        indices.iter().unique_by(|&index| index).count() == indices.len()
+    }
 }
 
-pub trait Aggregatable {
-    type Item;
+impl<T> Aggregatable for T
+where
+    T: Sum,
+    for<'a> T: Sum<&'a T>,
+    for<'a> &'a T: Mul<Scalar, Output = T>,
+{
+    fn aggregate(aggretable: &[T], indices: Option<&[u64]>) -> Result<T> {
+        if aggretable.is_empty() {
+            todo!("return error")
+        }
 
-    fn aggregate<I: Iterator<Item = Self::Item>>(
-        a: I,
-        b: Option<&[SignerIndex]>,
-    ) -> Result<Self::Item>;
+        if let Some(indices) = indices {
+            if !Self::check_unique_indices(indices) {
+                todo!("return error")
+            }
+            perform_lagrangian_interpolation_at_origin(indices, aggretable)
+        } else {
+            // non-threshold
+            Ok(aggretable.iter().sum())
+        }
+    }
 }
 
-// // TODO: very likely after some changes this can also be used to sum threshold signatures.
-// // I'm not entirely sure yet what trait bounds need to be introduced, but it will be clearer once
-// // we get there
-// // trait SumThresholdExt: ExactSizeIterator {
-// //     fn sum_threshold(self, coefficients: Vec<Scalar>) -> SumThreshold<Self>
-// //     where
-// //         Self: Sized,
-// //     {
-// //         assert_eq!(self.len(), coefficients.len());
-// //
-// //         SumThreshold::new(self, coefficients)
-// //     }
-// // }
-//
-// trait Threshold {
-//     fn index(self) -> u64;
-// }
-//
-// trait SumThresholdExt<T = Self>: Sized {
-//     fn sum_threshold<I: Iterator<Item=T>>(iter: I) -> Self
-//         where
-//             I::Item: Threshold;
-//     // where
-//     //     Self: Sized + Threshold,
-//     // {
-//     //     let indices = se
-//     //     // let coefficients = generate_lagrangian_coefficients_at_origin
-//     //     todo!()
-//     //     // assert_eq!(self.len(), coefficients.len());
-//     //     //
-//     //     // SumThreshold::new(self, coefficients)
-//     // }
-// }
-//
-// impl<T> SumThresholdExt for &[T]
-//     where
-//         T: Threshold,
-// {
-//     fn sum_threshold(slice: &[T]) -> Self {
-//         let indices = slice.iter().map(|item| item.index());
-//         let coefficients = generate_lagrangian_coefficients_at_origin(&indices);
-//
-//         unimplemented!()
-//     }
-// }
-//
-// pub(crate) struct SumThreshold<I>
-// // where
-// //     I: Iterator,
-// //     I::Item: Sum,
-// {
-//     iter: I,
-//     coefficients: Vec<Scalar>,
-// }
-//
-// impl<I> SumThreshold<I> {
-//     fn new(iter: I, coefficients: Vec<Scalar>) -> Self {
-//         SumThreshold { iter, coefficients }
-//     }
-// }
-//
-// impl<I> Iterator for SumThreshold<I>
-//     where
-//         I: Iterator,
-// {
-//     type Item = ();
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         unimplemented!()
-//     }
-//
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         (self.coefficients.len(), Some(self.coefficients.len()))
-//     }
-// }
+impl Aggregatable for PartialSignature {
+    fn aggregate(sigs: &[PartialSignature], indices: Option<&[u64]>) -> Result<Signature> {
+        let h = sigs.get(0).ok_or(todo!("return error"))?.sig1();
 
-// pub trait PointHash {
-//
-// }
+        // TODO: is it possible to avoid this allocation?
+        let sigmas = sigs.iter().map(|sig| *sig.sig2()).collect::<Vec<_>>();
+        let aggr_sigma = Aggregatable::aggregate(&sigmas, indices)?;
+
+        Ok(Signature(*h, aggr_sigma))
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -346,6 +287,28 @@ mod tests {
 
         assert_eq!(
             Scalar::from(11),
+            perform_lagrangian_interpolation_at_origin(&points, &values).unwrap()
+        );
+
+        // more points than it is required
+        // x^2 + x + 10
+        // x, f(x)
+        // 1, 12
+        // 2, 16
+        // 3, 22
+        // 4, 30
+        // 5, 40
+        let points = vec![1, 2, 3, 4, 5];
+        let values = vec![
+            Scalar::from(12),
+            Scalar::from(16),
+            Scalar::from(22),
+            Scalar::from(30),
+            Scalar::from(40),
+        ];
+
+        assert_eq!(
+            Scalar::from(10),
             perform_lagrangian_interpolation_at_origin(&points, &values).unwrap()
         );
     }

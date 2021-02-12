@@ -33,3 +33,24 @@ impl Display for Error {
         }
     }
 }
+
+/*
+TTP keygen:
+    if threshold > num_authorities {
+        todo!("return an error")
+    }
+
+VK AGGR:
+    if keys.is_empty() {
+        todo!("return error")
+    }
+
+    if !check_same_key_size(keys) {
+        todo!("return error")
+    }
+
+    if !check_unique_indices(indices) {
+        todo!("return error")
+    }
+
+ */

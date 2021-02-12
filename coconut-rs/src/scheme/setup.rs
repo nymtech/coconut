@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::error::Result;
+use crate::utils::hash_g1;
 use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
-
-use crate::error::Result;
-use crate::utils::hash_g1;
 
 pub struct Parameters<R> {
     g1: G1Affine,
@@ -29,19 +28,22 @@ pub struct Parameters<R> {
 }
 
 impl<R> Parameters<R> {
-    pub fn new(rng: R, num_attributes: u32) -> Parameters<R> {
-        // requires hash to point
+    pub fn new(rng: R, num_attributes: u32) -> Result<Parameters<R>> {
+        if num_attributes == 0 {
+            todo!("return an error")
+        }
+
         let hs = (1..=num_attributes)
             .map(|i| hash_g1(format!("h{}", i)).to_affine())
             .collect();
 
-        Parameters {
+        Ok(Parameters {
             g1: G1Affine::generator(),
             hs,
             g2: G2Affine::generator(),
             _g2_prepared_miller: G2Prepared::from(G2Affine::generator()),
             rng,
-        }
+        })
     }
 
     pub(crate) fn gen1(&self) -> &G1Affine {
