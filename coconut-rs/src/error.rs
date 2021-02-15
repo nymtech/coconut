@@ -37,6 +37,9 @@ pub enum ErrorKind {
     /// Error originating from the 'issuance' phase of the protocol.
     Issuance,
 
+    /// Error originating from the 'interpolation' phase of the protocol.
+    Interpolation,
+
     /// Error originating from the 'aggregation' phase of the protocol.
     Aggregation,
 
@@ -50,6 +53,9 @@ impl Display for ErrorKind {
             ErrorKind::Setup => write!(f, "encountered error during the setup"),
             ErrorKind::Keygen => write!(f, "encountered error during the keygen"),
             ErrorKind::Issuance => write!(f, "encountered error during the signature issuance"),
+            ErrorKind::Interpolation => {
+                write!(f, "encountered error during the lagrange interpolation")
+            }
             ErrorKind::Aggregation => write!(f, "encountered error during the aggregation"),
             ErrorKind::Verification => write!(f, "encountered error during the verification"),
         }

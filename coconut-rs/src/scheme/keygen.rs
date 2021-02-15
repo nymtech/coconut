@@ -13,9 +13,10 @@
 // limitations under the License.
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::scheme::aggregation::Aggregatable;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
-use crate::utils::{Aggregatable, Polynomial};
+use crate::utils::Polynomial;
 use bls12_381::{G2Projective, Scalar};
 use core::borrow::Borrow;
 use core::iter::Sum;

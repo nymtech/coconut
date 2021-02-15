@@ -20,10 +20,11 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::proofs::{ProofOfS, ProofOfV};
+use crate::scheme::aggregation::Aggregatable;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::scheme::{SecretKey, VerificationKey};
-use crate::utils::{hash_g1, Aggregatable};
+use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
 
 // (h, s)
@@ -65,21 +66,6 @@ impl BlindedSignature {
 struct SignatureShare {
     signature: Signature,
     index: Option<u64>,
-}
-
-/// Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-// TODO: is it actually already a commitment?
-fn construct_attribute_commitment(
-    private_attributes: &[Attribute],
-    public_attributes: &[Attribute],
-    generators: &[G1Affine],
-) -> G1Projective {
-    private_attributes
-        .iter()
-        .chain(public_attributes.iter())
-        .zip(generators)
-        .map(|(&m, h)| h * m)
-        .sum()
 }
 
 // Lambda
@@ -128,8 +114,15 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     }
 
     // prepare commitment
-    let attr_cm = construct_attribute_commitment(private_attributes, public_attributes, hs);
+    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
+    let attr_cm = private_attributes
+        .iter()
+        .chain(public_attributes.iter())
+        .zip(hs)
+        .map(|(&m, h)| h * m)
+        .sum::<G1Projective>();
     let blinding_factor = params.random_scalar();
+    // g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
     let commitment = params.gen1() * blinding_factor + attr_cm;
 
     // build ElGamal encryption

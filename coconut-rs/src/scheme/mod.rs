@@ -16,6 +16,7 @@
 
 pub use keygen::{SecretKey, VerificationKey};
 
+pub mod aggregation;
 pub mod keygen;
 pub mod setup;
 pub mod signature;

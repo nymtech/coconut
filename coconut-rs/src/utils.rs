@@ -14,7 +14,6 @@
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
-use crate::scheme::signature::{PartialSignature, Signature};
 use crate::scheme::SignerIndex;
 use crate::{G1HashDigest, G1HashPRNG};
 use bls12_381::{G1Projective, Scalar};
@@ -23,7 +22,6 @@ use core::ops::Mul;
 use digest::Digest;
 use ff::Field;
 use group::Group;
-use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 
 pub struct Polynomial {
@@ -93,24 +91,24 @@ fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
 
 /// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
 /// It can be used for Scalars, G1 and G2 points.
-fn perform_lagrangian_interpolation_at_origin<T>(points: &[SignerIndex], values: &[T]) -> Result<T>
+pub(crate) fn perform_lagrangian_interpolation_at_origin<T>(
+    points: &[SignerIndex],
+    values: &[T],
+) -> Result<T>
 where
     T: Sum,
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
-    // TODO: Are those really "aggregation" errors?
-    // The argument for it is that the function is private and is only used during aggregation
-    // But in theory it can be a more generic procedure
     if points.is_empty() || values.is_empty() {
         return Err(Error::new(
-            ErrorKind::Aggregation,
+            ErrorKind::Interpolation,
             "tried to perform lagrangian interpolation for an empty set of coordinates",
         ));
     }
 
     if points.len() != values.len() {
         return Err(Error::new(
-            ErrorKind::Aggregation,
+            ErrorKind::Interpolation,
             "tried to perform lagrangian interpolation for an incomplete set of coordinates",
         ));
     }
@@ -148,64 +146,6 @@ where
     let mut seeded_rng = R::from_seed(digest.into());
 
     G1Projective::random(&mut seeded_rng)
-}
-
-pub(crate) trait Aggregatable: Sized {
-    fn aggregate(aggretable: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self>;
-
-    fn check_unique_indices(indices: &[SignerIndex]) -> bool {
-        // if aggregation is a threshold one, all indices should be unique
-        indices.iter().unique_by(|&index| index).count() == indices.len()
-    }
-}
-
-impl<T> Aggregatable for T
-where
-    T: Sum,
-    for<'a> T: Sum<&'a T>,
-    for<'a> &'a T: Mul<Scalar, Output = T>,
-{
-    fn aggregate(aggretable: &[T], indices: Option<&[u64]>) -> Result<T> {
-        if aggretable.is_empty() {
-            return Err(Error::new(
-                ErrorKind::Aggregation,
-                "tried to perform aggregation of an empty set of values",
-            ));
-        }
-
-        if let Some(indices) = indices {
-            if !Self::check_unique_indices(indices) {
-                return Err(Error::new(
-                    ErrorKind::Aggregation,
-                    "tried to perform aggregation on a set of non-unique indices",
-                ));
-            }
-            perform_lagrangian_interpolation_at_origin(indices, aggretable)
-        } else {
-            // non-threshold
-            Ok(aggretable.iter().sum())
-        }
-    }
-}
-
-impl Aggregatable for PartialSignature {
-    fn aggregate(sigs: &[PartialSignature], indices: Option<&[u64]>) -> Result<Signature> {
-        let h = sigs
-            .get(0)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Aggregation,
-                    "tried to aggregate empty set of signatures",
-                )
-            })?
-            .sig1();
-
-        // TODO: is it possible to avoid this allocation?
-        let sigmas = sigs.iter().map(|sig| *sig.sig2()).collect::<Vec<_>>();
-        let aggr_sigma = Aggregatable::aggregate(&sigmas, indices)?;
-
-        Ok(Signature(*h, aggr_sigma))
-    }
 }
 
 #[cfg(test)]
