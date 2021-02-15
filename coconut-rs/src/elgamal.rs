@@ -102,11 +102,11 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    pub(crate) fn public_key(&self) -> &PublicKey {
+    pub fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
 
-    pub(crate) fn private_key(&self) -> &PrivateKey {
+    pub fn private_key(&self) -> &PrivateKey {
         &self.private_key
     }
 }

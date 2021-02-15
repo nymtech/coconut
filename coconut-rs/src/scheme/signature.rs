@@ -12,25 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::ops::Neg;
-
-use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
-use group::{Curve, Group, GroupEncoding};
-use rand_core::{CryptoRng, RngCore};
-
 use crate::error::{Error, ErrorKind, Result};
 use crate::proofs::{ProofOfS, ProofOfV};
-use crate::scheme::aggregation::{aggregate_signatures, Aggregatable};
+use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::scheme::{SecretKey, VerificationKey};
 use crate::utils::hash_g1;
 use crate::{elgamal, Attribute};
+use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
+use core::ops::Neg;
+use group::{Curve, Group, GroupEncoding};
+use rand_core::{CryptoRng, RngCore};
 
 // (h, s)
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
+pub type PartialSignature = Signature;
 
 impl Signature {
     // TODO: naming
@@ -42,11 +41,7 @@ impl Signature {
     pub(crate) fn sig2(&self) -> &G1Projective {
         &self.1
     }
-}
 
-pub type PartialSignature = Signature;
-
-impl Signature {
     pub fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
         let r = params.random_scalar();
         Signature(self.0 * r, self.1 * r)
@@ -67,9 +62,27 @@ impl BlindedSignature {
 }
 
 // perhaps this should take signature by reference? we'll see how it goes
-struct SignatureShare {
+pub struct SignatureShare {
     signature: Signature,
-    index: Option<u64>,
+    index: SignerIndex,
+}
+
+impl SignatureShare {
+    pub fn new(signature: Signature, index: SignerIndex) -> Self {
+        SignatureShare { signature, index }
+    }
+
+    pub fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    pub fn index(&self) -> SignerIndex {
+        self.index
+    }
+
+    pub fn aggregate(shares: &[Self]) -> Result<Signature> {
+        aggregate_signature_shares(shares)
+    }
 }
 
 // Lambda

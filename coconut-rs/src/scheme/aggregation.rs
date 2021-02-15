@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::scheme::signature::{PartialSignature, Signature};
+use crate::scheme::signature::{PartialSignature, Signature, SignatureShare};
 use crate::scheme::{SignerIndex, VerificationKey};
 use crate::utils::perform_lagrangian_interpolation_at_origin;
 use bls12_381::Scalar;
@@ -103,6 +103,15 @@ pub fn aggregate_signatures(
     indices: Option<&[SignerIndex]>,
 ) -> Result<Signature> {
     Aggregatable::aggregate(sigs, indices)
+}
+
+pub fn aggregate_signature_shares(shares: &[SignatureShare]) -> Result<Signature> {
+    let (signatures, indices): (Vec<_>, Vec<_>) = shares
+        .iter()
+        .map(|share| (*share.signature(), share.index()))
+        .unzip();
+
+    aggregate_signatures(&signatures, Some(&indices))
 }
 
 #[cfg(test)]

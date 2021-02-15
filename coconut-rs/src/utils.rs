@@ -182,6 +182,16 @@ mod tests {
         };
 
         assert_eq!(Scalar::from(39), poly.evaluate(&Scalar::from(3)));
+
+        // empty polynomial
+        let poly = Polynomial {
+            coefficients: vec![],
+        };
+
+        // should always be 0
+        assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(1)));
+        assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(0)));
+        assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(10)));
     }
 
     #[test]

@@ -22,7 +22,3 @@ pub mod setup;
 pub mod signature;
 
 pub type SignerIndex = u64;
-
-// struct Coconut<R, T, N> {
-//
-// }
