@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::scheme::aggregation::Aggregatable;
+use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::utils::Polynomial;
@@ -21,7 +21,6 @@ use bls12_381::{G2Projective, Scalar};
 use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, Mul};
-use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore};
 
 #[derive(Debug)]
@@ -119,11 +118,15 @@ where
 impl VerificationKey {
     /// Create a (kinda) identity verification key using specified
     /// number of 'beta' elements
-    fn identity(beta_size: usize) -> Self {
+    pub(crate) fn identity(beta_size: usize) -> Self {
         VerificationKey {
             alpha: G2Projective::identity(),
             beta: vec![G2Projective::identity(); beta_size],
         }
+    }
+
+    pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
+        aggregate_verification_keys(sigs, indices)
     }
 }
 
@@ -214,94 +217,4 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
         .collect();
 
     Ok(keypairs)
-}
-
-/// Ensures all provided verification keys were generated to verify the same number of attributes.
-fn check_same_key_size(keys: &[VerificationKey]) -> bool {
-    keys.iter().map(|vk| vk.beta.len()).all_equal()
-}
-
-// TODO: move to different file
-pub fn aggregate_verification_keys(
-    keys: &[VerificationKey],
-    indices: Option<&[SignerIndex]>,
-) -> Result<VerificationKey> {
-    if !check_same_key_size(keys) {
-        return Err(Error::new(
-            ErrorKind::Aggregation,
-            "tried to aggregate verification keys of different sizes",
-        ));
-    }
-    Aggregatable::aggregate(keys, indices)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand_core::OsRng;
-
-    #[test]
-    fn key_aggregation_works_for_any_subset_of_keys() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 2).unwrap();
-        let keypairs = ttp_keygen(&mut params, 3, 5).unwrap();
-
-        let vks = keypairs
-            .into_iter()
-            .map(|keypair| keypair.verification_key)
-            .collect::<Vec<_>>();
-
-        let aggr_vk1 = aggregate_verification_keys(&vks[..3], Some(&[1, 2, 3])).unwrap();
-        let aggr_vk2 = aggregate_verification_keys(&vks[2..], Some(&[3, 4, 5])).unwrap();
-
-        assert_eq!(aggr_vk1, aggr_vk2);
-
-        // TODO: should those two actually work or not?
-        // aggregating threshold+1
-        let aggr_more = aggregate_verification_keys(&vks[1..], Some(&[2, 3, 4, 5])).unwrap();
-        assert_eq!(aggr_vk1, aggr_more);
-
-        // aggregating all
-        let aggr_all = aggregate_verification_keys(&vks, Some(&[1, 2, 3, 4, 5])).unwrap();
-        assert_eq!(aggr_all, aggr_vk1);
-
-        // not taking enough points (threshold was 3)
-        let aggr_not_enough = aggregate_verification_keys(&vks[..2], Some(&[1, 2])).unwrap();
-        assert_ne!(aggr_not_enough, aggr_vk1);
-
-        // taking wrong index
-        let aggr_bad = aggregate_verification_keys(&vks[2..], Some(&[42, 123, 100])).unwrap();
-        assert_ne!(aggr_vk1, aggr_bad);
-    }
-
-    #[test]
-    fn key_aggregation_doesnt_work_for_empty_set_of_keys() {
-        let keys: Vec<VerificationKey> = vec![];
-        assert!(aggregate_verification_keys(&keys, None).is_err());
-    }
-
-    #[test]
-    fn key_aggregation_doesnt_work_if_indices_have_invalid_length() {
-        let keys = vec![VerificationKey::identity(3)];
-
-        assert!(aggregate_verification_keys(&keys, Some(&[])).is_err());
-        assert!(aggregate_verification_keys(&keys, Some(&[1, 2])).is_err());
-    }
-
-    #[test]
-    fn key_aggregation_doesnt_work_for_non_unique_indices() {
-        let keys = vec![VerificationKey::identity(3), VerificationKey::identity(3)];
-
-        assert!(aggregate_verification_keys(&keys, Some(&[1, 1])).is_err());
-    }
-
-    #[test]
-    fn key_aggregation_doesnt_work_for_keys_of_different_size() {
-        let keys = vec![VerificationKey::identity(3), VerificationKey::identity(1)];
-
-        assert!(aggregate_verification_keys(&keys, None).is_err())
-    }
-
-    // TODO: test for aggregating non-threshold keys
 }

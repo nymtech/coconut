@@ -20,7 +20,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::proofs::{ProofOfS, ProofOfV};
-use crate::scheme::aggregation::Aggregatable;
+use crate::scheme::aggregation::{aggregate_signatures, Aggregatable};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::scheme::{SecretKey, VerificationKey};
@@ -47,9 +47,13 @@ impl Signature {
 pub type PartialSignature = Signature;
 
 impl Signature {
-    fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
+    pub fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
         let r = params.random_scalar();
         Signature(self.0 * r, self.1 * r)
+    }
+
+    pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
+        aggregate_signatures(sigs, indices)
     }
 }
 
@@ -339,13 +343,6 @@ pub fn verify_credential<R>(
     ) && !bool::from(theta.credential.0.is_identity())
 }
 
-pub fn aggregate_signatures(
-    sigs: &[PartialSignature],
-    indices: Option<&[SignerIndex]>,
-) -> Result<Signature> {
-    Aggregatable::aggregate(sigs, indices)
-}
-
 // TODO: possibly completely remove those two functions.
 // They only exist to have a simpler and smaller code snippets to test
 // basic functionalities.
@@ -408,11 +405,10 @@ pub fn verify<R: RngCore + CryptoRng>(
 
 #[cfg(test)]
 mod tests {
-    use rand_core::OsRng;
-
-    use crate::scheme::keygen::{aggregate_verification_keys, keygen, ttp_keygen};
-
     use super::*;
+    use crate::scheme::aggregation::aggregate_verification_keys;
+    use crate::scheme::keygen::{keygen, ttp_keygen};
+    use rand_core::OsRng;
 
     #[test]
     fn verification_on_two_public_attributes() {
@@ -590,80 +586,4 @@ mod tests {
             &public_attributes,
         ));
     }
-
-    #[test]
-    fn signature_aggregation_works_for_any_subset_of_signatures() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 2).unwrap();
-        let attributes = params.n_random_scalars(2);
-
-        let keypairs = ttp_keygen(&mut params, 3, 5).unwrap();
-
-        let (sks, vks): (Vec<_>, Vec<_>) = keypairs
-            .into_iter()
-            .map(|keypair| (keypair.secret_key, keypair.verification_key))
-            .unzip();
-
-        let sigs = sks
-            .iter()
-            .map(|sk| sign(&mut params, sk, &attributes).unwrap())
-            .collect::<Vec<_>>();
-
-        let aggr_sig1 = aggregate_signatures(&sigs[..3], Some(&[1, 2, 3])).unwrap();
-        let aggr_sig2 = aggregate_signatures(&sigs[2..], Some(&[3, 4, 5])).unwrap();
-        assert_eq!(aggr_sig1, aggr_sig2);
-
-        // verify credential for good measure
-        let aggr_vk = aggregate_verification_keys(&vks[..3], Some(&[1, 2, 3])).unwrap();
-        assert!(verify(&params, &aggr_vk, &attributes, &aggr_sig1));
-
-        // TODO: should those two actually work or not?
-        // aggregating threshold+1
-        let aggr_more = aggregate_signatures(&sigs[1..], Some(&[2, 3, 4, 5])).unwrap();
-        assert_eq!(aggr_sig1, aggr_more);
-
-        // aggregating all
-        let aggr_all = aggregate_signatures(&sigs, Some(&[1, 2, 3, 4, 5])).unwrap();
-        assert_eq!(aggr_all, aggr_sig1);
-
-        // not taking enough points (threshold was 3)
-        let aggr_not_enough = aggregate_signatures(&sigs[..2], Some(&[1, 2])).unwrap();
-        assert_ne!(aggr_not_enough, aggr_sig1);
-
-        // taking wrong index
-        let aggr_bad = aggregate_signatures(&sigs[2..], Some(&[42, 123, 100])).unwrap();
-        assert_ne!(aggr_sig1, aggr_bad);
-    }
-
-    fn random_signature() -> Signature {
-        let mut rng = OsRng;
-        Signature(
-            G1Projective::random(&mut rng),
-            G1Projective::random(&mut rng),
-        )
-    }
-
-    #[test]
-    fn signature_aggregation_doesnt_work_for_empty_set_of_signatures() {
-        let signatures: Vec<Signature> = vec![];
-        assert!(aggregate_signatures(&signatures, None).is_err());
-    }
-
-    #[test]
-    fn signature_aggregation_doesnt_work_if_indices_have_invalid_length() {
-        let signatures = vec![random_signature()];
-
-        assert!(aggregate_signatures(&signatures, Some(&[])).is_err());
-        assert!(aggregate_signatures(&signatures, Some(&[1, 2])).is_err());
-    }
-
-    #[test]
-    fn signature_aggregation_doesnt_work_for_non_unique_indices() {
-        let signatures = vec![random_signature(), random_signature()];
-
-        assert!(aggregate_signatures(&signatures, Some(&[1, 1])).is_err());
-    }
-
-    // TODO: test for aggregating non-threshold keys
 }
