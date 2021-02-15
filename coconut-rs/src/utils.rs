@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::signature::{PartialSignature, Signature};
 use crate::scheme::SignerIndex;
@@ -60,8 +60,6 @@ impl Polynomial {
                 .sum()
         }
     }
-
-    // pub(crate) fn interpolate_at_origin(&self) {}
 }
 
 #[inline]
@@ -93,28 +91,6 @@ fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
         .collect()
 }
 
-// /// Performs a Lagrange interpolation at the origin for a polynomial defined by SignerIndex, `points` and T, `values`.
-// /// It can be used for Scalars, G1 and G2 points.
-// pub(crate) fn perform_lagrangian_interpolation_at_origin_2<T>(value_pairs: &[(T, SignerIndex)]) -> T
-// where
-//     T: Sum,
-//     for<'a> &'a T: Mul<Scalar, Output = T>,
-// {
-//     // split the tuple
-//     let (values, points): (Vec<_>, Vec<_>) = value_pairs
-//         .iter()
-//         .map(|val_pair| (&val_pair.0, val_pair.1))
-//         .unzip();
-//
-//     let coefficients = generate_lagrangian_coefficients_at_origin(&*points);
-//
-//     coefficients
-//         .into_iter()
-//         .zip(values.into_iter())
-//         .map(|(coeff, val)| val * coeff)
-//         .sum()
-// }
-
 /// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
 /// It can be used for Scalars, G1 and G2 points.
 fn perform_lagrangian_interpolation_at_origin<T>(points: &[SignerIndex], values: &[T]) -> Result<T>
@@ -122,8 +98,21 @@ where
     T: Sum,
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
-    if points.is_empty() || points.len() != values.len() {
-        todo!("return an error here")
+    // TODO: Are those really "aggregation" errors?
+    // The argument for it is that the function is private and is only used during aggregation
+    // But in theory it can be a more generic procedure
+    if points.is_empty() || values.is_empty() {
+        return Err(Error::new(
+            ErrorKind::Aggregation,
+            "tried to perform lagrangian interpolation for an empty set of coordinates",
+        ));
+    }
+
+    if points.len() != values.len() {
+        return Err(Error::new(
+            ErrorKind::Aggregation,
+            "tried to perform lagrangian interpolation for an incomplete set of coordinates",
+        ));
     }
 
     let coefficients = generate_lagrangian_coefficients_at_origin(points);
@@ -134,21 +123,6 @@ where
         .map(|(coeff, val)| val * coeff)
         .sum())
 }
-
-// pub(crate) fn perform_lagrangian_interpolation_at_origin_with_coefficients<T>(
-//     coefficients: &[Scalar],
-//     values: &[T],
-// ) -> T
-// where
-//     T: Sum,
-//     for<'a, 'b> &'a T: Mul<&'b Scalar, Output = T>,
-// {
-//     coefficients
-//         .iter()
-//         .zip(values.iter())
-//         .map(|(coeff, val)| val * coeff)
-//         .sum()
-// }
 
 // A temporary way of hashing particular message into G1.
 // Implementation idea was taken from `threshold_crypto`:
@@ -193,12 +167,18 @@ where
 {
     fn aggregate(aggretable: &[T], indices: Option<&[u64]>) -> Result<T> {
         if aggretable.is_empty() {
-            todo!("return error")
+            return Err(Error::new(
+                ErrorKind::Aggregation,
+                "tried to perform aggregation of an empty set of values",
+            ));
         }
 
         if let Some(indices) = indices {
             if !Self::check_unique_indices(indices) {
-                todo!("return error")
+                return Err(Error::new(
+                    ErrorKind::Aggregation,
+                    "tried to perform aggregation on a set of non-unique indices",
+                ));
             }
             perform_lagrangian_interpolation_at_origin(indices, aggretable)
         } else {
@@ -210,7 +190,15 @@ where
 
 impl Aggregatable for PartialSignature {
     fn aggregate(sigs: &[PartialSignature], indices: Option<&[u64]>) -> Result<Signature> {
-        let h = sigs.get(0).ok_or(todo!("return error"))?.sig1();
+        let h = sigs
+            .get(0)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Aggregation,
+                    "tried to aggregate empty set of signatures",
+                )
+            })?
+            .sig1();
 
         // TODO: is it possible to avoid this allocation?
         let sigmas = sigs.iter().map(|sig| *sig.sig2()).collect::<Vec<_>>();

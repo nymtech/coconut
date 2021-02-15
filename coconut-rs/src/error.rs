@@ -18,39 +18,58 @@ use std::fmt::{self, Display, Formatter};
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Possible Coconut errors
-// for time being let's define it as an enum. If we find it lacking, we could go with sphinx/std::io
-// approach and create a struct with a representation
-
-#[derive(Debug, Clone)]
-pub enum Error {}
+#[derive(Debug)]
+pub struct Error {
+    kind: ErrorKind,
+    error: Box<dyn std::error::Error + Send + Sync>,
+}
 
 impl std::error::Error for Error {}
 
-impl Display for Error {
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum ErrorKind {
+    /// Error originating from the 'setup' phase of the protocol.
+    Setup,
+
+    /// Error originating from the 'keygen' phase of the protocol.
+    Keygen,
+
+    /// Error originating from the 'issuance' phase of the protocol.
+    Issuance,
+
+    /// Error originating from the 'aggregation' phase of the protocol.
+    Aggregation,
+
+    /// Error originating from the 'verification' phase of the protocol.
+    Verification,
+}
+
+impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            _ => Ok(()),
+            ErrorKind::Setup => write!(f, "encountered error during the setup"),
+            ErrorKind::Keygen => write!(f, "encountered error during the keygen"),
+            ErrorKind::Issuance => write!(f, "encountered error during the signature issuance"),
+            ErrorKind::Aggregation => write!(f, "encountered error during the aggregation"),
+            ErrorKind::Verification => write!(f, "encountered error during the verification"),
         }
     }
 }
 
-/*
-TTP keygen:
-    if threshold > num_authorities {
-        todo!("return an error")
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{} - {}", self.kind, self.error)
     }
+}
 
-VK AGGR:
-    if keys.is_empty() {
-        todo!("return error")
+impl Error {
+    pub fn new<E>(kind: ErrorKind, error: E) -> Self
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Error {
+            kind,
+            error: error.into(),
+        }
     }
-
-    if !check_same_key_size(keys) {
-        todo!("return error")
-    }
-
-    if !check_unique_indices(indices) {
-        todo!("return error")
-    }
-
- */
+}

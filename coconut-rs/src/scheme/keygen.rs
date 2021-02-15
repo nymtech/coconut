@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::utils::{Aggregatable, Polynomial};
@@ -162,11 +162,17 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     num_authorities: u64,
 ) -> Result<Vec<KeyPair>> {
     if threshold == 0 {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Setup,
+            "tried to generate threshold keys with a 0 threshold value",
+        ));
     }
 
     if threshold > num_authorities {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Setup,
+            "tried to generate threshold keys for threshold value being higher than number of the signingn authorities",
+        ));
     }
 
     let attributes = params.additional_g1_generators().len();
@@ -220,44 +226,13 @@ pub fn aggregate_verification_keys(
     indices: Option<&[SignerIndex]>,
 ) -> Result<VerificationKey> {
     if !check_same_key_size(keys) {
-        todo!("return error")
+        return Err(Error::new(
+            ErrorKind::Aggregation,
+            "tried to aggregate verification keys of different sizes",
+        ));
     }
     Aggregatable::aggregate(keys, indices)
-
-    // if keys.is_empty() {
-    //     todo!("return error")
-    // }
-    //
-    // if !check_same_key_size(keys) {
-    //     todo!("return error")
-    // }
-    //
-    // if let Some(indices) = indices {
-    //     if !check_unique_indices(indices) {
-    //         todo!("return error")
-    //     }
-    //     perform_lagrangian_interpolation_at_origin(indices, keys)
-    // } else {
-    //     // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
-    //     Ok(keys.iter().sum())
-    // }
 }
-
-// fn aggregate_curve_points<T: Aggregatable>(curve_points: &[T], indices: Option<&[SignerIndex]>) -> Result<T> {
-//     if curve_points.is_empty() {
-//         // err
-//     }
-//
-//     if let Some(indices) = indices {
-//         if !check_unique_indices(indices) {
-//             todo!("return error")
-//         }
-//         perform_lagrangian_interpolation_at_origin(indices, curve_points)
-//     } else {
-//         // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
-//         Ok(curve_points.iter().sum())
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

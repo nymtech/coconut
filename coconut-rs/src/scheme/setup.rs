@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::utils::hash_g1;
 use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
@@ -30,7 +30,10 @@ pub struct Parameters<R> {
 impl<R> Parameters<R> {
     pub fn new(rng: R, num_attributes: u32) -> Result<Parameters<R>> {
         if num_attributes == 0 {
-            todo!("return an error")
+            return Err(Error::new(
+                ErrorKind::Setup,
+                "tried to setup the scheme for 0 attributes",
+            ));
         }
 
         let hs = (1..=num_attributes)

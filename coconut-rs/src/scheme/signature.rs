@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
+use core::ops::Neg;
+
+use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
+use group::{Curve, Group, GroupEncoding};
+use rand_core::{CryptoRng, RngCore};
+
+use crate::error::{Error, ErrorKind, Result};
 use crate::proofs::{ProofOfS, ProofOfV};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::scheme::{SecretKey, VerificationKey};
 use crate::utils::{hash_g1, Aggregatable};
 use crate::{elgamal, Attribute};
-use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
-use core::ops::Neg;
-use group::{Curve, Group, GroupEncoding};
-use rand_core::{CryptoRng, RngCore};
 
 // (h, s)
 #[derive(Debug)]
@@ -109,12 +111,20 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     public_attributes: &[Attribute],
 ) -> Result<BlindSignRequest> {
     if private_attributes.is_empty() {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Issuance,
+            "tried to prepare blind sign request for an empty set of private attributes",
+        ));
     }
 
     let hs = params.additional_g1_generators();
-    if hs.len() < private_attributes.len() + public_attributes.len() {
-        todo!("return an error")
+    if private_attributes.len() + public_attributes.len() > hs.len() {
+        return Err(Error::new(
+            ErrorKind::Issuance,
+            format!("tried to prepare blind sign request for higher than specified in setup number of attributes (max: {}, requested: {})",
+                    hs.len(),
+                    private_attributes.len() + public_attributes.len()
+            )));
     }
 
     // prepare commitment
@@ -157,11 +167,19 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     let hs = params.additional_g1_generators();
 
     if num_private + public_attributes.len() > hs.len() {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Issuance,
+            format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
+                    hs.len(),
+                    num_private + public_attributes.len()
+            )));
     }
 
     if !blind_sign_request.verify_proof(params, pub_key) {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Issuance,
+            "failed to verify the proof of knowledge",
+        ));
     }
 
     let h = hash_g1(blind_sign_request.commitment.to_bytes());
@@ -227,13 +245,21 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
     verification_key: &VerificationKey,
     signature: &Signature,
     private_attributes: &[Attribute],
-) -> Theta {
+) -> Result<Theta> {
     if private_attributes.is_empty() {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Verification,
+            "tried to prove a credential with an empty set of private attributes",
+        ));
     }
 
     if private_attributes.len() > verification_key.beta.len() {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Verification,
+            format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
+                    verification_key.beta.len(),
+                    private_attributes.len()
+            )));
     }
 
     // TODO: should randomization be part of this procedure or should
@@ -261,12 +287,12 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
     // kappa = alpha * beta^m * g2^r
     // nu = h^r
 
-    Theta {
+    Ok(Theta {
         kappa,
         nu,
         credential: signature_prime,
         pi_v,
-    }
+    })
 }
 
 /// Checks whether e(P, Q) * e(-R, S) == id
@@ -325,26 +351,6 @@ pub fn aggregate_signatures(
     indices: Option<&[SignerIndex]>,
 ) -> Result<Signature> {
     Aggregatable::aggregate(sigs, indices)
-    // if sigs.is_empty() {
-    //     todo!("return error")
-    // }
-    //
-    // // TODO: is it possible to avoid this allocation?
-    // let h = sigs[0].0;
-    // let sigmas = sigs.iter().map(|sig| sig.1).collect::<Vec<_>>();
-    //
-    // if let Some(indices) = indices {
-    //     if !check_unique_indices(indices) {
-    //         todo!("return error")
-    //     }
-    //     Ok(Signature(
-    //         h,
-    //         perform_lagrangian_interpolation_at_origin(indices, &sigmas)?,
-    //     ))
-    // } else {
-    //     // non-threshold (unwrap is fine as we've ensured the slice is non-empty)
-    //     Ok(Signature(h, sigmas.iter().sum()))
-    // }
 }
 
 // TODO: possibly completely remove those two functions.
@@ -357,7 +363,12 @@ pub fn sign<R: RngCore + CryptoRng>(
     public_attributes: &[Attribute],
 ) -> Result<Signature> {
     if public_attributes.len() > secret_key.ys.len() {
-        todo!("return an error")
+        return Err(Error::new(
+            ErrorKind::Issuance,
+            format!("tried to sign more attributes than allowed by the secret key (max: {}, requested: {})",
+                    secret_key.ys.len(),
+                    public_attributes.len()
+            )));
     }
 
     // TODO: why in the python implementation this hash onto the curve is present
@@ -488,13 +499,15 @@ mod tests {
             &keypair1.verification_key,
             &sig1,
             &private_attributes,
-        );
+        )
+        .unwrap();
         let theta2 = prove_credential(
             &mut params,
             &keypair2.verification_key,
             &sig2,
             &private_attributes,
-        );
+        )
+        .unwrap();
 
         assert!(verify_credential(
             &params,
@@ -560,7 +573,8 @@ mod tests {
         let aggr_vk = aggregate_verification_keys(&vks[..2], Some(&[1, 2])).unwrap();
         let aggr_sig = aggregate_signatures(&sigs[..2], Some(&[1, 2])).unwrap();
 
-        let theta = prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes);
+        let theta =
+            prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
 
         assert!(verify_credential(
             &params,
@@ -573,7 +587,8 @@ mod tests {
         let aggr_vk = aggregate_verification_keys(&vks[1..], Some(&[2, 3])).unwrap();
         let aggr_sig = aggregate_signatures(&sigs[1..], Some(&[2, 3])).unwrap();
 
-        let theta = prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes);
+        let theta =
+            prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
 
         assert!(verify_credential(
             &params,
