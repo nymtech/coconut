@@ -61,7 +61,7 @@ impl<R> Parameters<R> {
         &self._g2_prepared_miller
     }
 
-    // TODO: rename
+    // TODO NAMING:
     pub(crate) fn additional_g1_generators(&self) -> &[G1Affine] {
         &self.hs
     }

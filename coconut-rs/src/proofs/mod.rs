@@ -31,10 +31,10 @@ use std::borrow::Borrow;
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
 
-// TODO what is s??
+// TODO NAMING: what is s??
 pub struct ProofOfS {
     challenge: Scalar,
-    // TODO: is this really a blinder?
+    // TODO NAMING: is this really a blinder?
     response_blinder: Scalar,
     // rr
     response_keys: Vec<Scalar>,
@@ -42,6 +42,7 @@ pub struct ProofOfS {
     response_attributes: Vec<Scalar>, // rm
 }
 
+// TODO NAMING/HELP: is it ok?
 // note: this is slightly different from the reference python implementation
 // as we omit the unnecessary string conversion. Instead we concatenate byte
 // representations together and hash that.
@@ -108,6 +109,7 @@ impl ProofOfS {
         // we also know, due to the single call place, that ephemeral_keys.len() == private_attributes.len()
 
         // witness creation
+        // TODO NAMING: blinder or 'blinding factor'?
         let witness_blinder = params.random_scalar();
         let witness_keys = params.n_random_scalars(ephemeral_keys.len());
         let witness_attributes =
@@ -124,6 +126,7 @@ impl ProofOfS {
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();
 
+        // TODO NAMING: Aw, Bw, Cw.... ?
         // Aw[i] = (wk[i] * g1)
         let Aw_bytes = witness_keys
             .iter()
@@ -193,6 +196,7 @@ impl ProofOfS {
         }
 
         // recompute h
+        // TODO NAMING: 'h'
         let h = hash_g1(commitment.to_bytes());
 
         // recompute witnesses commitments
@@ -205,6 +209,7 @@ impl ProofOfS {
             .collect::<Vec<_>>();
 
         // Aw[i] = (c * c1[i]) + (rk[i] * g1)
+        // TODO NAMING: Aw, Bw...
         let Aw_bytes = attributes_ciphertexts
             .iter()
             .map(|ciphertext| ciphertext.c1())
@@ -251,7 +256,7 @@ impl ProofOfS {
     }
 }
 
-// TODO what is v?
+// TODO NAMING: what is v?
 pub struct ProofOfV {
     // c
     challenge: Scalar,
@@ -259,6 +264,7 @@ pub struct ProofOfV {
     // rm
     response_attributes: Vec<Scalar>,
 
+    // TODO NAMING: blinder or blinding factor?
     // rt
     response_blinder: Scalar,
 }
@@ -272,9 +278,11 @@ impl ProofOfV {
         blinding_factor: &Scalar,
     ) -> Self {
         // create the witnesses
+        // TODO NAMING: 'blinder'
         let witness_blinder = params.random_scalar();
         let witness_attributes = params.n_random_scalars(private_attributes.len());
 
+        // TODO NAMING: 'h'
         let h = signature.sig1();
 
         let hs_bytes = params
@@ -292,6 +300,7 @@ impl ProofOfV {
         // witnesses commitments
         // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
         // TODO: kappa commitment??
+        // TODO NAMING: Aw, Bw
         let Aw = params.gen2() * witness_blinder
             + verification_key.alpha
             + witness_attributes
@@ -333,11 +342,10 @@ impl ProofOfV {
         params: &Parameters<R>,
         verification_key: &VerificationKey,
         signature: &Signature,
+        // TODO NAMING: kappa, nu...
         kappa: &G2Projective,
         nu: &G1Projective,
     ) -> bool {
-        // TODO: Scalar:one() or Scalar::from(1) ??
-
         let hs_bytes = params
             .additional_g1_generators()
             .iter()
@@ -352,6 +360,7 @@ impl ProofOfV {
 
         // re-compute witnesses commitments
         // Aw = (c * kappa) + (rt * g2) + ((1 - c) * alpha) + (rm[0] * beta[0]) + ... + (rm[i] * beta[i])
+        // TODO NAMING: Aw, Bw...
         let Aw = kappa * self.challenge
             + params.gen2() * self.response_blinder
             + verification_key.alpha * (Scalar::one() - self.challenge)

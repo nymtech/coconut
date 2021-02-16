@@ -85,6 +85,7 @@ impl SignatureShare {
     }
 }
 
+// TODO NAMING: double check this one
 // Lambda
 pub struct BlindSignRequest {
     // cm
@@ -174,6 +175,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     public_attributes: &[Attribute],
 ) -> Result<BlindedSignature> {
     let num_private = blind_sign_request.attributes_ciphertexts.len();
+    // TODO NAMING: 'hs'
     let hs = params.additional_g1_generators();
 
     if num_private + public_attributes.len() > hs.len() {
@@ -203,6 +205,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
         .map(|(attr, yi)| attr * yi)
         .sum::<Scalar>();
 
+    // TODO NAMING: 'sig1' and 'sig2'
     // y[0] * c1[0] + ... + y[n] * c1[n]
     let sig_1 = blind_sign_request
         .attributes_ciphertexts
@@ -226,6 +229,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     Ok(BlindedSignature(h, (sig_1, sig_2).into()))
 }
 
+// TODO NAMING: this whole thing
 // Theta
 pub struct Theta {
     // kappa
@@ -276,6 +280,7 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
     // it be up to the user?
     let signature_prime = signature.randomise(params);
 
+    // TODO NAMING: 'kappa', 'nu', 'blinding factor'
     let blinding_factor = params.random_scalar();
     let kappa = params.gen2() * blinding_factor
         + verification_key.alpha

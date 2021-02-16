@@ -22,12 +22,12 @@ pub type EphemeralKey = Scalar;
 pub struct Ciphertext(G1Projective, G1Projective);
 
 impl Ciphertext {
-    // TODO: how to rename?
+    // TODO NAMING:
     pub(crate) fn c1(&self) -> &G1Projective {
         &self.0
     }
 
-    // TODO: how to rename?
+    // TODO NAMING:
     pub(crate) fn c2(&self) -> &G1Projective {
         &self.1
     }
@@ -67,6 +67,7 @@ impl PublicKey {
     pub fn encrypt<R: RngCore + CryptoRng>(
         &self,
         params: &mut Parameters<R>,
+        // TODO NAMING: 'h'
         h: &G1Projective,
         msg: &Scalar,
     ) -> (Ciphertext, EphemeralKey) {
