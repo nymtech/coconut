@@ -17,7 +17,6 @@ package elgamal
 import (
 	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -92,17 +91,12 @@ func TestElGamalDecryption(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	r = big.NewInt(100)
-
 	h := utils.G1ScalarMul(params.G1(), r)
 
 	m, err := params.RandomScalar()
 	if err != nil {
 		panic(err)
 	}
-
-	r = big.NewInt(100)
-	m = big.NewInt(42)
 
 	ciphertext, _, err := keypair.PublicKey().Encrypt(params, &h, m)
 

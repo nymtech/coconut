@@ -68,8 +68,6 @@ func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac,
 		return nil, nil, err
 	}
 
-	k = big.NewInt(5252)
-
 	// c1 = g1^k
 	c1 := utils.G1ScalarMul(params.G1(), k)
 
@@ -106,8 +104,6 @@ func Keygen(params *coconut.Parameters) (*KeyPair, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	d = big.NewInt(1111111)
 
 	gamma := utils.G1ScalarMul(params.G1(), d)
 
