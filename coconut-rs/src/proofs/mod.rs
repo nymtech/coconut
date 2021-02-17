@@ -31,23 +31,21 @@ use std::borrow::Borrow;
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
 
-// TODO NAMING: what is s??
-pub struct ProofOfS {
+pub struct ProofCmCs {
     challenge: Scalar,
-    // TODO NAMING: is this really a blinder?
-    response_blinder: Scalar,
     // rr
-    response_keys: Vec<Scalar>,
+    response_random: Scalar,
     // rk
-    response_attributes: Vec<Scalar>, // rm
+    response_keys: Vec<Scalar>,
+    // rm
+    response_attributes: Vec<Scalar>,
 }
 
-// TODO NAMING/HELP: is it ok?
 // note: this is slightly different from the reference python implementation
 // as we omit the unnecessary string conversion. Instead we concatenate byte
 // representations together and hash that.
 // note2: G1 and G2 elements are using their compressed representations
-// and as per the bls12-381 library, all elements are using big-endian form
+// and as per the bls12-381 library all elements are using big-endian form
 /// Generates a Scalar [or Fp] challenge by hashing a number of elliptic curve points.  
 fn compute_challenge<D, I, B>(iter: I) -> Scalar
 where
@@ -92,7 +90,7 @@ where
         .collect()
 }
 
-impl ProofOfS {
+impl ProofCmCs {
     /// Construct proof of correctness of the ciphertexts and the commitment.
     pub(crate) fn construct<R: RngCore + CryptoRng>(
         params: &mut Parameters<R>,
@@ -109,7 +107,7 @@ impl ProofOfS {
         // we also know, due to the single call place, that ephemeral_keys.len() == private_attributes.len()
 
         // witness creation
-        // TODO NAMING: blinder or 'blinding factor'?
+
         let witness_blinder = params.random_scalar();
         let witness_keys = params.n_random_scalars(ephemeral_keys.len());
         let witness_attributes =
@@ -121,7 +119,7 @@ impl ProofOfS {
         // witnesses commitments
         let g1 = params.gen1();
         let hs_bytes = params
-            .additional_g1_generators()
+            .gen_hs()
             .iter()
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();
@@ -146,7 +144,7 @@ impl ProofOfS {
         let commitment_attributes = g1 * witness_blinder
             + witness_attributes
                 .iter()
-                .zip(params.additional_g1_generators().iter())
+                .zip(params.gen_hs().iter())
                 .map(|(wm_i, hs_i)| hs_i * wm_i)
                 .sum::<G1Projective>();
 
@@ -176,9 +174,9 @@ impl ProofOfS {
                 .collect::<Vec<_>>(),
         );
 
-        ProofOfS {
+        ProofCmCs {
             challenge,
-            response_blinder,
+            response_random: response_blinder,
             response_keys,
             response_attributes,
         }
@@ -196,14 +194,13 @@ impl ProofOfS {
         }
 
         // recompute h
-        // TODO NAMING: 'h'
         let h = hash_g1(commitment.to_bytes());
 
         // recompute witnesses commitments
 
         let g1 = params.gen1();
         let hs_bytes = params
-            .additional_g1_generators()
+            .gen_hs()
             .iter()
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();
@@ -232,11 +229,11 @@ impl ProofOfS {
 
         // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[n] * hs[n])
         let commitment_attributes = commitment * self.challenge
-            + g1 * self.response_blinder
+            + g1 * self.response_random
             + self
                 .response_attributes
                 .iter()
-                .zip(params.additional_g1_generators().iter())
+                .zip(params.gen_hs().iter())
                 .map(|(res_attr, hs)| hs * res_attr)
                 .sum::<G1Projective>();
 
@@ -256,8 +253,7 @@ impl ProofOfS {
     }
 }
 
-// TODO NAMING: what is v?
-pub struct ProofOfV {
+pub struct ProofKappaNu {
     // c
     challenge: Scalar,
 
@@ -269,7 +265,7 @@ pub struct ProofOfV {
     response_blinder: Scalar,
 }
 
-impl ProofOfV {
+impl ProofKappaNu {
     pub(crate) fn construct<R: RngCore + CryptoRng>(
         params: &mut Parameters<R>,
         verification_key: &VerificationKey,
@@ -278,15 +274,13 @@ impl ProofOfV {
         blinding_factor: &Scalar,
     ) -> Self {
         // create the witnesses
-        // TODO NAMING: 'blinder'
         let witness_blinder = params.random_scalar();
         let witness_attributes = params.n_random_scalars(private_attributes.len());
 
-        // TODO NAMING: 'h'
         let h = signature.sig1();
 
         let hs_bytes = params
-            .additional_g1_generators()
+            .gen_hs()
             .iter()
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();
@@ -326,7 +320,7 @@ impl ProofOfV {
         let response_attributes =
             produce_responses(&witness_attributes, &challenge, private_attributes);
 
-        ProofOfV {
+        ProofKappaNu {
             challenge,
             response_attributes,
             response_blinder,
@@ -347,7 +341,7 @@ impl ProofOfV {
         nu: &G1Projective,
     ) -> bool {
         let hs_bytes = params
-            .additional_g1_generators()
+            .gen_hs()
             .iter()
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();

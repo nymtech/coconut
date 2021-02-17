@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::proofs::{ProofOfS, ProofOfV};
+use crate::proofs::{ProofCmCs, ProofKappaNu};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
@@ -29,15 +29,16 @@ use rand_core::{CryptoRng, RngCore};
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
+// just a type alias for ease of use
+pub type Credential = Signature;
+
 pub type PartialSignature = Signature;
 
 impl Signature {
-    // TODO: naming
     pub(crate) fn sig1(&self) -> &G1Projective {
         &self.0
     }
 
-    // TODO: naming
     pub(crate) fn sig2(&self) -> &G1Projective {
         &self.1
     }
@@ -93,7 +94,7 @@ pub struct BlindSignRequest {
     // c
     attributes_ciphertexts: Vec<elgamal::Ciphertext>,
     // pi_s
-    pi_s: ProofOfS,
+    pi_s: ProofCmCs,
 }
 
 impl BlindSignRequest {
@@ -121,7 +122,7 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
         ));
     }
 
-    let hs = params.additional_g1_generators();
+    let hs = params.gen_hs();
     if private_attributes.len() + public_attributes.len() > hs.len() {
         return Err(Error::new(
             ErrorKind::Issuance,
@@ -139,9 +140,9 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
         .zip(hs)
         .map(|(&m, h)| h * m)
         .sum::<G1Projective>();
-    let blinding_factor = params.random_scalar();
+    let blinder = params.random_scalar();
     // g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
-    let commitment = params.gen1() * blinding_factor + attr_cm;
+    let commitment = params.gen1() * blinder + attr_cm;
 
     // build ElGamal encryption
     let commitment_hash = hash_g1(commitment.to_bytes());
@@ -150,12 +151,12 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
         .map(|m| pub_key.encrypt(params, &commitment_hash, m))
         .unzip();
 
-    let pi_s = ProofOfS::construct(
+    let pi_s = ProofCmCs::construct(
         params,
         pub_key,
         &ephemeral_keys,
         &commitment,
-        &blinding_factor,
+        &blinder,
         private_attributes,
         public_attributes,
     );
@@ -175,8 +176,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     public_attributes: &[Attribute],
 ) -> Result<BlindedSignature> {
     let num_private = blind_sign_request.attributes_ciphertexts.len();
-    // TODO NAMING: 'hs'
-    let hs = params.additional_g1_generators();
+    let hs = params.gen_hs();
 
     if num_private + public_attributes.len() > hs.len() {
         return Err(Error::new(
@@ -205,7 +205,6 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
         .map(|(attr, yi)| attr * yi)
         .sum::<Scalar>();
 
-    // TODO NAMING: 'sig1' and 'sig2'
     // y[0] * c1[0] + ... + y[n] * c1[n]
     let sig_1 = blind_sign_request
         .attributes_ciphertexts
@@ -239,7 +238,7 @@ pub struct Theta {
     // sigma
     credential: Signature,
     // pi_v
-    pi_v: ProofOfV,
+    pi_v: ProofKappaNu,
 }
 
 impl Theta {
@@ -291,7 +290,7 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
             .sum::<G2Projective>();
     let nu = signature_prime.sig1() * blinding_factor;
 
-    let pi_v = ProofOfV::construct(
+    let pi_v = ProofKappaNu::construct(
         params,
         verification_key,
         &signature_prime,

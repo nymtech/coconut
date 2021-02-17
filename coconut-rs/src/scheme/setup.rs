@@ -19,11 +19,21 @@ use ff::Field;
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
 
+/// System-wide parameters used for the protocol
 pub struct Parameters<R> {
+    /// Generator of the G1 group
     g1: G1Affine,
+
+    /// Additional generators of the G1 group
     hs: Vec<G1Affine>,
+
+    /// Generator of the G2 group
     g2: G2Affine,
+
+    /// Precomputed G2 generator used for the miller loop
     _g2_prepared_miller: G2Prepared,
+
+    /// Pseudorandom number generator instance
     rng: R,
 }
 
@@ -61,8 +71,7 @@ impl<R> Parameters<R> {
         &self._g2_prepared_miller
     }
 
-    // TODO NAMING:
-    pub(crate) fn additional_g1_generators(&self) -> &[G1Affine] {
+    pub(crate) fn gen_hs(&self) -> &[G1Affine] {
         &self.hs
     }
 

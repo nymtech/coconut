@@ -142,7 +142,7 @@ pub struct KeyPair {
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
 pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
-    let attributes = params.additional_g1_generators().len();
+    let attributes = params.gen_hs().len();
 
     let x = params.random_scalar();
     let ys = params.n_random_scalars(attributes);
@@ -179,7 +179,7 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
         ));
     }
 
-    let attributes = params.additional_g1_generators().len();
+    let attributes = params.gen_hs().len();
 
     // generate polynomials
     let v = Polynomial::new_random(params, threshold - 1);
