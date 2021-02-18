@@ -12,44 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheme
+package coconut
 
 import (
 	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fp"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
 
 type Parameters struct {
 	// TODO: figure out if we want jacobian or affine coordinaates
 	g1aff bls381.G1Affine
+	g1jac bls381.G1Jac
 	hs []bls381.G1Affine
 	g2aff bls381.G2Affine
-	g1jac bls381.G1Jac
+	g2jac bls381.G2Jac
+
+	order *big.Int
 }
 
-// that is super temporary as im not really sure whats the appropriate domain for the SWU map
+func Setup(numAttributes uint32) (*Parameters, error) {
+	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
+	order := fp.Modulus()
 
-// NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!
-// IF https://github.com/ConsenSys/gurvy/issues/24 IS NOT DEALT BEFORE ZCASH DOES SSWU IN RUST
-// WE SHOULD SWITCH TO https://github.com/kilic/bls12-381
-
-var dst = []byte("COCONUT_BLS381_G1_SVDW_TMP")
-
-func Setup(num_attributes uint32) (*Parameters, error) {
-	g1jac, _, g1aff, g2aff := bls381.Generators()
-
-	hs := make([]bls381.G1Affine, num_attributes)
-	for i := 1; i <= int(num_attributes); i++ {
-		//
-		//
-		// NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!
-		// IF https://github.com/ConsenSys/gurvy/issues/24 IS NOT DEALT BEFORE ZCASH DOES SSWU IN RUST
-		// WE SHOULD SWITCH TO https://github.com/kilic/bls12-381
-		//
-		//
-		hi, err := bls381.HashToCurveG1Svdw([]byte(fmt.Sprintf("h%v", i)), dst)
+	hs := make([]bls381.G1Affine, numAttributes)
+	for i := 1; i <= int(numAttributes); i++ {
+		hi, err := utils.HashToG1([]byte(fmt.Sprintf("h%v", i)))
 		if err != nil {
 			return nil, err
 		}
@@ -58,27 +48,54 @@ func Setup(num_attributes uint32) (*Parameters, error) {
 
 	return &Parameters{
 		g1aff: g1aff,
-		hs:    nil,
+		hs:    hs,
 		g2aff: g2aff,
 		g1jac: g1jac,
+		g2jac: g2jac,
+
+		order: order,
 	}, nil
 }
 
-func (params *Parameters) G1() *bls381.G1Jac {
+func (params *Parameters) Gen1() *bls381.G1Jac {
 	return &params.g1jac
 }
 
+func (params *Parameters) Gen2() *bls381.G2Jac {
+	return &params.g2jac
+}
+
+func (params *Parameters) Gen2Affine() *bls381.G2Affine {
+	return &params.g2aff
+}
+
+func (params *Parameters) Hs() *[]bls381.G1Affine {
+	return &params.hs
+}
+
 // or return Fp.Element directly?
-func (params *Parameters) RandomScalar() (*big.Int, error) {
+func (params *Parameters) RandomScalar() (big.Int, error) {
 	var r fp.Element
 	_, err := r.SetRandom()
 	if err != nil {
-		return nil, err
+		return big.Int{}, err
 	}
 
 	var res big.Int
 	r.ToBigInt(&res)
-	return &res, nil
+	return res, nil
+}
+
+func (params *Parameters) NRandomScalars(n int) ([]*big.Int, error) {
+	scalars := make([]*big.Int, n)
+	for i := 0; i < n; i++ {
+		scalar, err := params.RandomScalar()
+		if err != nil {
+			return nil, err
+		}
+		scalars[i] = &scalar
+	}
+	return scalars, nil
 }
 
 /*

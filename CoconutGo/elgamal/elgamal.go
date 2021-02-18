@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
-	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
 )
 
 type EphemeralKey = big.Int
@@ -44,7 +44,7 @@ func (c *Ciphertext) C2() *bls381.G1Jac {
 
 
 type PrivateKey struct {
-	d *big.Int
+	d big.Int
 }
 
 func (privateKey *PrivateKey) Decrypt(ciphertext *Ciphertext) bls381.G1Jac {
@@ -52,7 +52,7 @@ func (privateKey *PrivateKey) Decrypt(ciphertext *Ciphertext) bls381.G1Jac {
 	c2 := &ciphertext.c2
 
 	// c1^d == g1^{d * k}
-	tmp := utils.G1ScalarMul(c1, privateKey.d)
+	tmp := utils.G1ScalarMul(c1, &privateKey.d)
 
 	// (gamma^k * h^m) / (g1^{d * k})   |   note: gamma = g1^d
 	return utils.G1Sub(c2, &tmp)
@@ -62,17 +62,17 @@ type PublicKey struct {
 	gamma bls381.G1Jac
 }
 
-func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac, msg *big.Int) (*Ciphertext, *EphemeralKey, error) {
+func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac, msg *big.Int) (Ciphertext, EphemeralKey, error) {
 	k, err := params.RandomScalar()
 	if err != nil {
-		return nil, nil, err
+		return Ciphertext{}, EphemeralKey{}, err
 	}
 
 	// c1 = g1^k
-	c1 := utils.G1ScalarMul(params.G1(), k)
+	c1 := utils.G1ScalarMul(params.Gen1(), &k)
 
 	// t1 = gamma^k
-	t1 := utils.G1ScalarMul(&publicKey.gamma, k)
+	t1 := utils.G1ScalarMul(&publicKey.gamma, &k)
 
 	// t2 = h^m;
 	t2 := utils.G1ScalarMul(h, msg)
@@ -80,7 +80,7 @@ func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac,
 	// c2 = gamma^k * h^m
 	c2 := utils.G1Add(&t1, &t2)
 
-	return &Ciphertext{
+	return Ciphertext{
 		c1: c1,
 		c2: c2,
 	}, k, nil
@@ -105,7 +105,7 @@ func Keygen(params *coconut.Parameters) (*KeyPair, error) {
 		return nil, err
 	}
 
-	gamma := utils.G1ScalarMul(params.G1(), d)
+	gamma := utils.G1ScalarMul(params.Gen1(), &d)
 
 	return &KeyPair{
 		privateKey: PrivateKey{
