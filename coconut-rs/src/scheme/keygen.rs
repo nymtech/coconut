@@ -135,7 +135,7 @@ pub struct KeyPair {
     pub verification_key: VerificationKey,
 
     /// Optional index value specifying polynomial point used during threshold key generation.
-    pub index: Option<u64>,
+    pub index: Option<SignerIndex>,
 }
 
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
