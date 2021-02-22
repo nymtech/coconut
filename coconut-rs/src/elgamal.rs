@@ -19,7 +19,8 @@ use rand_core::{CryptoRng, RngCore};
 
 pub type EphemeralKey = Scalar;
 
-pub struct Ciphertext(G1Projective, G1Projective);
+pub struct Ciphertext(pub G1Projective, pub G1Projective);
+// pub struct Ciphertext(G1Projective, G1Projective);
 
 impl Ciphertext {
     // TODO NAMING:

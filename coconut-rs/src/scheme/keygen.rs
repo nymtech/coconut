@@ -45,11 +45,17 @@ impl SecretKey {
 
 // TODO: perhaps change points to affine representation
 // to make verification slightly more efficient?
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
     pub(crate) alpha: G2Projective,
     pub(crate) beta: Vec<G2Projective>,
+}
+
+impl VerificationKey {
+    pub fn tmp_get_alpha(&self) -> &G2Projective {
+        &self.alpha
+    }
 }
 
 impl<'b> Add<&'b VerificationKey> for VerificationKey {

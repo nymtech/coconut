@@ -1,0 +1,33 @@
+[package]
+name = "cli-demo-rs"
+version = "0.1.0"
+authors = ["Jędrzej Stuczyński <jedrzej.stuczynski@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+coconut-rs = { path = "../coconut-rs"}
+base64 = "0.13.0"
+read_input = "0.8.4"
+#crossterm = { version = "0.19"}
+#tui = { version = "0.14", default-features = false, features = ['crossterm'] }
+
+# https://github.com/bitvecto-rs/bitvec/issues/105 workaround for bitvec
+#funty = "=1.1.0"
+
+sha2 = "0.9.3"
+digest = "0.9.0"
+rand = "0.8.3"
+
+[dependencies.ff]
+version = "0.9"
+default-features = false
+
+[dependencies.group]
+version = "0.9"
+default-features = false
+
+[dependencies.rand_core]
+version = "0.6.1"
+features = ["getrandom"]

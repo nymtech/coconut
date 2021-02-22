@@ -28,7 +28,8 @@ use rand_core::{CryptoRng, RngCore};
 // (h, s)
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
+// pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
+pub struct Signature(pub G1Projective, pub G1Projective);
 // just a type alias for ease of use
 pub type Credential = Signature;
 
@@ -53,7 +54,8 @@ impl Signature {
     }
 }
 
-pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
+pub struct BlindedSignature(pub G1Projective, pub elgamal::Ciphertext);
+// pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
 impl BlindedSignature {
     pub fn unblind(self, private_key: &elgamal::PrivateKey) -> Signature {
