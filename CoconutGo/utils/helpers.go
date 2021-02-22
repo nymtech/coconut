@@ -102,3 +102,12 @@ func SumScalars(scalars []*big.Int) big.Int {
 
 	return *res
 }
+
+func ReverseBytes(bytes []byte) []byte {
+	bytesNew := make([]byte, len(bytes))
+	for i := 0; i < len(bytes)/2; i++ {
+		j := len(bytes) - i - 1
+		bytesNew[i], bytesNew[j] = bytes[j], bytes[i]
+	}
+	return bytesNew
+}

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fp"
+	"github.com/consensys/gurvy/bls381/fr"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
@@ -75,7 +76,7 @@ func (params *Parameters) Hs() *[]bls381.G1Affine {
 
 // or return Fp.Element directly?
 func (params *Parameters) RandomScalar() (big.Int, error) {
-	var r fp.Element
+	var r fr.Element
 	_, err := r.SetRandom()
 	if err != nil {
 		return big.Int{}, err

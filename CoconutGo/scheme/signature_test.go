@@ -1,7 +1,9 @@
 package coconut
 
 import (
+	"github.com/consensys/gurvy/bls381"
 	"github.com/stretchr/testify/assert"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"testing"
 )
 
@@ -69,3 +71,73 @@ fn verification_on_two_public_attributes() {
         ));
     }
  */
+
+//func BenchmarkDoublePairing(b *testing.B) {
+//	g1jac, g2jac, _, _ := bls381.Generators()
+//	params, err := Setup(1)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	r := params.RandomScalar()
+//	s := params.RandomScalar()
+//
+//	g11 := utils.G1ScalarMul(&g1jac, &r)
+//	g21 := utils.G2ScalarMul(&g2jac, &s)
+//
+//	g12 := utils.G1ScalarMul(&g1jac, &s)
+//	g22 := utils.G2ScalarMul(&g2jac, &r)
+//
+//	g11A := utils.ToG1Affine(&g11)
+//	g21A := utils.ToG2Affine(&g21)
+//	g12A := utils.ToG1Affine(&g12)
+//	g22A := utils.ToG2Affine(&g22)
+//
+//
+//	for i := 0; i < b.N; i++ {
+//		bls381.Pair()
+//
+//	}
+//
+//}
+var foo bool
+
+func BenchmarkMiller(b *testing.B) {
+	g1jac, g2jac, _, _ := bls381.Generators()
+	params, err := Setup(1)
+	if err != nil {
+		panic(err)
+	}
+
+	r, _ := params.RandomScalar()
+	s, _ := params.RandomScalar()
+
+	g11 := utils.G1ScalarMul(&g1jac, &r)
+	g21 := utils.G2ScalarMul(&g2jac, &s)
+
+	g12 := utils.G1ScalarMul(&g1jac, &s)
+	g22 := utils.G2ScalarMul(&g2jac, &r)
+
+	g11A := utils.ToG1Affine(&g11)
+	g21A := utils.ToG2Affine(&g21)
+	//g12A := utils.ToG1Affine(&g12)
+	g22A := utils.ToG2Affine(&g22)
+
+	var g12Neg bls381.G1Affine
+	g12Neg.FromJacobian(&g12)
+	g12Neg.Neg(&g12Neg)
+
+	for i := 0; i < b.N; i++ {
+		pairCheck, err := bls381.PairingCheck(
+			[]bls381.G1Affine{g11A, g12Neg},
+			[]bls381.G2Affine{g21A, g22A},
+		)
+		foo = pairCheck
+		if err != nil {
+			panic(err)
+		}
+	}
+
+
+
+}
