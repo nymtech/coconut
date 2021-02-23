@@ -131,6 +131,10 @@ pub(crate) fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
     _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
 }
 
+fn increment_and_check<M: AsRef<[u8]>>(msg: M) -> G1Projective {
+    todo!()
+}
+
 #[doc(hidden)]
 fn _hash_g1<D, R, M>(msg: M) -> G1Projective
 where

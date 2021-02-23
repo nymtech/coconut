@@ -77,38 +77,19 @@ where
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn foo() {
-    //     let d1 = [1, 2, 3, 4, 5];
-    //     let d2 = [6, 7, 8, 9, 10];
-    //     let vec = vec![d1, d2];
-    //     let iter = vec.iter();
-    //
-    //     let s = compute_challenge::<ChallengeDigest, _, _>(iter);
-    //     println!("{:?}", s.to_string());
-    //     println!("{:?}", s.to_bytes());
-    //     println!("{:?}", s);
-    // }
-
     #[test]
-    fn base() {
-        let s42 = Scalar::from(42);
+    fn foo() {
+        let d1 = [1, 2, 3, 4, 5];
+        let d2 = [6, 7, 8, 9, 10];
+        let vec = vec![d1, d2];
+        let iter = vec.iter();
 
-        println!("######################");
-        println!("42: {:?}", s42);
-        println!("42: {:?}", s42.to_bytes());
-        println!("######################");
-
-        // let s512 = Scalar::from(512);
-        let res = s42.pow(&[512, 0, 0, 0]);
-
-        println!("{:?}", res);
-        println!("{:?}", res.to_bytes());
-
-        // let modulus = Scalar::from(52435875175126190479447740508185965837690552500527637822603658699938581184513);
+        let s = compute_challenge::<ChallengeDigest, _, _>(iter);
+        println!("{:?}", s.to_string());
+        println!("{:?}", s.to_bytes());
+        println!("{:?}", s);
 
         assert!(false)
-        // println!("{:?}", modulus);
     }
 
     #[test]
@@ -171,7 +152,7 @@ where
 }
 
 impl ProofCmCs {
-    /// Construct proof of correctness of the ciphertexts and the commitment.
+    /// Construct non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
     pub(crate) fn construct<R: RngCore + CryptoRng>(
         params: &mut Parameters<R>,
         pub_key: &elgamal::PublicKey,
