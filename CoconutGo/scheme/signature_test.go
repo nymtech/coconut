@@ -72,35 +72,47 @@ fn verification_on_two_public_attributes() {
     }
  */
 
-//func BenchmarkDoublePairing(b *testing.B) {
-//	g1jac, g2jac, _, _ := bls381.Generators()
-//	params, err := Setup(1)
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	r := params.RandomScalar()
-//	s := params.RandomScalar()
-//
-//	g11 := utils.G1ScalarMul(&g1jac, &r)
-//	g21 := utils.G2ScalarMul(&g2jac, &s)
-//
-//	g12 := utils.G1ScalarMul(&g1jac, &s)
-//	g22 := utils.G2ScalarMul(&g2jac, &r)
-//
-//	g11A := utils.ToG1Affine(&g11)
-//	g21A := utils.ToG2Affine(&g21)
-//	g12A := utils.ToG1Affine(&g12)
-//	g22A := utils.ToG2Affine(&g22)
-//
-//
-//	for i := 0; i < b.N; i++ {
-//		bls381.Pair()
-//
-//	}
-//
-//}
-var foo bool
+var foo bls381.GT
+
+func BenchmarkDoublePairing(b *testing.B) {
+	g1jac, g2jac, _, _ := bls381.Generators()
+	params, err := Setup(1)
+	if err != nil {
+		panic(err)
+	}
+
+	r, _ := params.RandomScalar()
+	s, _ := params.RandomScalar()
+
+	g11 := utils.G1ScalarMul(&g1jac, &r)
+	g21 := utils.G2ScalarMul(&g2jac, &s)
+
+	g12 := utils.G1ScalarMul(&g1jac, &s)
+	g22 := utils.G2ScalarMul(&g2jac, &r)
+
+	g11A := utils.ToG1Affine(&g11)
+	g21A := utils.ToG2Affine(&g21)
+	g12A := utils.ToG1Affine(&g12)
+	g22A := utils.ToG2Affine(&g22)
+
+
+	for i := 0; i < b.N; i++ {
+		gt1, err := bls381.Pair([]bls381.G1Affine{g11A}, []bls381.G2Affine{g21A})
+		if err != nil {
+			panic(err)
+		}
+		gt2, err := bls381.Pair([]bls381.G1Affine{g12A}, []bls381.G2Affine{g22A})
+		if err != nil {
+			panic(err)
+		}
+		if gt1 != gt2 {
+			panic(false)
+		}
+	}
+
+}
+
+var pairCheckGlobal bool
 
 func BenchmarkMiller(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
@@ -120,7 +132,6 @@ func BenchmarkMiller(b *testing.B) {
 
 	g11A := utils.ToG1Affine(&g11)
 	g21A := utils.ToG2Affine(&g21)
-	//g12A := utils.ToG1Affine(&g12)
 	g22A := utils.ToG2Affine(&g22)
 
 	var g12Neg bls381.G1Affine
@@ -132,12 +143,9 @@ func BenchmarkMiller(b *testing.B) {
 			[]bls381.G1Affine{g11A, g12Neg},
 			[]bls381.G2Affine{g21A, g22A},
 		)
-		foo = pairCheck
-		if err != nil {
+		pairCheckGlobal = pairCheck
+		if err != nil || pairCheckGlobal != true {
 			panic(err)
 		}
 	}
-
-
-
 }
