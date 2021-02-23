@@ -2,9 +2,7 @@ package proofs
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
-	"fmt"
-	"github.com/consensys/gurvy/bls381/fr"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
 
@@ -16,72 +14,6 @@ type ProofCmCs struct {
 	response_keys []big.Int
 	// rm
 	response_attributes []big.Int
-}
-
-
-// R^2 = 2^512 mod q
-var R2 = fr.Element{
-	14526898881837571181,
-	3129137299524312099,
-	419701826671360399,
-	524908885293268753,
-}
-
-// R^3 = 2^768 mod q
-var R3 = fr.Element{
-	14279814937963099055,
-	1963020886675057040,
-	8345518043873801240,
-	7938258146690806761,
-}
-
-// do it the same way zcash is doing it in the rust library
-func scalarFromBytesWide(bytes [64]byte) big.Int {
-	var d0 fr.Element
-	var d1 fr.Element
-	// recover limbs
-	d0[0] = binary.LittleEndian.Uint64(bytes[0:8])
-	d0[1] = binary.LittleEndian.Uint64(bytes[8:16])
-	d0[2] = binary.LittleEndian.Uint64(bytes[16:24])
-	d0[3] = binary.LittleEndian.Uint64(bytes[24:32])
-
-	d1[0] = binary.LittleEndian.Uint64(bytes[32:40])
-	d1[1] = binary.LittleEndian.Uint64(bytes[40:48])
-	d1[2] = binary.LittleEndian.Uint64(bytes[48:56])
-	d1[3] = binary.LittleEndian.Uint64(bytes[56:64])
-
-	// Convert to Montgomery form
-	// d0 * R2 + d1 * R3
-	var t1 fr.Element
-	t1.Mul(&d0, &R2)
-
-	var t2 fr.Element
-	t2.Mul(&d1, &R3)
-
-	var res fr.Element
-	res.Add(&t1, &t2)
-
-	fmt.Println("S fr", res)
-	fmt.Println("S fr", res.String())
-	fmt.Println("S fr", res.Bytes())
-	var resBI big.Int
-	//res.ToBigInt(&resBI)
-
-	/*
-	rust:
-	s: 0x47761120765ceabc0a4bc3208cb1d2c267f6dfccbc1a2b3e7c99b29760622830
-	32322818407927025939359778789648808124910768125310499785920609756176927828016
-	A [8296047984791007455, 6749167863319126124, 990660411030559962, 3728100482992396851]
-	s: [48, 40, 98, 96, 151, 178, 153, 124,
-	62, 43, 26, 188, 204, 223, 246, 103,
-	194, 210, 177, 140, 32, 195, 75, 10,
-	188, 234, 92, 118, 32, 17, 118, 71]
-	*/
-
-	res.ToBigIntRegular(&resBI)
-	fmt.Println("S", resBI.Bytes())
-
-	return resBI
 }
 
 // ConstructChallenge construct a scalar challenge by hashing a number of elliptic curve points.
@@ -100,69 +32,11 @@ func constructChallenge(pointRepresentations [][]byte) big.Int {
 	// TODO: this is only introduced for the initial compatibility with the rust library and
 	// zcash's method for `from_bytes_wide` that does not seem to have a failing case.
 	// In the future it should be replaced with something simpler that is implemented in both languages
-
 	padSize := 64 - h.Size()
 	var bytes [64]byte
 	copy(bytes[64-padSize:], digest)
 
-	return scalarFromBytesWide(bytes)
-
-	//var res big.Int
-	//res.SetBytes(digest)
-	//
-	//var res2 fr.Element
-	//res2.SetBytes(digest)
-	//fmt.Println(res2)
-	//
-	//fmt.Println(res2.String())
-	//
-	//
-	//fmt.Println(res)
-	//
-	//var foo big.Int
-	//mod := fp.Modulus()
-	//foo.Mod(&res, mod)
-	//
-	//fmt.Println(foo)
-
-	//return res
-
-	/*
-		fn compute_challenge<D, I, B>(iter: I) -> Scalar
-		where
-		    D: Digest,
-		    I: Iterator<Item = B>,
-		    B: AsRef<[u8]>,
-		{
-		    let mut h = D::new();
-		    for point_representation in iter {
-		        h.update(point_representation);
-		    }
-		    let digest = h.finalize();
-
-		    // TODO: I don't like the 0 padding here (though it's what we've been using before,
-		    // but we never had a security audit anyway...)
-		    // instead we could maybe use the `from_bytes` variant and adding some suffix
-		    // when computing the digest until we produce a valid scalar.
-		    let mut bytes = [0u8; 64];
-		    let pad_size = 64usize
-		        .checked_sub(D::OutputSize::to_usize())
-		        .unwrap_or_default();
-
-		    bytes[pad_size..].copy_from_slice(&digest);
-
-		    Scalar::from_bytes_wide(&bytes)
-		}
-	*/
-
-	//return big.Int{}, nil
-	//
-	//csa := make([]string, len(pointRepresentations))
-	//for i := range pointRepresentations {
-	//	csa[i] = utils.ToCoconutString(pointRepresentations[i])
-	//}
-	//cs := strings.Join(csa, ",")
-	//return utils.HashStringToBig(amcl.SHA256, cs)
+	return utils.ScalarFromBytesWide(bytes)
 }
 
 // Produce witness - challenge * secret
