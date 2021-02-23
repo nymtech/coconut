@@ -72,8 +72,6 @@ fn verification_on_two_public_attributes() {
     }
  */
 
-var foo bls381.GT
-
 func BenchmarkDoublePairing(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
 	params, err := Setup(1)
