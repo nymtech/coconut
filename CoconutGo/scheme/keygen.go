@@ -80,7 +80,7 @@ type KeyPair struct {
 // It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 // that are independent of each other.
 func Keygen(params *Parameters) (KeyPair, error) {
-	attributes := len(*params.Hs())
+	attributes := len(params.Hs())
 	x, err:= params.RandomScalar()
 	if err != nil {
 		return KeyPair{}, err

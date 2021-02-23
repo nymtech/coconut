@@ -62,6 +62,10 @@ type PublicKey struct {
 	gamma bls381.G1Jac
 }
 
+func (publicKey *PublicKey) Gamma() *bls381.G1Jac {
+	return &publicKey.gamma
+}
+
 func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac, msg *big.Int) (Ciphertext, EphemeralKey, error) {
 	k, err := params.RandomScalar()
 	if err != nil {

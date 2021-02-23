@@ -64,6 +64,12 @@ func ToG1Affine(jac *bls381.G1Jac) bls381.G1Affine {
 	return res
 }
 
+func ToG1Jacobian(aff *bls381.G1Affine) bls381.G1Jac {
+	var res bls381.G1Jac
+	res.FromAffine(aff)
+	return res
+}
+
 
 // Takes a Scalar and a G1 element by reference and multiplies them together while allocating space for the result
 func G2ScalarMul(g2 *bls381.G2Jac, scalar *big.Int) bls381.G2Jac {
@@ -92,6 +98,22 @@ func ToG2Affine(jac *bls381.G2Jac) bls381.G2Affine {
 	return res
 }
 
+func G1AffineToByteSlice(p *bls381.G1Affine) []byte {
+	pBytes := p.Bytes()
+	return pBytes[:]
+}
+
+func G1JacobianToByteSlice(p *bls381.G1Jac) []byte {
+	pAff := ToG1Affine(p)
+	return G1AffineToByteSlice(&pAff)
+}
+
+func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
+	pAff := ToG2Affine(p)
+	pAffBytes := pAff.Bytes()
+	return pAffBytes[:]
+}
+
 
 // that is super temporary as im not really sure whats the appropriate domain for the SWU map
 
@@ -110,6 +132,11 @@ func HashToG1(msg []byte) (bls381.G1Affine, error) {
 	//
 	//
 	return bls381.HashToCurveG1Svdw(msg, dst)
+}
+
+func incrementAndCheck(msg []byte) bls381.G1Affine {
+	// TODO
+	return bls381.G1Affine{}
 }
 
 func SumScalars(scalars []*big.Int) big.Int {
@@ -160,4 +187,18 @@ func ScalarFromBytesWide(bytes [64]byte) big.Int {
 	res.ToBigIntRegular(&resBI)
 
 	return resBI
+}
+
+func ScalarToLittleEndian(scalar *big.Int) [32]byte {
+	var frScalar fr.Element
+	// ensure correct order
+	frScalar.SetBigInt(scalar)
+	scalarBytes := frScalar.Bytes()
+
+	var out [32]byte
+	for i := 0; i < 32; i++ {
+		out[31-i] = scalarBytes[i]
+	}
+
+	return out
 }

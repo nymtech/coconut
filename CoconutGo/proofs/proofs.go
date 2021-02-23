@@ -2,19 +2,12 @@ package proofs
 
 import (
 	"crypto/sha256"
+	"github.com/consensys/gurvy/bls381"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
+	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
-
-type ProofCmCs struct {
-	challenge big.Int
-	// rr
-	response_random big.Int
-	// rk
-	response_keys []big.Int
-	// rm
-	response_attributes []big.Int
-}
 
 // ConstructChallenge construct a scalar challenge by hashing a number of elliptic curve points.
 // note: this is slightly different from the reference python implementation
@@ -60,176 +53,179 @@ func produceResponses(witnesses []*big.Int, challenge *big.Int, secrets []*big.I
 	return responses
 }
 
-/*
-
-
-
-
-
-impl ProofCmCs {
-    /// Construct proof of correctness of the ciphertexts and the commitment.
-    pub(crate) fn construct<R: RngCore + CryptoRng>(
-        params: &mut Parameters<R>,
-        pub_key: &elgamal::PublicKey,
-        ephemeral_keys: &[elgamal::EphemeralKey],
-        commitment: &G1Projective,
-        blinding_factor: &Scalar,
-        private_attributes: &[Attribute],
-        public_attributes: &[Attribute],
-    ) -> Self {
-        // note: this is only called from `prepare_blind_sign` that already checks
-        // whether private attributes are non-empty and whether we don't have too many
-        // attributes in total to sign.
-        // we also know, due to the single call place, that ephemeral_keys.len() == private_attributes.len()
-
-        // witness creation
-
-        let witness_blinder = params.random_scalar();
-        let witness_keys = params.n_random_scalars(ephemeral_keys.len());
-        let witness_attributes =
-            params.n_random_scalars(private_attributes.len() + public_attributes.len());
-
-        // make h
-        let h = hash_g1(commitment.to_bytes());
-
-        // witnesses commitments
-        let g1 = params.gen1();
-        let hs_bytes = params
-            .gen_hs()
-            .iter()
-            .map(|h| h.to_bytes())
-            .collect::<Vec<_>>();
-
-        // TODO NAMING: Aw, Bw, Cw.... ?
-        // Aw[i] = (wk[i] * g1)
-        let Aw_bytes = witness_keys
-            .iter()
-            .map(|wk_i| g1 * wk_i)
-            .map(|witness| witness.to_bytes())
-            .collect::<Vec<_>>();
-
-        // Bw[i] = (wm[i] * h) + (wk[i] * gamma)
-        let Bw_bytes = witness_keys
-            .iter()
-            .zip(witness_attributes.iter())
-            .map(|(wk_i, wm_i)| pub_key * wk_i + h * wm_i)
-            .map(|witness| witness.to_bytes())
-            .collect::<Vec<_>>();
-
-        // Cw = (wr * g1) + (wm[0] * hs[0]) + ... + (wm[i] * hs[i])
-        let commitment_attributes = g1 * witness_blinder
-            + witness_attributes
-                .iter()
-                .zip(params.gen_hs().iter())
-                .map(|(wm_i, hs_i)| hs_i * wm_i)
-                .sum::<G1Projective>();
-
-        // challenge ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
-        let challenge = compute_challenge::<ChallengeDigest, _, _>(
-            std::iter::once(params.gen1().to_bytes().as_ref())
-                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
-                .chain(std::iter::once(commitment.to_bytes().as_ref()))
-                .chain(std::iter::once(h.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
-                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
-                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
-                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
-        );
-
-        // responses
-        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
-
-        // TODO: maybe make `produce_responses` take an iterator instead?
-        let response_keys = produce_responses(&witness_keys, &challenge, ephemeral_keys);
-        let response_attributes = produce_responses(
-            &witness_attributes,
-            &challenge,
-            &private_attributes
-                .iter()
-                .chain(public_attributes.iter())
-                .collect::<Vec<_>>(),
-        );
-
-        ProofCmCs {
-            challenge,
-            response_random: response_blinder,
-            response_keys,
-            response_attributes,
-        }
-    }
-
-    pub(crate) fn verify<R>(
-        &self,
-        params: &Parameters<R>,
-        pub_key: &elgamal::PublicKey,
-        commitment: &G1Projective,
-        attributes_ciphertexts: &[elgamal::Ciphertext],
-    ) -> bool {
-        if self.response_keys.len() != attributes_ciphertexts.len() {
-            return false;
-        }
-
-        // recompute h
-        let h = hash_g1(commitment.to_bytes());
-
-        // recompute witnesses commitments
-
-        let g1 = params.gen1();
-        let hs_bytes = params
-            .gen_hs()
-            .iter()
-            .map(|h| h.to_bytes())
-            .collect::<Vec<_>>();
-
-        // Aw[i] = (c * c1[i]) + (rk[i] * g1)
-        // TODO NAMING: Aw, Bw...
-        let Aw_bytes = attributes_ciphertexts
-            .iter()
-            .map(|ciphertext| ciphertext.c1())
-            .zip(self.response_keys.iter())
-            .map(|(c1, res_attr)| c1 * self.challenge + g1 * res_attr)
-            .map(|witness| witness.to_bytes())
-            .collect::<Vec<_>>();
-
-        // Bw[i] = (c * c2[i]) + (rk[i] * gamma) + (rm[i] * h)
-        let Bw_bytes = izip!(
-            attributes_ciphertexts
-                .iter()
-                .map(|ciphertext| ciphertext.c2()),
-            self.response_keys.iter(),
-            self.response_attributes.iter()
-        )
-        .map(|(c2, res_key, res_attr)| c2 * self.challenge + pub_key * res_key + h * res_attr)
-        .map(|witness| witness.to_bytes())
-        .collect::<Vec<_>>();
-
-        // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[n] * hs[n])
-        let commitment_attributes = commitment * self.challenge
-            + g1 * self.response_random
-            + self
-                .response_attributes
-                .iter()
-                .zip(params.gen_hs().iter())
-                .map(|(res_attr, hs)| hs * res_attr)
-                .sum::<G1Projective>();
-
-        // compute the challenge prime ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
-        let challenge = compute_challenge::<ChallengeDigest, _, _>(
-            std::iter::once(params.gen1().to_bytes().as_ref())
-                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
-                .chain(std::iter::once(commitment.to_bytes().as_ref()))
-                .chain(std::iter::once(h.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
-                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
-                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
-                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
-        );
-
-        challenge == self.challenge
-    }
+type ProofCmCs struct {
+	challenge big.Int
+	// rr
+	responseRandom big.Int
+	// rk
+	responseKeys []big.Int
+	// rm
+	responseAttributes []big.Int
 }
 
-*/
+// ConstructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
+func ConstructProofCmCs(
+	params *coconut.Parameters,
+	publicKey *elgamal.PublicKey,
+	ephemeralKeys []*elgamal.EphemeralKey,
+	commitment *bls381.G1Jac,
+	blindingFactor *big.Int,
+	privateAttributes []*coconut.Attribute,
+	publicAttributes []*coconut.Attribute,
+) (ProofCmCs, error) {
+	// note: this is only called from `prepare_blind_sign` that already checks
+	// whether private attributes are non-empty and whether we don't have too many
+	// attributes in total to sign.
+	// we also know, due to the single call place, that ephemeralKeys.len() == privateAttributes.len()
+
+	// witness creation
+	witnessBlinder, err := params.RandomScalar()
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+	witnessKeys, err := params.NRandomScalars(len(ephemeralKeys))
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+	witnessAttributes, err := params.NRandomScalars(len(privateAttributes) + len(publicAttributes))
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+
+	cmBytes := utils.G1JacobianToByteSlice(commitment)
+	h, err := utils.HashToG1(cmBytes[:])
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+	hJac := utils.ToG1Jacobian(&h)
+
+	// witnesses commitments
+	g1 := params.Gen1()
+
+	AwBytes := make([][]byte, len(witnessKeys))
+	BwBytes := make([][]byte, len(witnessKeys))
+
+	for i := range witnessKeys {
+		AwI := utils.G1ScalarMul(g1, witnessKeys[i]) // Aw[i] = (wk[i] * g1)
+		AwBytes[i] = utils.G1JacobianToByteSlice(&AwI)
+
+		BwI := utils.G1ScalarMul(&hJac, witnessAttributes[i])       // Bw[i] = (wm[i] * h)
+		tmp := utils.G1ScalarMul(publicKey.Gamma(), witnessKeys[i]) // tmp = wk[i] * gamma
+		BwI.AddAssign(&tmp)                                         // Bw[i] = (wm[i] * h) + (wk[i] * gamma)
+		BwBytes[i] = utils.G1JacobianToByteSlice(&BwI)
+	}
+
+	hs := params.Hs()
+	Cw := utils.G1ScalarMul(g1, &witnessBlinder)
+	for i := range witnessAttributes {
+		hsIJac := utils.ToG1Jacobian(hs[i])
+		tmp := utils.G1ScalarMul(&hsIJac, witnessAttributes[i]) // tmp = (wm[i] * hs[i])
+		Cw.AddAssign(&tmp)                                      // Cw = (wr * g1) + (wm[0] * hs[0]) + ... + (wm[i] * hs[i])
+	}
+	CwBytes := utils.G1JacobianToByteSlice(&Cw)
+
+	// challenge ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
+	challengeComponents := [][]byte{
+		utils.G1JacobianToByteSlice(g1),
+		utils.G2JacobianToByteSlice(params.Gen2()),
+		cmBytes,
+		utils.G1AffineToByteSlice(&h),
+		CwBytes,
+	}
+
+	for _, hsi := range hs {
+		challengeComponents = append(challengeComponents, utils.G1AffineToByteSlice(hsi))
+	}
+
+	challengeComponents = append(challengeComponents, AwBytes...)
+	challengeComponents = append(challengeComponents, BwBytes...)
+
+	challenge := constructChallenge(challengeComponents)
+
+	// responses
+	responseRandom := produceResponse(&witnessBlinder, &challenge, blindingFactor)
+	responseKeys := produceResponses(witnessKeys, &challenge, ephemeralKeys)
+	responseAttributes := produceResponses(witnessAttributes, &challenge, append(privateAttributes, publicAttributes...))
+
+	return ProofCmCs{
+		challenge:          challenge,
+		responseRandom:     responseRandom,
+		responseKeys:       responseKeys,
+		responseAttributes: responseAttributes,
+	}, nil
+}
+
+// Verify verifies non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
+func (proof *ProofCmCs) Verify(
+	params *coconut.Parameters,
+	publicKey *elgamal.PublicKey,
+	commitment *bls381.G1Jac,
+	attributesCiphertexts []*elgamal.Ciphertext,
+) bool {
+	if len(attributesCiphertexts) != len(proof.responseKeys) {
+		return false
+	}
+
+	// recompute h
+	cmBytes := utils.G1JacobianToByteSlice(commitment)
+	h, err := utils.HashToG1(cmBytes[:])
+	if err != nil {
+		return false
+	}
+	hJac := utils.ToG1Jacobian(&h)
+
+	g1 := params.Gen1()
+
+	// recompute witnesses commitments
+	AwBytes := make([][]byte, len(attributesCiphertexts))
+	BwBytes := make([][]byte, len(attributesCiphertexts))
+
+	for i := range attributesCiphertexts {
+		AwI := utils.G1ScalarMul(attributesCiphertexts[i].C1(), &proof.challenge) // Aw[i] = (c * c1[i])
+		tmp := utils.G1ScalarMul(g1, &proof.responseKeys[i])                      // tmp = (rk[i] * g1)
+		AwI.AddAssign(&tmp)                                                       // (c * c1[i]) + (rk[i] * g1)
+		AwBytes[i] = utils.G1JacobianToByteSlice(&AwI)
+
+		BwI := utils.G1ScalarMul(attributesCiphertexts[i].C2(), &proof.challenge) // Bw[i] = (c * c2[i])
+		tmp = utils.G1ScalarMul(publicKey.Gamma(), &proof.responseKeys[i])        // tmp = (rk[i] * gamma)
+		BwI.AddAssign(&tmp)                                                       // Bw[i] = (c * c2[i]) + (rk[i] * gamma)
+		tmp = utils.G1ScalarMul(&hJac, &proof.responseAttributes[i])              // tmp = (rm[i] * h)
+		BwI.AddAssign(&tmp)                                                       // Bw[i] = (c * c2[i]) + (rk[i] * gamma) + (rm[i] * h)
+		BwBytes[i] = utils.G1JacobianToByteSlice(&BwI)
+	}
+
+	hs := params.Hs()
+	Cw := utils.G1ScalarMul(g1, &proof.challenge) // Cw = (cm * c)
+	tmp := utils.G1ScalarMul(g1, &proof.responseRandom) // tmp = (rr * g1)
+	Cw.AddAssign(&tmp) // Cw = (cm * c) + (rr * g1)
+	for i := range proof.responseAttributes {
+		hsIJac := utils.ToG1Jacobian(hs[i])
+		tmp := utils.G1ScalarMul(&hsIJac, &proof.responseAttributes[i]) // tmp = (rm[i] * hs[i])
+		Cw.AddAssign(&tmp)                                      // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[i] * hs[i])
+	}
+	CwBytes := utils.G1JacobianToByteSlice(&Cw)
+
+	// challenge ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
+	challengeComponents := [][]byte{
+		utils.G1JacobianToByteSlice(g1),
+		utils.G2JacobianToByteSlice(params.Gen2()),
+		cmBytes,
+		utils.G1AffineToByteSlice(&h),
+		CwBytes,
+	}
+
+	for _, hsi := range hs {
+		challengeComponents = append(challengeComponents, utils.G1AffineToByteSlice(hsi))
+	}
+
+	challengeComponents = append(challengeComponents, AwBytes...)
+	challengeComponents = append(challengeComponents, BwBytes...)
+
+	challenge := constructChallenge(challengeComponents)
+
+	return challenge.Cmp(&proof.challenge) == 0
+}
+
 
 type ProofKappaNu struct {
 	// c

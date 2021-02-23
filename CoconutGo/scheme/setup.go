@@ -27,7 +27,7 @@ type Parameters struct {
 	// TODO: figure out if we want jacobian or affine coordinaates
 	g1aff bls381.G1Affine
 	g1jac bls381.G1Jac
-	hs []bls381.G1Affine
+	hs []*bls381.G1Affine
 	g2aff bls381.G2Affine
 	g2jac bls381.G2Jac
 
@@ -38,13 +38,13 @@ func Setup(numAttributes uint32) (*Parameters, error) {
 	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
 	order := fp.Modulus()
 
-	hs := make([]bls381.G1Affine, numAttributes)
+	hs := make([]*bls381.G1Affine, numAttributes)
 	for i := 1; i <= int(numAttributes); i++ {
 		hi, err := utils.HashToG1([]byte(fmt.Sprintf("h%v", i)))
 		if err != nil {
 			return nil, err
 		}
-		hs[i-1] = hi
+		hs[i-1] = &hi
 	}
 
 	return &Parameters{
@@ -70,8 +70,8 @@ func (params *Parameters) Gen2Affine() *bls381.G2Affine {
 	return &params.g2aff
 }
 
-func (params *Parameters) Hs() *[]bls381.G1Affine {
-	return &params.hs
+func (params *Parameters) Hs() []*bls381.G1Affine {
+	return params.hs
 }
 
 // or return Fp.Element directly?
