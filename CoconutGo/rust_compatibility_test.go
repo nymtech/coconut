@@ -22,21 +22,22 @@ func TestScalarSerialization(t *testing.T) {
 	expectedBytes := []byte{42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	expectedValue := "42"
 
-	assert.Equal(t, expectedBytes, utils.ReverseBytes(scalar.Bytes()))
 	assert.Equal(t, expectedValue, scalar.String())
 
 	var frScalar fr.Element
 	frScalar.SetBigInt(scalar)
 
-	assert.Equal(t, expectedLimbs, frScalar)
+	frScalarBytes := frScalar.Bytes()
 
+	assert.Equal(t, expectedBytes, utils.ReverseBytes(frScalarBytes[:]))
+	assert.Equal(t, expectedLimbs, frScalar)
 
 	// some exponentiation
 	scalar512 := big.NewInt(512)
 	var res big.Int
+
 	// 42^512 mod o
-	res.Mul(scalar, scalar512)
-	res.Mod(&res, fr.Modulus())
+	res.Exp(scalar, scalar512, fr.Modulus())
 
 	expectedLimbs = fr.Element{
 		12744553619634797806,
@@ -47,18 +48,14 @@ func TestScalarSerialization(t *testing.T) {
 	expectedBytes = []byte{249, 153, 114, 33, 163, 49, 188, 167, 110, 39, 174, 124, 246, 13, 60, 19, 170, 123, 111, 95, 160, 195, 40, 158, 97, 19, 159, 91, 117, 144, 195, 112}
 	expectedValue = "51004571234394176832463279876548201369249893565884470427882439455118619482617"
 
-	assert.Equal(t, expectedBytes, utils.ReverseBytes(scalar.Bytes()))
-	assert.Equal(t, expectedValue, scalar.String())
+	assert.Equal(t, expectedValue, res.String())
 
 	var frRes fr.Element
-	frScalar.SetBigInt(&res)
+	frRes.SetBigInt(&res)
+
+	frResBytes := frRes.Bytes()
 
 	assert.Equal(t, expectedLimbs, frRes)
-
-
-
-	// 42
-	// 42^512 mod order
-
+	assert.Equal(t, expectedBytes, utils.ReverseBytes(frResBytes[:]))
 }
 
