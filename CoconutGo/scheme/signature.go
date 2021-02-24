@@ -296,49 +296,48 @@ func ProveCredential(
 	}, nil
 }
 
-/*
+func VerifyCredential(
+	params *Parameters,
+	verificationKey *VerificationKey,
+	theta *Theta,
+	publicAttributes []*Attribute,
+) bool {
+	numPrivate := len(theta.piV.response_attributes)
 
+	if len(publicAttributes) + numPrivate > len(verificationKey.beta) {
+		return false
+	}
 
-pub fn verify_credential<R>(
-    params: &Parameters<R>,
-    verification_key: &VerificationKey,
-    theta: &Theta,
-    public_attributes: &[Attribute],
-) -> bool {
-    if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta.len() {
-        return false;
-    }
+	if !theta.verifyProof(params, verificationKey) {
+		return false
+	}
 
-    if !theta.verify_proof(params, verification_key) {
-        return false;
-    }
+	var kappa bls381.G2Jac
+	kappa.Set(&theta.kappa)
 
-    let kappa = if public_attributes.is_empty() {
-        theta.kappa
-    } else {
-        let signed_public_attributes = public_attributes
-            .iter()
-            .zip(
-                verification_key
-                    .beta
-                    .iter()
-                    .skip(theta.pi_v.private_attributes()),
-            )
-            .map(|(pub_attr, beta_i)| beta_i * pub_attr)
-            .sum::<G2Projective>();
+	if len(publicAttributes) > 0 {
+		for i := 0; i < len(publicAttributes); i++ {
+			tmp := utils.G2ScalarMul(&verificationKey.beta[i+numPrivate], publicAttributes[i]) // tmp = beta[m + i] ^ pubAttr[i]
+			kappa.AddAssign(&tmp)
+		}
+	}
 
-        theta.kappa + signed_public_attributes
-    };
+	var sig2Neg bls381.G1Affine
+	sig2Neg.FromJacobian(&theta.credential.sig2)
+	sig2Neg.Neg(&sig2Neg)
 
-    check_billinear_pairing(
-        &theta.credential.0.to_affine(),
-        &G2Prepared::from(kappa.to_affine()),
-        &(theta.credential.1 + theta.nu).to_affine(),
-        params.prepared_miller_g2(),
-    ) && !bool::from(theta.credential.0.is_identity())
+	pairCheck, err := bls381.PairingCheck(
+		[]bls381.G1Affine{utils.ToG1Affine(&theta.credential.sig1), sig2Neg},
+		[]bls381.G2Affine{utils.ToG2Affine(&kappa), *params.Gen2Affine()},
+	)
+
+	if err != nil {
+		return false
+	}
+
+	return !theta.credential.sig1.Z.IsZero() && pairCheck
 }
 
-*/
 
 func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {
