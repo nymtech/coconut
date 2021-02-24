@@ -231,10 +231,10 @@ type ProofKappaNu struct {
 	challenge big.Int
 
 	// rm
-	response_attributes []big.Int
+	responseAttributes []big.Int
 
 	// rt
-	response_blinder big.Int
+	responseBlinder big.Int
 }
 
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
@@ -245,7 +245,56 @@ func constructProofKappaNu(
 	privateAttributes []*CoconutGo.Attribute,
 	blindingFactor *big.Int,
 ) (ProofKappaNu, error) {
-	return ProofKappaNu{}, nil
+
+	// create witnesses
+	witnessRandom, err := params.RandomScalar()
+	if err != nil {
+		return ProofKappaNu{}, err
+	}
+
+	witnessAttributes, err := params.NRandomScalars(len(privateAttributes))
+	if err != nil {
+		return ProofKappaNu{}, err
+	}
+
+	// witnesses commitments
+	Aw := utils.G2ScalarMul(params.Gen2(), &witnessRandom) // Aw = (g2 ^ wt)
+	Aw.AddAssign(&verificationKey.alpha) // Aw = (g2 ^ wt) * alpha
+
+	for i := 0; i < len(witnessAttributes); i++ {
+		tmp := utils.G2ScalarMul(verificationKey.beta[i], witnessAttributes[i]) // tmp = beta[i] ^ wm[i]
+		Aw.AddAssign(&tmp) // Aw = (g2 ^ wt) * alpha * (beta[0] ^ wm[0]) * ... * (beta[i] ^ wm[i])
+	}
+
+	Bw := utils.G1ScalarMul(&signature.sig1, &witnessRandom) // Bw = (h ^ wt)
+
+	// challenge ([g1, g2, alpha, Aw, Bw]+hs+beta)
+	challengeComponents := [][]byte {
+		utils.G1JacobianToByteSlice(params.Gen1()),
+		utils.G2JacobianToByteSlice(params.Gen2()),
+		utils.G2JacobianToByteSlice(verificationKey.Alpha()),
+		utils.G2JacobianToByteSlice(&Aw),
+		utils.G1JacobianToByteSlice(&Bw),
+	}
+
+	for _, hsi := range params.Hs() {
+		challengeComponents = append(challengeComponents, utils.G1AffineToByteSlice(hsi))
+	}
+
+	for _, betai := range verificationKey.Beta() {
+		challengeComponents = append(challengeComponents, utils.G2JacobianToByteSlice(betai))
+	}
+
+	challenge := constructChallenge(challengeComponents)
+
+	responseRandom := produceResponse(&witnessRandom, &challenge, blindingFactor)
+	responseAttributes := produceResponses(witnessAttributes, &challenge, privateAttributes)
+
+	return ProofKappaNu{
+		challenge:          challenge,
+		responseAttributes: responseAttributes,
+		responseBlinder:    responseRandom,
+	}, nil
 }
 
 /*
@@ -299,14 +348,14 @@ pub(crate) fn construct<R: RngCore + CryptoRng>(
         );
 
         // responses
-        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
-        let response_attributes =
+        let responseBlinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
+        let responseAttributes =
             produce_responses(&witness_attributes, &challenge, private_attributes);
 
         ProofKappaNu {
             challenge,
-            response_attributes,
-            response_blinder,
+            responseAttributes,
+            responseBlinder,
         }
     }
  */

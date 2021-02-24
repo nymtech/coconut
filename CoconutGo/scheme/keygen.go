@@ -41,9 +41,10 @@ func (sk *SecretKey) VerificationKey(params *Parameters) VerificationKey {
 	g2 := params.Gen2()
 
 	alpha := utils.G2ScalarMul(g2, &sk.x)
-	beta := make([]bls381.G2Jac, len(sk.ys))
+	beta := make([]*bls381.G2Jac, len(sk.ys))
 	for i, y := range sk.ys {
-		beta[i] = utils.G2ScalarMul(g2, &y)
+		betai := utils.G2ScalarMul(g2, &y)
+		beta[i] = &betai
 	}
 
 	return VerificationKey{
@@ -55,7 +56,7 @@ func (sk *SecretKey) VerificationKey(params *Parameters) VerificationKey {
 // VerificationKey represents verification key of a Coconut signing authority.
 type VerificationKey struct {
 	alpha bls381.G2Jac
-	beta  []bls381.G2Jac
+	beta  []*bls381.G2Jac
 }
 
 // Alpha returns appropriate part of the the verification key
@@ -64,8 +65,8 @@ func (vk *VerificationKey) Alpha() *bls381.G2Jac {
 }
 
 // Beta returns appropriate part of the the verification key
-func (vk *VerificationKey) Beta() *[]bls381.G2Jac {
-	return &vk.beta
+func (vk *VerificationKey) Beta() []*bls381.G2Jac {
+	return vk.beta
 }
 
 type KeyPair struct {

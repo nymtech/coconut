@@ -302,7 +302,7 @@ func VerifyCredential(
 	theta *Theta,
 	publicAttributes []*Attribute,
 ) bool {
-	numPrivate := len(theta.piV.response_attributes)
+	numPrivate := len(theta.piV.responseAttributes)
 
 	if len(publicAttributes) + numPrivate > len(verificationKey.beta) {
 		return false
