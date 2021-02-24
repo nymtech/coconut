@@ -27,6 +27,21 @@ type Signature struct {
 	sig2 bls381.G1Jac
 }
 
+func (sig *Signature) Randomise(params *Parameters) (Signature, error) {
+	r, err := params.RandomScalar()
+	if err != nil {
+		return Signature{}, err
+	}
+
+	sig1 := utils.G1ScalarMul(&sig.sig1, &r)
+	sig2 := utils.G1ScalarMul(&sig.sig2, &r)
+
+	return Signature{
+		sig1: sig1,
+		sig2: sig2,
+	}, nil
+}
+
 type BlindedSignature struct {
 	sig1 bls381.G1Jac
 	sig2 elgamal.Ciphertext
@@ -50,7 +65,7 @@ type BlindSignRequest struct {
 }
 
 func (blindSignRequest *BlindSignRequest) verifyProof(params *Parameters, pubKey *elgamal.PublicKey) bool {
-	return blindSignRequest.piS.Verify(params, pubKey, &blindSignRequest.commitment, blindSignRequest.attributesCiphertexts)
+	return blindSignRequest.piS.verify(params, pubKey, &blindSignRequest.commitment, blindSignRequest.attributesCiphertexts)
 }
 
 func PrepareBlindSign(
@@ -110,7 +125,7 @@ func PrepareBlindSign(
 		ephemeralKeys[i] = &ephemeralKey
 	}
 
-	piS, err := ConstructProofCmCs(params, publicKey, ephemeralKeys, &commitment, &blinder, privateAttributes, publicAttributes)
+	piS, err := constructProofCmCs(params, publicKey, ephemeralKeys, &commitment, &blinder, privateAttributes, publicAttributes)
 	if err != nil {
 		return BlindSignRequest{}, err
 	}
@@ -222,75 +237,67 @@ type Theta struct {
 }
 
 func (theta *Theta) verifyProof(params *Parameters, verificationKey *VerificationKey) bool {
-	return theta.piV.Verify(params, verificationKey, &theta.credential, &theta.kappa, &theta.nu)
+	return theta.piV.verify(params, verificationKey, &theta.credential, &theta.kappa, &theta.nu)
 }
 
-//func ProveCredential(
-//	params *Parameters,
-//	verificationKey VerificationKey,
-//	signature &Signature,
-//	privateAttributes []*Attribute,
-//) (Theta, error) {
-//	return Theta{}, nil
-//}
+func ProveCredential(
+	params *Parameters,
+	verificationKey *VerificationKey,
+	signature *Signature,
+	privateAttributes []*Attribute,
+) (Theta, error) {
+	if len(privateAttributes) == 0 {
+		//	        return Err(Error::new(
+		//            ErrorKind::Verification,
+		//            "tried to prove a credential with an empty set of private attributes",
+		//        ));
+	}
+
+	if len(privateAttributes) > len(verificationKey.beta) {
+		//return Err(Error::new(
+		//	ErrorKind::Verification,
+		//	format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
+		//	verification_key.beta.len(),
+		//	private_attributes.len()
+		//)));
+	}
+
+	// TODO: should randomization be part of this procedure or should
+	// it be up to the user?
+	signaturePrime, err := signature.Randomise(params)
+	if err != nil {
+		return Theta{}, err
+	}
+
+	blindingFactor, err := params.RandomScalar()
+	if err != nil {
+		return Theta{}, err
+	}
+
+	kappa := utils.G2ScalarMul(params.Gen2(), &blindingFactor) // kappa = g2 ^ r
+	kappa.AddAssign(&verificationKey.alpha)                    // kappa = g2 ^ r * alpha
+	for i := 0; i < len(privateAttributes); i++ {
+		tmp := utils.G2ScalarMul(&verificationKey.beta[i], privateAttributes[i]) // tmp = beta[i] ^ priv[i]
+		kappa.AddAssign(&tmp)                                                    // kappa = g2 ^ r * alpha * beta[0] ^ priv[0] * ... * beta[m] ^ priv[m]
+	}
+
+	nu := utils.G1ScalarMul(&signature.sig1, &blindingFactor) // nu = h^r
+
+	piV, err := constructProofKappaNu(params, verificationKey, signature, privateAttributes, &blindingFactor)
+	if err != nil {
+		return Theta{}, err
+	}
+
+	return Theta{
+		kappa:      kappa,
+		nu:         nu,
+		credential: signaturePrime,
+		piV:        piV,
+	}, nil
+}
 
 /*
 
-pub fn prove_credential<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
-    verification_key: &VerificationKey,
-    signature: &Signature,
-    private_attributes: &[Attribute],
-) -> Result<Theta> {
-    if private_attributes.is_empty() {
-        return Err(Error::new(
-            ErrorKind::Verification,
-            "tried to prove a credential with an empty set of private attributes",
-        ));
-    }
-
-    if private_attributes.len() > verification_key.beta.len() {
-        return Err(Error::new(
-            ErrorKind::Verification,
-            format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
-                    verification_key.beta.len(),
-                    private_attributes.len()
-            )));
-    }
-
-    // TODO: should randomization be part of this procedure or should
-    // it be up to the user?
-    let signature_prime = signature.randomise(params);
-
-    // TODO NAMING: 'kappa', 'nu', 'blinding factor'
-    let blinding_factor = params.random_scalar();
-    let kappa = params.gen2() * blinding_factor
-        + verification_key.alpha
-        + private_attributes
-            .iter()
-            .zip(verification_key.beta.iter())
-            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-            .sum::<G2Projective>();
-    let nu = signature_prime.sig1() * blinding_factor;
-
-    let pi_v = ProofKappaNu::construct(
-        params,
-        verification_key,
-        &signature_prime,
-        private_attributes,
-        &blinding_factor,
-    );
-
-    // kappa = alpha * beta^m * g2^r
-    // nu = h^r
-
-    Ok(Theta {
-        kappa,
-        nu,
-        credential: signature_prime,
-        pi_v,
-    })
-}
 
 pub fn verify_credential<R>(
     params: &Parameters<R>,

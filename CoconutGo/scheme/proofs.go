@@ -63,8 +63,8 @@ type ProofCmCs struct {
 	responseAttributes []big.Int
 }
 
-// ConstructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
-func ConstructProofCmCs(
+// constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
+func constructProofCmCs(
 	params *CoconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	ephemeralKeys []*elgamal.EphemeralKey,
@@ -156,7 +156,7 @@ func ConstructProofCmCs(
 }
 
 // Verify verifies non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
-func (proof *ProofCmCs) Verify(
+func (proof *ProofCmCs) verify(
 	params *CoconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	commitment *bls381.G1Jac,
@@ -237,8 +237,8 @@ type ProofKappaNu struct {
 	response_blinder big.Int
 }
 
-// ConstructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
-func ConstructProofKappaNu(
+// constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
+func constructProofKappaNu(
 	params *CoconutGo.Parameters,
 	verificationKey *VerificationKey,
 	signature *Signature,
@@ -312,7 +312,7 @@ pub(crate) fn construct<R: RngCore + CryptoRng>(
  */
 
 // Verify verifies non-interactive zero-knowledge proof of correctness of kappa and nu.
-func (proof *ProofKappaNu) Verify(
+func (proof *ProofKappaNu) verify(
 	params *CoconutGo.Parameters,
 	verificationKey *VerificationKey,
 	signature *Signature,
