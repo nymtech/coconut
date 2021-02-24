@@ -1,9 +1,9 @@
-package proofs
+package coconut
 
 import (
 	"crypto/sha256"
 	"github.com/consensys/gurvy/bls381"
-	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
@@ -65,13 +65,13 @@ type ProofCmCs struct {
 
 // ConstructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func ConstructProofCmCs(
-	params *coconut.Parameters,
+	params *CoconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	ephemeralKeys []*elgamal.EphemeralKey,
 	commitment *bls381.G1Jac,
 	blindingFactor *big.Int,
-	privateAttributes []*coconut.Attribute,
-	publicAttributes []*coconut.Attribute,
+	privateAttributes []*CoconutGo.Attribute,
+	publicAttributes []*CoconutGo.Attribute,
 ) (ProofCmCs, error) {
 	// note: this is only called from `prepare_blind_sign` that already checks
 	// whether private attributes are non-empty and whether we don't have too many
@@ -157,7 +157,7 @@ func ConstructProofCmCs(
 
 // Verify verifies non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func (proof *ProofCmCs) Verify(
-	params *coconut.Parameters,
+	params *CoconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	commitment *bls381.G1Jac,
 	attributesCiphertexts []*elgamal.Ciphertext,
@@ -235,4 +235,89 @@ type ProofKappaNu struct {
 
 	// rt
 	response_blinder big.Int
+}
+
+// ConstructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
+func ConstructProofKappaNu(
+	params *CoconutGo.Parameters,
+	verificationKey *VerificationKey,
+	signature *Signature,
+	privateAttributes []*CoconutGo.Attribute,
+	blindingFactor *big.Int,
+) (ProofKappaNu, error) {
+	return ProofKappaNu{}, nil
+}
+
+/*
+pub(crate) fn construct<R: RngCore + CryptoRng>(
+        params: &mut Parameters<R>,
+        verification_key: &VerificationKey,
+        signature: &Signature,
+        private_attributes: &[Attribute],
+        blinding_factor: &Scalar,
+    ) -> Self {
+        // create the witnesses
+        let witness_blinder = params.random_scalar();
+        let witness_attributes = params.n_random_scalars(private_attributes.len());
+
+        let h = signature.sig1();
+
+        let hs_bytes = params
+            .gen_hs()
+            .iter()
+            .map(|h| h.to_bytes())
+            .collect::<Vec<_>>();
+
+        let beta_bytes = verification_key
+            .beta
+            .iter()
+            .map(|beta_i| beta_i.to_bytes())
+            .collect::<Vec<_>>();
+
+        // witnesses commitments
+        // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
+        // TODO: kappa commitment??
+        // TODO NAMING: Aw, Bw
+        let Aw = params.gen2() * witness_blinder
+            + verification_key.alpha
+            + witness_attributes
+                .iter()
+                .zip(verification_key.beta.iter())
+                .map(|(wm_i, beta_i)| beta_i * wm_i)
+                .sum::<G2Projective>();
+
+        let Bw = h * witness_blinder;
+
+        let challenge = compute_challenge::<ChallengeDigest, _, _>(
+            std::iter::once(params.gen1().to_bytes().as_ref())
+                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
+                .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
+                .chain(std::iter::once(Aw.to_bytes().as_ref()))
+                .chain(std::iter::once(Bw.to_bytes().as_ref()))
+                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
+                .chain(beta_bytes.iter().map(|b| b.as_ref())),
+        );
+
+        // responses
+        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
+        let response_attributes =
+            produce_responses(&witness_attributes, &challenge, private_attributes);
+
+        ProofKappaNu {
+            challenge,
+            response_attributes,
+            response_blinder,
+        }
+    }
+ */
+
+// Verify verifies non-interactive zero-knowledge proof of correctness of kappa and nu.
+func (proof *ProofKappaNu) Verify(
+	params *CoconutGo.Parameters,
+	verificationKey *VerificationKey,
+	signature *Signature,
+	kappa *bls381.G2Jac,
+	nu *bls381.G1Jac,
+) bool {
+	return false
 }

@@ -8,6 +8,7 @@
 	- figure out which places should use Affine points rather than Jacobian
 	- clean-up errors
 	- tests
+	- move files around to more nicely deal with the cycles. having `CoconutGo.Parameters` and `coconut.VerificationKey` uses in the same file looks disgusting
 	- make comments notation consistent, i.e. either stick to g * r and g + h or g ^ r and g * h
 
  */

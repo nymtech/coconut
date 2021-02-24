@@ -1,4 +1,4 @@
-package proofs
+package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381/fr"

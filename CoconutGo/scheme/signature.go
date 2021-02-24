@@ -18,7 +18,6 @@ import (
 	"github.com/consensys/gurvy/bls381"
 	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/proofs"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
@@ -34,7 +33,7 @@ type BlindedSignature struct {
 }
 
 func (blindedSig *BlindedSignature) Unblind(privateKey *elgamal.PrivateKey) Signature {
-	return Signature {
+	return Signature{
 		sig1: blindedSig.sig1,
 		sig2: privateKey.Decrypt(&blindedSig.sig2),
 	}
@@ -47,7 +46,7 @@ type BlindSignRequest struct {
 	// c
 	attributesCiphertexts []*elgamal.Ciphertext
 	// pi_s
-	piS proofs.ProofCmCs
+	piS ProofCmCs
 }
 
 func (blindSignRequest *BlindSignRequest) verifyProof(params *Parameters, pubKey *elgamal.PublicKey) bool {
@@ -111,7 +110,7 @@ func PrepareBlindSign(
 		ephemeralKeys[i] = &ephemeralKey
 	}
 
-	piS, err := proofs.ConstructProofCmCs(params, publicKey, ephemeralKeys, &commitment, &blinder, privateAttributes, publicAttributes)
+	piS, err := ConstructProofCmCs(params, publicKey, ephemeralKeys, &commitment, &blinder, privateAttributes, publicAttributes)
 	if err != nil {
 		return BlindSignRequest{}, err
 	}
@@ -133,7 +132,7 @@ func BlindSign(
 	numPrivate := len(blindSignRequest.attributesCiphertexts)
 	hs := params.Hs()
 
-	if numPrivate + len(publicAttributes) > len(hs) {
+	if numPrivate+len(publicAttributes) > len(hs) {
 		//return Err(Error::new(
 		//	ErrorKind::Issuance,
 		//	format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
@@ -143,10 +142,10 @@ func BlindSign(
 	}
 
 	if !blindSignRequest.verifyProof(params, publicKey) {
-	//	return Err(Error::new(
-	//		ErrorKind::Issuance,
-	//		"failed to verify the proof of knowledge",
-	//));
+		//	return Err(Error::new(
+		//		ErrorKind::Issuance,
+		//		"failed to verify the proof of knowledge",
+		//));
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
@@ -164,9 +163,9 @@ func BlindSign(
 
 	// products contain [pub_m[0] * y[m + 1], ..., pub_m[n] * y[m + n]]
 	products := make([]*big.Int, len(publicAttributes))
-	for i := 0; i <  len(publicAttributes); i++ {
+	for i := 0; i < len(publicAttributes); i++ {
 		var product big.Int
-		product.Mul(publicAttributes[i], &secretKey.ys[i + numPrivate])
+		product.Mul(publicAttributes[i], &secretKey.ys[i+numPrivate])
 		products[i] = &product
 	}
 
@@ -175,14 +174,13 @@ func BlindSign(
 	// h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
 	signedPublic := utils.G1ScalarMul(&hJac, &publicProduct)
 
-
 	// productsTilde1 contain [c1[0] ^ y[0] , ..., c1[m] ^ y[m]]
 	productsTilde1 := make([]bls381.G1Jac, len(blindSignRequest.attributesCiphertexts))
 
 	// productsTilde1 contain [c2[0] ^ y[0] , ..., c2[m] ^ y[m]]
 	productsTilde2 := make([]bls381.G1Jac, len(blindSignRequest.attributesCiphertexts))
 
-	for i := 0; i < len(blindSignRequest.attributesCiphertexts); i ++ {
+	for i := 0; i < len(blindSignRequest.attributesCiphertexts); i++ {
 		c1 := blindSignRequest.attributesCiphertexts[i].C1()
 		c2 := blindSignRequest.attributesCiphertexts[i].C2()
 
@@ -193,13 +191,13 @@ func BlindSign(
 	// c1[0] ^ y[0] * ... * c1[m] ^ y[m]
 	var sigTilde1 bls381.G1Jac
 	sigTilde1.Set(&productsTilde1[0])
-	for i := 1; i < len(productsTilde1); i ++ {
+	for i := 1; i < len(productsTilde1); i++ {
 		sigTilde1.AddAssign(&productsTilde1[i])
 	}
 
 	sigTilde2 := utils.G1ScalarMul(&hJac, &secretKey.x) // sigTilde2 = h ^ x
-	for i := 0; i < len(productsTilde2); i ++ {
-		sigTilde2.AddAssign(& productsTilde2[i]) // sigTilde2 = h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m]
+	for i := 0; i < len(productsTilde2); i++ {
+		sigTilde2.AddAssign(&productsTilde2[i]) // sigTilde2 = h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m]
 	}
 
 	sigTilde2.AddAssign(&signedPublic) // sigTilde2 = h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
@@ -209,6 +207,131 @@ func BlindSign(
 		sig2: elgamal.CiphertextFromRaw(sigTilde1, sigTilde2),
 	}, nil
 }
+
+// TODO NAMING: this whole thing
+// Theta
+type Theta struct {
+	// kappa
+	kappa bls381.G2Jac
+	// nu
+	nu bls381.G1Jac
+	// sigma
+	credential Signature
+	// pi_v
+	piV ProofKappaNu
+}
+
+func (theta *Theta) verifyProof(params *Parameters, verificationKey *VerificationKey) bool {
+	return theta.piV.Verify(params, verificationKey, &theta.credential, &theta.kappa, &theta.nu)
+}
+
+//func ProveCredential(
+//	params *Parameters,
+//	verificationKey VerificationKey,
+//	signature &Signature,
+//	privateAttributes []*Attribute,
+//) (Theta, error) {
+//	return Theta{}, nil
+//}
+
+/*
+
+pub fn prove_credential<R: RngCore + CryptoRng>(
+    params: &mut Parameters<R>,
+    verification_key: &VerificationKey,
+    signature: &Signature,
+    private_attributes: &[Attribute],
+) -> Result<Theta> {
+    if private_attributes.is_empty() {
+        return Err(Error::new(
+            ErrorKind::Verification,
+            "tried to prove a credential with an empty set of private attributes",
+        ));
+    }
+
+    if private_attributes.len() > verification_key.beta.len() {
+        return Err(Error::new(
+            ErrorKind::Verification,
+            format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
+                    verification_key.beta.len(),
+                    private_attributes.len()
+            )));
+    }
+
+    // TODO: should randomization be part of this procedure or should
+    // it be up to the user?
+    let signature_prime = signature.randomise(params);
+
+    // TODO NAMING: 'kappa', 'nu', 'blinding factor'
+    let blinding_factor = params.random_scalar();
+    let kappa = params.gen2() * blinding_factor
+        + verification_key.alpha
+        + private_attributes
+            .iter()
+            .zip(verification_key.beta.iter())
+            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+            .sum::<G2Projective>();
+    let nu = signature_prime.sig1() * blinding_factor;
+
+    let pi_v = ProofKappaNu::construct(
+        params,
+        verification_key,
+        &signature_prime,
+        private_attributes,
+        &blinding_factor,
+    );
+
+    // kappa = alpha * beta^m * g2^r
+    // nu = h^r
+
+    Ok(Theta {
+        kappa,
+        nu,
+        credential: signature_prime,
+        pi_v,
+    })
+}
+
+pub fn verify_credential<R>(
+    params: &Parameters<R>,
+    verification_key: &VerificationKey,
+    theta: &Theta,
+    public_attributes: &[Attribute],
+) -> bool {
+    if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta.len() {
+        return false;
+    }
+
+    if !theta.verify_proof(params, verification_key) {
+        return false;
+    }
+
+    let kappa = if public_attributes.is_empty() {
+        theta.kappa
+    } else {
+        let signed_public_attributes = public_attributes
+            .iter()
+            .zip(
+                verification_key
+                    .beta
+                    .iter()
+                    .skip(theta.pi_v.private_attributes()),
+            )
+            .map(|(pub_attr, beta_i)| beta_i * pub_attr)
+            .sum::<G2Projective>();
+
+        theta.kappa + signed_public_attributes
+    };
+
+    check_billinear_pairing(
+        &theta.credential.0.to_affine(),
+        &G2Prepared::from(kappa.to_affine()),
+        &(theta.credential.1 + theta.nu).to_affine(),
+        params.prepared_miller_g2(),
+    ) && !bool::from(theta.credential.0.is_identity())
+}
+
+*/
 
 func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {
