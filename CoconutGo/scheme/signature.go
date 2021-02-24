@@ -28,6 +28,18 @@ type Signature struct {
 	sig2 bls381.G1Jac
 }
 
+type BlindedSignature struct {
+	sig1 bls381.G1Jac
+	sig2 elgamal.Ciphertext
+}
+
+func (blindedSig *BlindedSignature) Unblind(privateKey *elgamal.PrivateKey) Signature {
+	return Signature {
+		sig1: blindedSig.sig1,
+		sig2: privateKey.Decrypt(&blindedSig.sig2),
+	}
+}
+
 // Lambda
 type BlindSignRequest struct {
 	// cm
@@ -111,113 +123,92 @@ func PrepareBlindSign(
 	}, nil
 }
 
-/*
+func BlindSign(
+	params *Parameters,
+	secretKey *SecretKey,
+	publicKey *elgamal.PublicKey,
+	blindSignRequest *BlindSignRequest,
+	publicAttributes []*Attribute,
+) (BlindedSignature, error) {
+	numPrivate := len(blindSignRequest.attributesCiphertexts)
+	hs := params.Hs()
 
-/// Builds cryptographic material required for blind sign.
-pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
-    pub_key: &elgamal::PublicKey,
-    private_attributes: &[Attribute],
-    public_attributes: &[Attribute],
-) -> Result<BlindSignRequest> {
+	if numPrivate + len(publicAttributes) > len(hs) {
+		//return Err(Error::new(
+		//	ErrorKind::Issuance,
+		//	format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
+		//	hs.len(),
+		//	num_private + public_attributes.len()
+		//)));
+	}
 
-    // prepare commitment
-    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-    let attr_cm = private_attributes
-        .iter()
-        .chain(public_attributes.iter())
-        .zip(hs)
-        .map(|(&m, h)| h * m)
-        .sum::<G1Projective>();
-    let blinder = params.random_scalar();
-    // g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
-    let commitment = params.gen1() * blinder + attr_cm;
+	if !blindSignRequest.verifyProof(params, publicKey) {
+	//	return Err(Error::new(
+	//		ErrorKind::Issuance,
+	//		"failed to verify the proof of knowledge",
+	//));
+	}
 
-    // build ElGamal encryption
-    let commitment_hash = hash_g1(commitment.to_bytes());
-    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = private_attributes
-        .iter()
-        .map(|m| pub_key.encrypt(params, &commitment_hash, m))
-        .unzip();
+	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
+	h, err := utils.HashToG1(cmBytes[:])
+	if err != nil {
+		return BlindedSignature{}, err
+	}
+	hJac := utils.ToG1Jacobian(&h)
 
-    let pi_s = ProofCmCs::construct(
-        params,
-        pub_key,
-        &ephemeral_keys,
-        &commitment,
-        &blinder,
-        private_attributes,
-        public_attributes,
-    );
+	// sign public attributes
 
-    Ok(BlindSignRequest {
-        commitment,
-        attributes_ciphertexts,
-        pi_s,
-    })
+	// in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
+	// i.e. compute h * (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n]) directly (where m is number of PRIVATE attributes)
+	// rather than ((h * pub_m[0]) * y[m + 1] , (h * pub_m[1]) * y[m + 2] , ...).sum() separately
+
+	// products contain [pub_m[0] * y[m + 1], ..., pub_m[n] * y[m + n]]
+	products := make([]*big.Int, len(publicAttributes))
+	for i := 0; i <  len(publicAttributes); i++ {
+		var product big.Int
+		product.Mul(publicAttributes[i], &secretKey.ys[i + numPrivate])
+		products[i] = &product
+	}
+
+	publicProduct := utils.SumScalars(products)
+
+	// h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
+	signedPublic := utils.G1ScalarMul(&hJac, &publicProduct)
+
+
+	// productsTilde1 contain [c1[0] ^ y[0] , ..., c1[m] ^ y[m]]
+	productsTilde1 := make([]bls381.G1Jac, len(blindSignRequest.attributesCiphertexts))
+
+	// productsTilde1 contain [c2[0] ^ y[0] , ..., c2[m] ^ y[m]]
+	productsTilde2 := make([]bls381.G1Jac, len(blindSignRequest.attributesCiphertexts))
+
+	for i := 0; i < len(blindSignRequest.attributesCiphertexts); i ++ {
+		c1 := blindSignRequest.attributesCiphertexts[i].C1()
+		c2 := blindSignRequest.attributesCiphertexts[i].C2()
+
+		productsTilde1[i] = utils.G1ScalarMul(c1, &secretKey.ys[i])
+		productsTilde2[i] = utils.G1ScalarMul(c2, &secretKey.ys[i])
+	}
+
+	// c1[0] ^ y[0] * ... * c1[m] ^ y[m]
+	var sigTilde1 bls381.G1Jac
+	sigTilde1.Set(&productsTilde1[0])
+	for i := 1; i < len(productsTilde1); i ++ {
+		sigTilde1.AddAssign(&productsTilde1[i])
+	}
+
+	sigTilde2 := utils.G1ScalarMul(&hJac, &secretKey.x) // sigTilde2 = h ^ x
+	for i := 0; i < len(productsTilde2); i ++ {
+		sigTilde2.AddAssign(& productsTilde2[i]) // sigTilde2 = h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m]
+	}
+
+	sigTilde2.AddAssign(&signedPublic) // sigTilde2 = h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
+
+	return BlindedSignature{
+		sig1: hJac,
+		sig2: elgamal.CiphertextFromRaw(sigTilde1, sigTilde2),
+	}, nil
 }
-
-pub fn blind_sign<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
-    secret_key: &SecretKey,
-    pub_key: &elgamal::PublicKey,
-    blind_sign_request: &BlindSignRequest,
-    public_attributes: &[Attribute],
-) -> Result<BlindedSignature> {
-    let num_private = blind_sign_request.attributes_ciphertexts.len();
-    let hs = params.gen_hs();
-
-    if num_private + public_attributes.len() > hs.len() {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
-                    hs.len(),
-                    num_private + public_attributes.len()
-            )));
-    }
-
-    if !blind_sign_request.verify_proof(params, pub_key) {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            "failed to verify the proof of knowledge",
-        ));
-    }
-
-    let h = hash_g1(blind_sign_request.commitment.to_bytes());
-
-    // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
-    // i.e. compute h * (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[n]) directly (where m is number of PRIVATE attributes)
-    // rather than ((h * pub_m[0]) * y[m + 1] , (h * pub_m[1]) * y[m + 2] , ...).sum() separately
-    let signed_public = h * public_attributes
-        .iter()
-        .zip(secret_key.ys.iter().skip(num_private))
-        .map(|(attr, yi)| attr * yi)
-        .sum::<Scalar>();
-
-    // y[0] * c1[0] + ... + y[n] * c1[n]
-    let sig_1 = blind_sign_request
-        .attributes_ciphertexts
-        .iter()
-        .map(|ciphertext| ciphertext.c1())
-        .zip(secret_key.ys.iter())
-        .map(|(c1, yi)| c1 * yi)
-        .sum();
-
-    // x * h + y[0] * c2[0] + ... y[m] * c2[m] + h * (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[n])
-    let sig_2 = blind_sign_request
-        .attributes_ciphertexts
-        .iter()
-        .map(|ciphertext| ciphertext.c2())
-        .zip(secret_key.ys.iter())
-        .map(|(c2, yi)| c2 * yi)
-        .chain(std::iter::once(h * secret_key.x))
-        .chain(std::iter::once(signed_public))
-        .sum();
-
-    Ok(BlindedSignature(h, (sig_1, sig_2).into()))
-}
-
-*/
 
 func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {

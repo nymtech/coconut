@@ -8,6 +8,7 @@
 	- figure out which places should use Affine points rather than Jacobian
 	- clean-up errors
 	- tests
+	- make comments notation consistent, i.e. either stick to g * r and g + h or g ^ r and g * h
 
  */
 
