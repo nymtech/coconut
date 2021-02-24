@@ -258,17 +258,17 @@ func constructProofKappaNu(
 
 	// witnesses commitments
 	Aw := utils.G2ScalarMul(params.Gen2(), &witnessRandom) // Aw = (g2 ^ wt)
-	Aw.AddAssign(&verificationKey.alpha) // Aw = (g2 ^ wt) * alpha
+	Aw.AddAssign(&verificationKey.alpha)                   // Aw = (g2 ^ wt) * alpha
 
 	for i := 0; i < len(witnessAttributes); i++ {
 		tmp := utils.G2ScalarMul(verificationKey.beta[i], witnessAttributes[i]) // tmp = beta[i] ^ wm[i]
-		Aw.AddAssign(&tmp) // Aw = (g2 ^ wt) * alpha * (beta[0] ^ wm[0]) * ... * (beta[i] ^ wm[i])
+		Aw.AddAssign(&tmp)                                                      // Aw = (g2 ^ wt) * alpha * (beta[0] ^ wm[0]) * ... * (beta[i] ^ wm[i])
 	}
 
 	Bw := utils.G1ScalarMul(&signature.sig1, &witnessRandom) // Bw = (h ^ wt)
 
 	// challenge ([g1, g2, alpha, Aw, Bw]+hs+beta)
-	challengeComponents := [][]byte {
+	challengeComponents := [][]byte{
 		utils.G1JacobianToByteSlice(params.Gen1()),
 		utils.G2JacobianToByteSlice(params.Gen2()),
 		utils.G2JacobianToByteSlice(verificationKey.Alpha()),
@@ -305,30 +305,29 @@ func (proof *ProofKappaNu) verify(
 	nu *bls381.G1Jac,
 ) bool {
 	// recompute Kappa and Nu commitments
-	Aw := utils.G2ScalarMul(kappa, &proof.challenge) // Aw = (kappa ^ c)
+	Aw := utils.G2ScalarMul(kappa, &proof.challenge)                // Aw = (kappa ^ c)
 	tmp := utils.G2ScalarMul(params.Gen2(), &proof.responseBlinder) // tmp = (g2 ^ rt)
-	Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt)
+	Aw.AddAssign(&tmp)                                              // Aw = (kappa ^ c) * (g2 ^ rt)
 
-	// TODO: does 'one' scalar need to be converted to fr.Element first to get the proper multiplicative identity, i.e. 2^256 mod q?
-	var tmp2 big.Int
 	// tmp2 = (1 - c)
+	var tmp2 big.Int
 	tmp2.Sub(big.NewInt(1), &proof.challenge)
+
 	// tmp = alpha ^ (1 - c)
 	tmp = utils.G2ScalarMul(verificationKey.Alpha(), &tmp2)
 
 	Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt) * alpha ^ (1 - c)
 	for i := 0; i < len(proof.responseAttributes); i++ {
 		tmp := utils.G2ScalarMul(verificationKey.beta[i], &proof.responseAttributes[i]) // tmp = (beta[i] ^ rm[i])
-		Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt) * alpha ^ (1 - c) * (beta[0] ^ rm[0]) * ... * (beta[m] ^ rm[m])
+		Aw.AddAssign(&tmp)                                                              // Aw = (kappa ^ c) * (g2 ^ rt) * alpha ^ (1 - c) * (beta[0] ^ rm[0]) * ... * (beta[m] ^ rm[m])
 	}
 
-	Bw := utils.G1ScalarMul(nu, &proof.challenge) // Bw = (nu ^ c)
+	Bw := utils.G1ScalarMul(nu, &proof.challenge)                      // Bw = (nu ^ c)
 	tmp3 := utils.G1ScalarMul(&signature.sig1, &proof.responseBlinder) // tmp = (h ^ rt)
-	Bw.AddAssign(&tmp3) // Bw = (nu ^ c) * (h ^ rt)
-
+	Bw.AddAssign(&tmp3)                                                // Bw = (nu ^ c) * (h ^ rt)
 
 	// challenge ([g1, g2, alpha, Aw, Bw]+hs+beta)
-	challengeComponents := [][]byte {
+	challengeComponents := [][]byte{
 		utils.G1JacobianToByteSlice(params.Gen1()),
 		utils.G2JacobianToByteSlice(params.Gen2()),
 		utils.G2JacobianToByteSlice(verificationKey.Alpha()),

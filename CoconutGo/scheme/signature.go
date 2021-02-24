@@ -278,12 +278,12 @@ func ProveCredential(
 	kappa.AddAssign(&verificationKey.alpha)                    // kappa = g2 ^ r * alpha
 	for i := 0; i < len(privateAttributes); i++ {
 		tmp := utils.G2ScalarMul(verificationKey.beta[i], privateAttributes[i]) // tmp = beta[i] ^ priv[i]
-		kappa.AddAssign(&tmp)                                                    // kappa = g2 ^ r * alpha * beta[0] ^ priv[0] * ... * beta[m] ^ priv[m]
+		kappa.AddAssign(&tmp)                                                   // kappa = g2 ^ r * alpha * beta[0] ^ priv[0] * ... * beta[m] ^ priv[m]
 	}
 
-	nu := utils.G1ScalarMul(&signature.sig1, &blindingFactor) // nu = h^r
+	nu := utils.G1ScalarMul(&signaturePrime.sig1, &blindingFactor) // nu = h^r
 
-	piV, err := constructProofKappaNu(params, verificationKey, signature, privateAttributes, &blindingFactor)
+	piV, err := constructProofKappaNu(params, verificationKey, &signaturePrime, privateAttributes, &blindingFactor)
 	if err != nil {
 		return Theta{}, err
 	}
@@ -296,6 +296,24 @@ func ProveCredential(
 	}, nil
 }
 
+/// Checks whether e(P, Q) * e(-R, S) == id
+func checkBillinearPairing(p *bls381.G1Jac, q bls381.G2Affine, r *bls381.G1Jac, s bls381.G2Affine) bool {
+	var rNeg bls381.G1Affine
+	rNeg.FromJacobian(r)
+	rNeg.Neg(&rNeg)
+
+	pairCheck, err := bls381.PairingCheck(
+		[]bls381.G1Affine{utils.ToG1Affine(p), rNeg},
+		[]bls381.G2Affine{q, s},
+	)
+
+	if err != nil {
+		return false
+	}
+
+	return pairCheck
+}
+
 func VerifyCredential(
 	params *Parameters,
 	verificationKey *VerificationKey,
@@ -304,7 +322,7 @@ func VerifyCredential(
 ) bool {
 	numPrivate := len(theta.piV.responseAttributes)
 
-	if len(publicAttributes) + numPrivate > len(verificationKey.beta) {
+	if len(publicAttributes)+numPrivate > len(verificationKey.beta) {
 		return false
 	}
 
@@ -322,22 +340,12 @@ func VerifyCredential(
 		}
 	}
 
-	var sig2Neg bls381.G1Affine
-	sig2Neg.FromJacobian(&theta.credential.sig2)
-	sig2Neg.Neg(&sig2Neg)
+	var r bls381.G1Jac
+	r.Set(&theta.credential.sig2)
+	r.AddAssign(&theta.nu)
 
-	pairCheck, err := bls381.PairingCheck(
-		[]bls381.G1Affine{utils.ToG1Affine(&theta.credential.sig1), sig2Neg},
-		[]bls381.G2Affine{utils.ToG2Affine(&kappa), *params.Gen2Affine()},
-	)
-
-	if err != nil {
-		return false
-	}
-
-	return !theta.credential.sig1.Z.IsZero() && pairCheck
+	return checkBillinearPairing(&theta.credential.sig1, utils.ToG2Affine(&kappa), &r, *params.Gen2Affine()) && !theta.credential.sig1.Z.IsZero()
 }
-
 
 func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {
@@ -387,25 +395,12 @@ func Verify(params *Parameters, verificationKey *VerificationKey, publicAttribut
 		return false
 	}
 
-	var K bls381.G2Jac
-	K.Set(verificationKey.Alpha()) // K = X
+	var kappa bls381.G2Jac
+	kappa.Set(verificationKey.Alpha()) // kappa = X
 	for i := 0; i < len(publicAttributes); i++ {
 		tmp := utils.G2ScalarMul(verificationKey.beta[i], publicAttributes[i]) // (ai * Yi)
-		K.AddAssign(&tmp)                                                       // K = X + (a1 * Y1) + ...
+		kappa.AddAssign(&tmp)                                                  // kappa = X + (a1 * Y1) + ...
 	}
 
-	var sig2Neg bls381.G1Affine
-	sig2Neg.FromJacobian(&sig.sig2)
-	sig2Neg.Neg(&sig2Neg)
-
-	pairCheck, err := bls381.PairingCheck(
-		[]bls381.G1Affine{utils.ToG1Affine(&sig.sig1), sig2Neg},
-		[]bls381.G2Affine{utils.ToG2Affine(&K), *params.Gen2Affine()},
-	)
-
-	if err != nil {
-		return false
-	}
-
-	return !sig.sig1.Z.IsZero() && pairCheck
+	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
 }
