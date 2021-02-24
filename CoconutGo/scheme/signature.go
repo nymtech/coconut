@@ -277,7 +277,7 @@ func ProveCredential(
 	kappa := utils.G2ScalarMul(params.Gen2(), &blindingFactor) // kappa = g2 ^ r
 	kappa.AddAssign(&verificationKey.alpha)                    // kappa = g2 ^ r * alpha
 	for i := 0; i < len(privateAttributes); i++ {
-		tmp := utils.G2ScalarMul(&verificationKey.beta[i], privateAttributes[i]) // tmp = beta[i] ^ priv[i]
+		tmp := utils.G2ScalarMul(verificationKey.beta[i], privateAttributes[i]) // tmp = beta[i] ^ priv[i]
 		kappa.AddAssign(&tmp)                                                    // kappa = g2 ^ r * alpha * beta[0] ^ priv[0] * ... * beta[m] ^ priv[m]
 	}
 
@@ -317,7 +317,7 @@ func VerifyCredential(
 
 	if len(publicAttributes) > 0 {
 		for i := 0; i < len(publicAttributes); i++ {
-			tmp := utils.G2ScalarMul(&verificationKey.beta[i+numPrivate], publicAttributes[i]) // tmp = beta[m + i] ^ pubAttr[i]
+			tmp := utils.G2ScalarMul(verificationKey.beta[i+numPrivate], publicAttributes[i]) // tmp = beta[m + i] ^ pubAttr[i]
 			kappa.AddAssign(&tmp)
 		}
 	}
@@ -390,7 +390,7 @@ func Verify(params *Parameters, verificationKey *VerificationKey, publicAttribut
 	var K bls381.G2Jac
 	K.Set(verificationKey.Alpha()) // K = X
 	for i := 0; i < len(publicAttributes); i++ {
-		tmp := utils.G2ScalarMul(&verificationKey.beta[i], publicAttributes[i]) // (ai * Yi)
+		tmp := utils.G2ScalarMul(verificationKey.beta[i], publicAttributes[i]) // (ai * Yi)
 		K.AddAssign(&tmp)                                                       // K = X + (a1 * Y1) + ...
 	}
 

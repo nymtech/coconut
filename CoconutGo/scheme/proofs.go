@@ -245,7 +245,6 @@ func constructProofKappaNu(
 	privateAttributes []*CoconutGo.Attribute,
 	blindingFactor *big.Int,
 ) (ProofKappaNu, error) {
-
 	// create witnesses
 	witnessRandom, err := params.RandomScalar()
 	if err != nil {
@@ -297,69 +296,6 @@ func constructProofKappaNu(
 	}, nil
 }
 
-/*
-pub(crate) fn construct<R: RngCore + CryptoRng>(
-        params: &mut Parameters<R>,
-        verification_key: &VerificationKey,
-        signature: &Signature,
-        private_attributes: &[Attribute],
-        blinding_factor: &Scalar,
-    ) -> Self {
-        // create the witnesses
-        let witness_blinder = params.random_scalar();
-        let witness_attributes = params.n_random_scalars(private_attributes.len());
-
-        let h = signature.sig1();
-
-        let hs_bytes = params
-            .gen_hs()
-            .iter()
-            .map(|h| h.to_bytes())
-            .collect::<Vec<_>>();
-
-        let beta_bytes = verification_key
-            .beta
-            .iter()
-            .map(|beta_i| beta_i.to_bytes())
-            .collect::<Vec<_>>();
-
-        // witnesses commitments
-        // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
-        // TODO: kappa commitment??
-        // TODO NAMING: Aw, Bw
-        let Aw = params.gen2() * witness_blinder
-            + verification_key.alpha
-            + witness_attributes
-                .iter()
-                .zip(verification_key.beta.iter())
-                .map(|(wm_i, beta_i)| beta_i * wm_i)
-                .sum::<G2Projective>();
-
-        let Bw = h * witness_blinder;
-
-        let challenge = compute_challenge::<ChallengeDigest, _, _>(
-            std::iter::once(params.gen1().to_bytes().as_ref())
-                .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
-                .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
-                .chain(std::iter::once(Aw.to_bytes().as_ref()))
-                .chain(std::iter::once(Bw.to_bytes().as_ref()))
-                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
-                .chain(beta_bytes.iter().map(|b| b.as_ref())),
-        );
-
-        // responses
-        let responseBlinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
-        let responseAttributes =
-            produce_responses(&witness_attributes, &challenge, private_attributes);
-
-        ProofKappaNu {
-            challenge,
-            responseAttributes,
-            responseBlinder,
-        }
-    }
- */
-
 // Verify verifies non-interactive zero-knowledge proof of correctness of kappa and nu.
 func (proof *ProofKappaNu) verify(
 	params *CoconutGo.Parameters,
@@ -368,5 +304,47 @@ func (proof *ProofKappaNu) verify(
 	kappa *bls381.G2Jac,
 	nu *bls381.G1Jac,
 ) bool {
-	return false
+	// recompute Kappa and Nu commitments
+	Aw := utils.G2ScalarMul(kappa, &proof.challenge) // Aw = (kappa ^ c)
+	tmp := utils.G2ScalarMul(params.Gen2(), &proof.responseBlinder) // tmp = (g2 ^ rt)
+	Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt)
+
+	// TODO: does 'one' scalar need to be converted to fr.Element first to get the proper multiplicative identity, i.e. 2^256 mod q?
+	var tmp2 big.Int
+	// tmp2 = (1 - c)
+	tmp2.Sub(big.NewInt(1), &proof.challenge)
+	// tmp = alpha ^ (1 - c)
+	tmp = utils.G2ScalarMul(verificationKey.Alpha(), &tmp2)
+
+	Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt) * alpha ^ (1 - c)
+	for i := 0; i < len(proof.responseAttributes); i++ {
+		tmp := utils.G2ScalarMul(verificationKey.beta[i], &proof.responseAttributes[i]) // tmp = (beta[i] ^ rm[i])
+		Aw.AddAssign(&tmp) // Aw = (kappa ^ c) * (g2 ^ rt) * alpha ^ (1 - c) * (beta[0] ^ rm[0]) * ... * (beta[m] ^ rm[m])
+	}
+
+	Bw := utils.G1ScalarMul(nu, &proof.challenge) // Bw = (nu ^ c)
+	tmp3 := utils.G1ScalarMul(&signature.sig1, &proof.responseBlinder) // tmp = (h ^ rt)
+	Bw.AddAssign(&tmp3) // Bw = (nu ^ c) * (h ^ rt)
+
+
+	// challenge ([g1, g2, alpha, Aw, Bw]+hs+beta)
+	challengeComponents := [][]byte {
+		utils.G1JacobianToByteSlice(params.Gen1()),
+		utils.G2JacobianToByteSlice(params.Gen2()),
+		utils.G2JacobianToByteSlice(verificationKey.Alpha()),
+		utils.G2JacobianToByteSlice(&Aw),
+		utils.G1JacobianToByteSlice(&Bw),
+	}
+
+	for _, hsi := range params.Hs() {
+		challengeComponents = append(challengeComponents, utils.G1AffineToByteSlice(hsi))
+	}
+
+	for _, betai := range verificationKey.Beta() {
+		challengeComponents = append(challengeComponents, utils.G2JacobianToByteSlice(betai))
+	}
+
+	challenge := constructChallenge(challengeComponents)
+
+	return challenge.Cmp(&proof.challenge) == 0
 }

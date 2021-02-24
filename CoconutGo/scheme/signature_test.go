@@ -3,6 +3,7 @@ package coconut
 import (
 	"github.com/consensys/gurvy/bls381"
 	"github.com/stretchr/testify/assert"
+	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"testing"
 )
