@@ -15,7 +15,7 @@
 package elgamal
 
 import (
-	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
+	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"testing"
 
@@ -23,7 +23,7 @@ import (
 )
 
 func TestElGamalKeygen(t *testing.T) {
-	params, err := coconut.Setup(1)
+	params, err := Setup(1)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +40,7 @@ func TestElGamalKeygen(t *testing.T) {
 }
 
 func TestElGamalEncryption(t *testing.T) {
-	params, err := coconut.Setup(1)
+	params, err := Setup(1)
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +77,7 @@ func TestElGamalEncryption(t *testing.T) {
 }
 
 func TestElGamalDecryption(t *testing.T) {
-	params, err := coconut.Setup(1)
+	params, err := Setup(1)
 	if err != nil {
 		panic(err)
 	}

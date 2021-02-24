@@ -1,11 +1,9 @@
 package coconut
 
 import (
-	"fmt"
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/stretchr/testify/assert"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
-	"math/big"
 	"testing"
 )
 
@@ -34,13 +32,4 @@ func TestConstructChallengeCompatibility(t *testing.T) {
 
 	assert.Equal(t, expectedBytes, utils.ReverseBytes(frScalarBytes[:]))
 	assert.Equal(t, expectedLimbs, frScalar)
-}
-
-func TestFoo(t *testing.T) {
-	one := big.NewInt(1)
-
-	var aaa fr.Element
-	aaa.SetBigInt(one)
-
-	fmt.Println(aaa)
 }
