@@ -3,8 +3,8 @@ package proofs
 import (
 	"crypto/sha256"
 	"github.com/consensys/gurvy/bls381"
+	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
-	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
@@ -195,13 +195,13 @@ func (proof *ProofCmCs) Verify(
 	}
 
 	hs := params.Hs()
-	Cw := utils.G1ScalarMul(g1, &proof.challenge) // Cw = (cm * c)
+	Cw := utils.G1ScalarMul(g1, &proof.challenge)       // Cw = (cm * c)
 	tmp := utils.G1ScalarMul(g1, &proof.responseRandom) // tmp = (rr * g1)
-	Cw.AddAssign(&tmp) // Cw = (cm * c) + (rr * g1)
+	Cw.AddAssign(&tmp)                                  // Cw = (cm * c) + (rr * g1)
 	for i := range proof.responseAttributes {
 		hsIJac := utils.ToG1Jacobian(hs[i])
 		tmp := utils.G1ScalarMul(&hsIJac, &proof.responseAttributes[i]) // tmp = (rm[i] * hs[i])
-		Cw.AddAssign(&tmp)                                      // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[i] * hs[i])
+		Cw.AddAssign(&tmp)                                              // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[i] * hs[i])
 	}
 	CwBytes := utils.G1JacobianToByteSlice(&Cw)
 
@@ -225,7 +225,6 @@ func (proof *ProofCmCs) Verify(
 
 	return challenge.Cmp(&proof.challenge) == 0
 }
-
 
 type ProofKappaNu struct {
 	// c

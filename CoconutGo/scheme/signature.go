@@ -16,6 +16,7 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
+	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/proofs"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"

@@ -16,6 +16,7 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
+	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
@@ -23,10 +24,9 @@ import (
 // SecretKey represents secret key of a Coconut signing authority.
 type SecretKey struct {
 	// TODO: big.Int or Fp.Element?
-	x big.Int
+	x  big.Int
 	ys []big.Int
 }
-
 
 func (sk *SecretKey) X() *big.Int {
 	return &sk.x
@@ -69,7 +69,7 @@ func (vk *VerificationKey) Beta() *[]bls381.G2Jac {
 }
 
 type KeyPair struct {
-	secretKey SecretKey
+	secretKey       SecretKey
 	verificationKey VerificationKey
 
 	// Optional index value specifying polynomial point used during threshold key generation.
@@ -81,7 +81,7 @@ type KeyPair struct {
 // that are independent of each other.
 func Keygen(params *Parameters) (KeyPair, error) {
 	attributes := len(params.Hs())
-	x, err:= params.RandomScalar()
+	x, err := params.RandomScalar()
 	if err != nil {
 		return KeyPair{}, err
 	}
@@ -187,4 +187,4 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     Ok(keypairs)
 }
 
- */
+*/
