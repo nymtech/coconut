@@ -114,7 +114,6 @@ func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
 	return pAffBytes[:]
 }
 
-
 // that is super temporary as im not really sure whats the appropriate domain for the SWU map
 
 // NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!

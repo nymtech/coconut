@@ -94,7 +94,7 @@ func (poly *Polynomial) Evaluate(x *big.Int, modulus *big.Int) big.Int{
        .collect()
  */
 
-func generateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
+func GenerateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
 	x := big.NewInt(0)
 
 	coefficients := make([]*big.Int, len(points))
@@ -156,7 +156,7 @@ func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big
 	//));
 	}
 
-	coefficients := generateLagrangianCoefficientsAtOrigin(points)
+	coefficients := GenerateLagrangianCoefficientsAtOrigin(points)
 
 	result := big.NewInt(0)
 	for i := 0; i < len(coefficients); i++ {

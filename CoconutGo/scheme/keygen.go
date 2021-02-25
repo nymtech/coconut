@@ -76,7 +76,7 @@ type KeyPair struct {
 	verificationKey VerificationKey
 
 	// Optional index value specifying polynomial point used during threshold key generation.
-	index *uint64
+	index *SignerIndex
 }
 
 // Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
@@ -149,7 +149,7 @@ func TTPKeygen(params *Parameters, threshold uint64, numAuthorities uint64) ([]K
 	secretKeys := make([]SecretKey, numAuthorities)
 
 	// generate polynomial shares
-	for i := 0; i <= int(numAuthorities); i++ {
+	for i := 0; i < int(numAuthorities); i++ {
 		index := big.NewInt(int64(i + 1))
 
 		x := v.Evaluate(index, fr.Modulus())

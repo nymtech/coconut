@@ -80,6 +80,61 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
 	assert.False(t, VerifyCredential(params, &keypair1.verificationKey, &theta2, publicAttributes))
 }
 
+func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing.T) {
+	params, err := Setup(4)
+	unwrapError(err)
+
+	publicAttributes, err := params.NRandomScalars(2)
+	unwrapError(err)
+
+	privateAttributes, err := params.NRandomScalars(2)
+	unwrapError(err)
+
+	elgamalKeypair, err := elgamal.Keygen(params)
+	unwrapError(err)
+
+	keypairs, err := TTPKeygen(params, 2,3)
+	unwrapError(err)
+
+	lambda, err := PrepareBlindSign(params, elgamalKeypair.PublicKey(), privateAttributes, publicAttributes)
+	unwrapError(err)
+
+	sigs := make([]*Signature, 3)
+	for i := 0; i < 3; i++ {
+		blindedSig, err := BlindSign(params, &keypairs[i].secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
+		unwrapError(err)
+		sig := blindedSig.Unblind(elgamalKeypair.PrivateKey())
+		sigs[i] = &sig
+	}
+
+	verificationKeys := make([]*VerificationKey, 3)
+	for i := 0; i < 3; i++ {
+		verificationKeys[i] = &keypairs[i].verificationKey
+	}
+
+	aggrVk, err := AggregateVerificationKeys(verificationKeys[:2], []uint64{1,2})
+	unwrapError(err)
+
+	aggrSig, err := AggregateSignatures(sigs[:2],[]uint64{1,2})
+	unwrapError(err)
+
+	theta, err := ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
+	unwrapError(err)
+
+	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
+
+	// taking different subset of keys and credentials
+	aggrVk, err = AggregateVerificationKeys(verificationKeys[1:], []uint64{2,3})
+	unwrapError(err)
+
+	aggrSig, err = AggregateSignatures(sigs[1:],[]uint64{2, 3})
+	unwrapError(err)
+
+	theta, err = ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
+	unwrapError(err)
+
+	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
+}
 
 func BenchmarkDoublePairing(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()

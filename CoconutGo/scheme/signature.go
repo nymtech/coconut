@@ -27,6 +27,14 @@ type Signature struct {
 	sig2 bls381.G1Jac
 }
 
+type PartialSignature = Signature;
+type SignerIndex = uint64
+
+type SignatureShare struct {
+	signature Signature
+	index SignerIndex
+}
+
 func (sig *Signature) Randomise(params *Parameters) (Signature, error) {
 	r, err := params.RandomScalar()
 	if err != nil {
