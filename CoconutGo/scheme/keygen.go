@@ -16,7 +16,9 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fr"
 	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
+	"gitlab.nymte.ch/nym/coconut/CoconutGo/polynomial"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
 )
@@ -105,87 +107,75 @@ func Keygen(params *Parameters) (KeyPair, error) {
 	}, nil
 }
 
-/*
+// Generate a set of n Coconut keypairs [((x, y0, y1...), (g2^x, g2^y0, ...)), ...],
+// such that they support threshold aggregation by `threshold` number of parties.
+// It is expected that this procedure is executed by a Trusted Third Party.
+func TTPKeygen(params *Parameters, threshold uint64, numAuthorities uint64) ([]KeyPair, error) {
+	if threshold == 0 {
+	//	return Err(Error::new(
+	//		ErrorKind::Setup,
+	//		"tried to generate threshold keys with a 0 threshold value",
+	//));
+	}
 
-// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
-// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
-// that are independent of each other.
-pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
-    let attributes = params.gen_hs().len();
+	if threshold > numAuthorities {
+	//	return Err(Error::new(
+	//		ErrorKind::Setup,
+	//		"tried to generate threshold keys for threshold value being higher than number of the signingn authorities",
+	//));
+	}
 
-    let x = params.random_scalar();
-    let ys = params.n_random_scalars(attributes);
+	attributes := len(params.Hs())
 
-    let secret_key = SecretKey { x, ys };
-    let verification_key = secret_key.verification_key(params);
+	// generate polynomials
+	v, err := polynomial.NewRandomPolynomial(params, int(threshold-1))
+	if err != nil {
+		return nil, err
+	}
 
-    KeyPair {
-        secret_key,
-        verification_key,
-        index: None,
-    }
+	ws := make([]polynomial.Polynomial, attributes)
+	for i := 0; i < attributes; i++ {
+		w, err := polynomial.NewRandomPolynomial(params, int(threshold-1))
+		if err != nil {
+			return nil, err
+		}
+		ws[i] = w
+	}
+
+	// TODO: potentially if we had some known authority identifier we could use that instead
+	// of the increasing (1,2,3,...) sequence
+	//polynomialIndices := make([]uint64, numAuthorities)
+
+	secretKeys := make([]SecretKey, numAuthorities)
+
+	// generate polynomial shares
+	for i := 0; i <= int(numAuthorities); i++ {
+		index := big.NewInt(int64(i + 1))
+
+		x := v.Evaluate(index, fr.Modulus())
+
+		ys := make([]big.Int, attributes)
+		for j := 0; j < len(ws); j++ {
+			ys[j] = ws[j].Evaluate(index, fr.Modulus())
+		}
+
+		secretKeys[i] = SecretKey{
+			x:  x,
+			ys: ys,
+		}
+	}
+
+	keypairs := make([]KeyPair, numAuthorities)
+	for i := 0; i < int(numAuthorities); i++ {
+		verificationKey := secretKeys[i].VerificationKey(params)
+		index := uint64(i + 1)
+		keypairs[i] = KeyPair{
+			secretKey:       secretKeys[i],
+			verificationKey: verificationKey,
+			index:           &index,
+		}
+	}
+
+	return keypairs, nil
 }
 
-/// Generate a set of n Coconut keypairs [((x, y0, y1...), (g2^x, g2^y0, ...)), ...],
-/// such that they support threshold aggregation by `threshold` number of parties.
-/// It is expected that this procedure is executed by a Trusted Third Party.
-pub fn ttp_keygen<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
-    threshold: u64,
-    num_authorities: u64,
-) -> Result<Vec<KeyPair>> {
-    if threshold == 0 {
-        return Err(Error::new(
-            ErrorKind::Setup,
-            "tried to generate threshold keys with a 0 threshold value",
-        ));
-    }
-
-    if threshold > num_authorities {
-        return Err(Error::new(
-            ErrorKind::Setup,
-            "tried to generate threshold keys for threshold value being higher than number of the signingn authorities",
-        ));
-    }
-
-    let attributes = params.gen_hs().len();
-
-    // generate polynomials
-    let v = Polynomial::new_random(params, threshold - 1);
-    let ws = (0..attributes)
-        .map(|_| Polynomial::new_random(params, threshold - 1))
-        .collect::<Vec<_>>();
-
-    // TODO: potentially if we had some known authority identifier we could use that instead
-    // of the increasing (1,2,3,...) sequence
-    let polynomial_indices = (1..=num_authorities).collect::<Vec<_>>();
-
-    // generate polynomial shares
-    let x = polynomial_indices
-        .iter()
-        .map(|&id| v.evaluate(&Scalar::from(id)));
-    let ys = polynomial_indices.iter().map(|&id| {
-        ws.iter()
-            .map(|w| w.evaluate(&Scalar::from(id)))
-            .collect::<Vec<_>>()
-    });
-
-    // finally set the keys
-    let secret_keys = x.zip(ys).map(|(x, ys)| SecretKey { x, ys });
-
-    let keypairs = secret_keys
-        .zip(polynomial_indices.iter())
-        .map(|(secret_key, index)| {
-            let verification_key = secret_key.verification_key(params);
-            KeyPair {
-                secret_key,
-                verification_key,
-                index: Some(*index),
-            }
-        })
-        .collect();
-
-    Ok(keypairs)
-}
-
-*/
