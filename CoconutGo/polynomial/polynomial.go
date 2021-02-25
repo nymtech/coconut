@@ -69,68 +69,107 @@ func (poly *Polynomial) Evaluate(x *big.Int, modulus *big.Int) big.Int{
 }
 
 /*
-#[inline]
-fn generate_lagrangian_coefficients_at_origin(points: &[u64]) -> Vec<Scalar> {
-    let x = Scalar::zero();
+   points
+       .iter()
+       .enumerate()
+       .map(|(i, point_i)| {
+           let mut numerator = Scalar::one();
+           let mut denominator = Scalar::one();
+           let xi = Scalar::from(*point_i);
 
-    points
-        .iter()
-        .enumerate()
-        .map(|(i, point_i)| {
-            let mut numerator = Scalar::one();
-            let mut denominator = Scalar::one();
-            let xi = Scalar::from(*point_i);
+           for (j, point_j) in points.iter().enumerate() {
+               if j != i {
+                   let xj = Scalar::from(*point_j);
 
-            for (j, point_j) in points.iter().enumerate() {
-                if j != i {
-                    let xj = Scalar::from(*point_j);
+                   // numerator = (x - xs[0]) * ... * (x - xs[j]), j != i
+                   numerator *= x - xj;
 
-                    // numerator = (x - xs[0]) * ... * (x - xs[j]), j != i
-                    numerator *= x - xj;
+                   // denominator = (xs[i] - x[0]) * ... * (xs[i] - x[j]), j != i
+                   denominator *= xi - xj;
+               }
+           }
+           // numerator / denominator
+           numerator * denominator.invert().unwrap()
+       })
+       .collect()
+ */
 
-                    // denominator = (xs[i] - x[0]) * ... * (xs[i] - x[j]), j != i
-                    denominator *= xi - xj;
-                }
-            }
-            // numerator / denominator
-            numerator * denominator.invert().unwrap()
-        })
-        .collect()
+func generateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
+	x := big.NewInt(0)
+
+	coefficients := make([]*big.Int, len(points))
+
+	for i := 0; i < len(points); i++ {
+		numerator := big.NewInt(1)
+		denominator := big.NewInt(1)
+
+		var xi big.Int
+		xi.SetUint64(points[i])
+
+		for j := 0; j < len(points); j++ {
+			if j != i {
+				var xj big.Int
+				xj.SetUint64(points[j])
+
+				// tmp1 = (x - xs[j])
+				var tmp1 big.Int
+				tmp1.Sub(x, &xj)
+
+				// numerator = (x - xs[0]) * ... * (x - xs[j]), j != i
+				numerator.Mul(numerator, &tmp1)
+
+				// tmp2 = (xs[i] - xs[j])
+				var tmp2 big.Int
+				tmp2.Sub(&xi, &xj)
+
+				// denominator = (xs[i] - x[0]) * ... * (xs[i] - x[j]), j != i
+				denominator.Mul(denominator, &tmp2)
+			}
+		}
+		// TODO: would it be efficient to do it on fr.Element directly because it's more specific to the curve?
+		// TODO: BENCH
+		var res big.Int
+		res.Div(numerator, denominator)
+
+		coefficients[i] = &res
+	}
+
+	return coefficients
 }
 
-/// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
-/// It can be used for Scalars, G1 and G2 points.
-pub(crate) fn perform_lagrangian_interpolation_at_origin<T>(
-    points: &[SignerIndex],
-    values: &[T],
-) -> Result<T>
-where
-    T: Sum,
-    for<'a> &'a T: Mul<Scalar, Output = T>,
-{
-    if points.is_empty() || values.is_empty() {
-        return Err(Error::new(
-            ErrorKind::Interpolation,
-            "tried to perform lagrangian interpolation for an empty set of coordinates",
-        ));
-    }
 
-    if points.len() != values.len() {
-        return Err(Error::new(
-            ErrorKind::Interpolation,
-            "tried to perform lagrangian interpolation for an incomplete set of coordinates",
-        ));
-    }
+// no generics : (
 
-    let coefficients = generate_lagrangian_coefficients_at_origin(points);
+// Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
+func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big.Int)  (*big.Int, error) {
+	if len(points) == 0 || len(values) == 0 {
+	//	return Err(Error::new(
+	//		ErrorKind::Interpolation,
+	//		"tried to perform lagrangian interpolation for an empty set of coordinates",
+	//));
+	}
 
-    Ok(coefficients
-        .into_iter()
-        .zip(values.iter())
-        .map(|(coeff, val)| val * coeff)
-        .sum())
+	if len(points) != len(values) {
+	//	return Err(Error::new(
+	//		ErrorKind::Interpolation,
+	//		"tried to perform lagrangian interpolation for an incomplete set of coordinates",
+	//));
+	}
+
+	coefficients := generateLagrangianCoefficientsAtOrigin(points)
+
+	result := big.NewInt(0)
+	for i := 0; i < len(coefficients); i++ {
+		var product big.Int
+		product.Mul(coefficients[i], values[i])
+
+		result.Add(result, &product)
+	}
+
+	return result, nil
 }
 
+/*
 
 #[cfg(test)]
 mod tests {

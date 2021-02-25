@@ -61,5 +61,83 @@ func TestPolynomialEvaluation(t *testing.T) {
 	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(1),fr.Modulus()))
 	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(0),fr.Modulus()))
 	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(10),fr.Modulus()))
+}
 
+func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
+	// x^2 + 3
+	// x, f(x):
+	// 1, 4,
+	// 2, 7,
+	// 3, 12,
+	points := []uint64{1,2,3}
+	values := []*big.Int{big.NewInt(4),big.NewInt(7),big.NewInt(12)}
+
+	result, err := performBigIntLagrangianInterpolationAtOrigin(points, values)
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, big.NewInt(3), result)
+
+	// x^3 + 3x^2 - 5x + 11
+	// x, f(x):
+	// 1, 10
+	// 2, 21
+	// 3, 50
+	// 4, 103
+	points = []uint64{1, 2, 3, 4}
+	values = []*big.Int{
+		big.NewInt(10),
+		big.NewInt(21),
+		big.NewInt(50),
+		big.NewInt(103),
+	}
+
+	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values)
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, big.NewInt(11), result)
+
+
+	// more points than it is required
+	// x^2 + x + 10
+	// x, f(x)
+	// 1, 12
+	// 2, 16
+	// 3, 22
+	// 4, 30
+	// 5, 40
+	points = []uint64{1, 2, 3, 4, 5}
+	values = []*big.Int{
+		big.NewInt(12),
+		big.NewInt(16),
+		big.NewInt(22),
+		big.NewInt(30),
+		big.NewInt(40),
+	}
+
+	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values)
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, big.NewInt(10), result)
+}
+
+
+func TestFoo(t *testing.T) {
+	big42 := big.NewInt(42)
+	mod := fr.Modulus()
+
+	var inv big.Int
+	inv.ModInverse(big42, mod)
+
+	var product big.Int
+	product.Mul(big42, &inv)
+
+	product.Mod(&product, fr.Modulus())
+
+	assert.Equal(t, *big.NewInt(1), product)
 }
