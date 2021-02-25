@@ -17,11 +17,9 @@ package CoconutGo
 // this can't go into the `scheme` directory because Go is extremely stupid about cyclic dependencies
 // because you either import entire module or nothing at all...
 
-
 import (
 	"fmt"
 	"github.com/consensys/gurvy/bls381"
-	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
 	"math/big"
@@ -34,13 +32,10 @@ type Parameters struct {
 	hs []*bls381.G1Affine
 	g2aff bls381.G2Affine
 	g2jac bls381.G2Jac
-
-	order *big.Int
 }
 
 func Setup(numAttributes uint32) (*Parameters, error) {
 	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
-	order := fp.Modulus()
 
 	hs := make([]*bls381.G1Affine, numAttributes)
 	for i := 1; i <= int(numAttributes); i++ {
@@ -57,9 +52,7 @@ func Setup(numAttributes uint32) (*Parameters, error) {
 		g2aff: g2aff,
 		g1jac: g1jac,
 		g2jac: g2jac,
-
-		order: order,
-	}, nil
+		}, nil
 }
 
 func (params *Parameters) Gen1() *bls381.G1Jac {
@@ -78,7 +71,7 @@ func (params *Parameters) Hs() []*bls381.G1Affine {
 	return params.hs
 }
 
-// or return Fp.Element directly?
+// or return Fr.Element directly?
 func (params *Parameters) RandomScalar() (big.Int, error) {
 	var r fr.Element
 	_, err := r.SetRandom()
