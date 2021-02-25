@@ -31,49 +31,35 @@ func TestPolynomialEvaluation(t *testing.T) {
 	assert.Equal(t, *big.NewInt(42), poly.Evaluate(big.NewInt(0), fr.Modulus()))
 	assert.Equal(t, *big.NewInt(42), poly.Evaluate(big.NewInt(10), fr.Modulus()))
 
+
+	// y = x + 10, at x = 2 (exp: 12)
+	poly = Polynomial {
+		coefficients: []*big.Int{big.NewInt(10), big.NewInt(1)},
+	}
+
+	assert.Equal(t, *big.NewInt(12), poly.Evaluate(big.NewInt(2), fr.Modulus()))
+
+	// y = x^4 - 5x^2 + 2x - 3, at x = 3 (exp: 39)
+	poly = Polynomial {
+		coefficients: []*big.Int{
+			big.NewInt(-3),
+			big.NewInt(2),
+			big.NewInt(-5),
+			big.NewInt(0),
+			big.NewInt(1),
+		},
+	}
+
+	assert.Equal(t, *big.NewInt(39), poly.Evaluate(big.NewInt(3), fr.Modulus()))
+
+	// empty polynomial
+	poly = Polynomial {
+		coefficients: []*big.Int{},
+	}
+
+	// should always be 0
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(1),fr.Modulus()))
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(0),fr.Modulus()))
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(10),fr.Modulus()))
+
 }
-
-/*
-
-   #[test]
-   fn polynomial_evaluation() {
-       // y = 42 (it should be 42 regardless of x)
-       let poly = Polynomial {
-           coefficients: vec![Scalar::from(42)],
-       };
-
-       assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(1)));
-       assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(0)));
-       assert_eq!(Scalar::from(42), poly.evaluate(&Scalar::from(10)));
-
-       // y = x + 10, at x = 2 (exp: 12)
-       let poly = Polynomial {
-           coefficients: vec![Scalar::from(10), Scalar::from(1)],
-       };
-
-       assert_eq!(Scalar::from(12), poly.evaluate(&Scalar::from(2)));
-
-       // y = x^4 - 5x^2 + 2x - 3, at x = 3 (exp: 39)
-       let poly = Polynomial {
-           coefficients: vec![
-               (-Scalar::from(3)),
-               Scalar::from(2),
-               (-Scalar::from(5)),
-               Scalar::zero(),
-               Scalar::from(1),
-           ],
-       };
-
-       assert_eq!(Scalar::from(39), poly.evaluate(&Scalar::from(3)));
-
-       // empty polynomial
-       let poly = Polynomial {
-           coefficients: vec![],
-       };
-
-       // should always be 0
-       assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(1)));
-       assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(0)));
-       assert_eq!(Scalar::from(0), poly.evaluate(&Scalar::from(10)));
-   }
- */
