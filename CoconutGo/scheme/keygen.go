@@ -71,6 +71,23 @@ func (vk *VerificationKey) Beta() []*bls381.G2Jac {
 	return vk.beta
 }
 
+func (vk *VerificationKey) Equal(other *VerificationKey) bool {
+	if len(vk.beta) != len(other.beta) {
+		return false
+	}
+
+	if !utils.G2JacobianEqual(&vk.alpha, &other.alpha) {
+		return false
+	}
+
+	for i := 0; i < len(vk.beta); i++ {
+		if !utils.G2JacobianEqual(vk.beta[i], other.beta[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 type KeyPair struct {
 	secretKey       SecretKey
 	verificationKey VerificationKey

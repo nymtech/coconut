@@ -27,12 +27,28 @@ type Signature struct {
 	sig2 bls381.G1Jac
 }
 
+func (sig *Signature) Equal(other *Signature) bool {
+	return utils.G1JacobianEqual(&sig.sig1, &other.sig1) && utils.G1JacobianEqual(&sig.sig2, &other.sig2)
+}
+
 type PartialSignature = Signature;
 type SignerIndex = uint64
 
 type SignatureShare struct {
 	signature Signature
 	index SignerIndex
+}
+
+func NewSignatureShare(signature Signature, index SignerIndex) SignatureShare {
+	return SignatureShare{signature: signature, index: index}
+}
+
+func (sigShare *SignatureShare) Signature() *Signature {
+	return &sigShare.signature
+}
+
+func (sigShare *SignatureShare) Index() SignerIndex {
+	return sigShare.index
 }
 
 func (sig *Signature) Randomise(params *Parameters) (Signature, error) {

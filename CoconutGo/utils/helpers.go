@@ -114,6 +114,15 @@ func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
 	return pAffBytes[:]
 }
 
+// those two should not be used in performance critical parts of code (JS: they are only used in tests)
+func G1JacobianEqual(p1, p2 *bls381.G1Jac) bool {
+	return ToG1Affine(p1) == ToG1Affine(p2)
+}
+
+func G2JacobianEqual(p1, p2 *bls381.G2Jac) bool {
+	return ToG2Affine(p1) == ToG2Affine(p2)
+}
+
 // that is super temporary as im not really sure whats the appropriate domain for the SWU map
 
 // NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!
