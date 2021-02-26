@@ -23,6 +23,8 @@ import (
 	"math/big"
 )
 
+
+
 // SecretKey represents secret key of a Coconut signing authority.
 type SecretKey struct {
 	// TODO: big.Int or Fp.Element?
@@ -129,17 +131,11 @@ func Keygen(params *Parameters) (KeyPair, error) {
 // It is expected that this procedure is executed by a Trusted Third Party.
 func TTPKeygen(params *Parameters, threshold uint64, numAuthorities uint64) ([]KeyPair, error) {
 	if threshold == 0 {
-	//	return Err(Error::new(
-	//		ErrorKind::Setup,
-	//		"tried to generate threshold keys with a 0 threshold value",
-	//));
+		return nil, ErrZeroThreshold
 	}
 
 	if threshold > numAuthorities {
-	//	return Err(Error::new(
-	//		ErrorKind::Setup,
-	//		"tried to generate threshold keys for threshold value being higher than number of the signingn authorities",
-	//));
+		return nil, ErrInvalidThreshold
 	}
 
 	attributes := len(params.Hs())

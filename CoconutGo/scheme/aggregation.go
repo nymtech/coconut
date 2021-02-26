@@ -15,22 +15,10 @@
 package coconut
 
 import (
-	"errors"
 	"github.com/consensys/gurvy/bls381"
+	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/polynomial"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
-)
-
-var (
-	ErrInterpolationEmpty = errors.New("tried to perform lagrangian interpolation for an empty set of coordinates")
-
-	ErrInterpolationIncomplete = errors.New("tried to perform lagrangian interpolation for an incomplete set of coordinates")
-
-	ErrAggregationEmpty = errors.New("tried to aggregate an empty set of values")
-
-	ErrDifferentSizeKeyAggregation = errors.New("tried to aggregate verification keys of different lengths")
-
-	ErrAggregationNonUniqueIndices = errors.New("tried to perform aggregation on a set of non-unique indices")
 )
 
 func checkUniqueIndices(indices []SignerIndex) bool {

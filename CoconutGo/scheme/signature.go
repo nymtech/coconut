@@ -15,6 +15,7 @@
 package coconut
 
 import (
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
@@ -99,21 +100,13 @@ func PrepareBlindSign(
 	publicAttributes []*Attribute,
 ) (BlindSignRequest, error) {
 	if len(privateAttributes) == 0 {
-		//	return Err(Error::new(
-		//		ErrorKind::Issuance,
-		//		"tried to prepare blind sign request for an empty set of private attributes",
-		//));
+		return BlindSignRequest{}, ErrPrepareBlindSignNoPrivate
 	}
 
 	hs := params.Hs()
 
 	if len(privateAttributes)+len(publicAttributes) > len(hs) {
-		//return Err(Error::new(
-		//	ErrorKind::Issuance,
-		//	format!("tried to prepare blind sign request for higher than specified in setup number of attributes (max: {}, requested: {})",
-		//	hs.len(),
-		//	private_attributes.len() + public_attributes.len()
-		//)));
+		return BlindSignRequest{}, ErrPrepareBlindSignTooManyAttributes
 	}
 
 	// prepare commitment
@@ -172,19 +165,11 @@ func BlindSign(
 	hs := params.Hs()
 
 	if numPrivate+len(publicAttributes) > len(hs) {
-		//return Err(Error::new(
-		//	ErrorKind::Issuance,
-		//	format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
-		//	hs.len(),
-		//	num_private + public_attributes.len()
-		//)));
+		return BlindedSignature{}, ErrBlindSignTooManyAttributes
 	}
 
 	if !blindSignRequest.verifyProof(params, publicKey) {
-		//	return Err(Error::new(
-		//		ErrorKind::Issuance,
-		//		"failed to verify the proof of knowledge",
-		//));
+		return BlindedSignature{}, ErrBlindSignProof
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
@@ -271,19 +256,11 @@ func ProveCredential(
 	privateAttributes []*Attribute,
 ) (Theta, error) {
 	if len(privateAttributes) == 0 {
-		//	        return Err(Error::new(
-		//            ErrorKind::Verification,
-		//            "tried to prove a credential with an empty set of private attributes",
-		//        ));
+		return Theta{}, ErrProveNoPrivate
 	}
 
 	if len(privateAttributes) > len(verificationKey.beta) {
-		//return Err(Error::new(
-		//	ErrorKind::Verification,
-		//	format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
-		//	verification_key.beta.len(),
-		//	private_attributes.len()
-		//)));
+		return Theta{}, ErrProveTooManyAttributes
 	}
 
 	// TODO: should randomization be part of this procedure or should
@@ -428,3 +405,4 @@ func Verify(params *Parameters, verificationKey *VerificationKey, publicAttribut
 
 	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
 }
+
