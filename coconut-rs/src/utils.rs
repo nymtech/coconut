@@ -15,14 +15,18 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
-use crate::{G1HashDigest, G1HashPRNG};
-use bls12_381::{G1Projective, Scalar};
+use crate::G1HashDigest;
+use bls12_381::{G1Affine, G1Projective, Scalar};
 use core::iter::Sum;
 use core::ops::Mul;
+use digest::generic_array;
+use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use ff::Field;
-use group::Group;
+use group::{Group, GroupEncoding};
 use rand_core::{CryptoRng, RngCore, SeedableRng};
+use sha2::Sha384;
+use std::convert::TryInto;
 
 pub struct Polynomial {
     coefficients: Vec<Scalar>,
@@ -128,15 +132,58 @@ where
 // Eventually it should get replaced by, most likely, the osswu map
 // method once ideally it's implemented inside the pairing crate.
 pub(crate) fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
-    _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
+    // _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
+
+    _hash_g1_increment_and_check::<G1HashDigest, _>(msg)
 }
 
-fn increment_and_check<M: AsRef<[u8]>>(msg: M) -> G1Projective {
-    todo!()
+// unsafe, not constant time, temporary, etc
+#[doc(hidden)]
+fn _hash_g1_increment_and_check<D, M>(msg: M) -> G1Projective
+where
+    D: Digest,
+    M: AsRef<[u8]>,
+{
+    // TODO: when I'm less tired, do this at compile time
+    assert_eq!(D::OutputSize::to_usize(), 48);
+
+    let mut h = D::new();
+
+    let mut ctr = 0u64;
+    loop {
+        // add the counter suffix to the message
+        h.update(&msg);
+        h.update(&ctr.to_le_bytes());
+        ctr += 1;
+
+        let digest = h.finalize_reset();
+
+        // first bit must be set - otherwise it implies uncompressed form (i.e. 96 bytes)
+        // second bit must not be set - otherwise it implies the point at infinity
+        let compression_flag_set = ((digest[0] >> 7) & 1) == 1;
+        let infinity_flag_set = ((digest[0] >> 6) & 1) == 1;
+
+        // continue the loop as there's no point in attempting the point recovery
+        if !compression_flag_set || infinity_flag_set {
+            continue;
+        }
+
+        // that is actually 'safe' (relatively speaking), just not implemented by generic array directly
+        // for arrays bigger than 32. Considering that 'increment and check' method
+        // is not going to exist in the long run, I'd say it's ok to use 'unsafe' here
+        assert_eq!(digest.len(), 48);
+        let digest_array: [u8; 48] = unsafe { generic_array::transmute(digest) };
+
+        let option: Option<G1Affine> = G1Affine::from_compressed_unchecked(&digest_array).into();
+        if let Some(point) = option {
+            let point_projective: G1Projective = point.into();
+            return point_projective.clear_cofactor();
+        }
+    }
 }
 
 #[doc(hidden)]
-fn _hash_g1<D, R, M>(msg: M) -> G1Projective
+fn _hash_g1_seeded_rng<D, R, M>(msg: M) -> G1Projective
 where
     D: Digest,
     R: RngCore + SeedableRng,

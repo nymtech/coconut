@@ -72,66 +72,66 @@ where
 
     Scalar::from_bytes_wide(&bytes)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn foo() {
-        let d1 = [1, 2, 3, 4, 5];
-        let d2 = [6, 7, 8, 9, 10];
-        let vec = vec![d1, d2];
-        let iter = vec.iter();
-
-        let s = compute_challenge::<ChallengeDigest, _, _>(iter);
-        println!("{:?}", s.to_string());
-        println!("{:?}", s.to_bytes());
-        println!("{:?}", s);
-
-        assert!(false)
-    }
-
-    #[test]
-    fn bar() {
-        let mut bytes = [0u8; 64];
-        let data = [1, 2, 3, 4];
-
-        bytes[60..].copy_from_slice(&data);
-        let s = Scalar::from_bytes_wide(&bytes);
-
-        println!("s: {:?}", s);
-        println!("s: {:?}", s.to_bytes());
-
-        let s42 = Scalar::from(42);
-        let foo = s * s42;
-
-        println!("FOO");
-        println!("{:?}", foo.to_bytes());
-        println!("{:?}", foo.to_string());
-        // assert!(false)
-
-        println!();
-        println!();
-        println!();
-        println!();
-        println!();
-        let s_bytes_go = [
-            48, 40, 98, 96, 151, 178, 153, 124, 62, 43, 26, 188, 204, 223, 246, 103, 194, 210, 177,
-            140, 32, 195, 75, 10, 188, 234, 92, 118, 32, 17, 118, 71,
-        ];
-        let s_go = Scalar::from_bytes(&s_bytes_go).unwrap();
-        assert_eq!(s, s_go);
-
-        println!("foo");
-        let foo_bytes_go = [
-            199, 151, 26, 208, 238, 76, 55, 113, 89, 28, 116, 220, 75, 179, 251, 224, 95, 123, 94,
-            36, 142, 234, 199, 175, 204, 70, 221, 90, 52, 120, 41, 103,
-        ];
-        let foo_go = Scalar::from_bytes(&foo_bytes_go).unwrap();
-        assert_eq!(foo, foo_go);
-    }
-}
+//
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn foo() {
+//         let d1 = [1, 2, 3, 4, 5];
+//         let d2 = [6, 7, 8, 9, 10];
+//         let vec = vec![d1, d2];
+//         let iter = vec.iter();
+//
+//         let s = compute_challenge::<ChallengeDigest, _, _>(iter);
+//         println!("{:?}", s.to_string());
+//         println!("{:?}", s.to_bytes());
+//         println!("{:?}", s);
+//
+//         assert!(false)
+//     }
+//
+//     #[test]
+//     fn bar() {
+//         let mut bytes = [0u8; 64];
+//         let data = [1, 2, 3, 4];
+//
+//         bytes[60..].copy_from_slice(&data);
+//         let s = Scalar::from_bytes_wide(&bytes);
+//
+//         println!("s: {:?}", s);
+//         println!("s: {:?}", s.to_bytes());
+//
+//         let s42 = Scalar::from(42);
+//         let foo = s * s42;
+//
+//         println!("FOO");
+//         println!("{:?}", foo.to_bytes());
+//         println!("{:?}", foo.to_string());
+//         // assert!(false)
+//
+//         println!();
+//         println!();
+//         println!();
+//         println!();
+//         println!();
+//         let s_bytes_go = [
+//             48, 40, 98, 96, 151, 178, 153, 124, 62, 43, 26, 188, 204, 223, 246, 103, 194, 210, 177,
+//             140, 32, 195, 75, 10, 188, 234, 92, 118, 32, 17, 118, 71,
+//         ];
+//         let s_go = Scalar::from_bytes(&s_bytes_go).unwrap();
+//         assert_eq!(s, s_go);
+//
+//         println!("foo");
+//         let foo_bytes_go = [
+//             199, 151, 26, 208, 238, 76, 55, 113, 89, 28, 116, 220, 75, 179, 251, 224, 95, 123, 94,
+//             36, 142, 234, 199, 175, 204, 70, 221, 90, 52, 120, 41, 103,
+//         ];
+//         let foo_go = Scalar::from_bytes(&foo_bytes_go).unwrap();
+//         assert_eq!(foo, foo_go);
+//     }
+// }
 
 fn produce_response(witness: &Scalar, challenge: &Scalar, secret: &Scalar) -> Scalar {
     witness - challenge * secret
