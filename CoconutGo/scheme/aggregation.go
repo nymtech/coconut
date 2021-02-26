@@ -15,9 +15,22 @@
 package coconut
 
 import (
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/polynomial"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+)
+
+var (
+	ErrInterpolationEmpty = errors.New("tried to perform lagrangian interpolation for an empty set of coordinates")
+
+	ErrInterpolationIncomplete = errors.New("tried to perform lagrangian interpolation for an incomplete set of coordinates")
+
+	ErrAggregationEmpty = errors.New("tried to aggregate an empty set of values")
+
+	ErrDifferentSizeKeyAggregation = errors.New("tried to aggregate verification keys of different lengths")
+
+	ErrAggregationNonUniqueIndices = errors.New("tried to perform aggregation on a set of non-unique indices")
 )
 
 func checkUniqueIndices(indices []SignerIndex) bool {
@@ -34,17 +47,11 @@ func checkUniqueIndices(indices []SignerIndex) bool {
 
 func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, values []*VerificationKey)  (VerificationKey, error) {
 	if len(points) == 0 || len(values) == 0 {
-		//	return Err(Error::new(
-		//		ErrorKind::Interpolation,
-		//		"tried to perform lagrangian interpolation for an empty set of coordinates",
-		//));
+		return VerificationKey{}, ErrInterpolationEmpty
 	}
 
 	if len(points) != len(values) {
-		//	return Err(Error::new(
-		//		ErrorKind::Interpolation,
-		//		"tried to perform lagrangian interpolation for an incomplete set of coordinates",
-		//));
+		return VerificationKey{}, ErrInterpolationIncomplete
 	}
 
 	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
@@ -101,24 +108,16 @@ func checkSameKeySize(keys []*VerificationKey) bool {
 // no generics : (
 func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (VerificationKey, error) {
 	if len(keys) == 0 {
-	//	return Err(Error::new(
-	//		ErrorKind::Aggregation,
-	//		"tried to perform aggregation of an empty set of values",
-	//));
+		return VerificationKey{}, ErrAggregationEmpty
 	}
 
 	if !checkSameKeySize(keys) {
-	//	return Err(Error::new(
-	//		ErrorKind::Aggregation,
-	//		"tried to aggregate verification keys of different sizes",
-	//));
+		return VerificationKey{}, ErrDifferentSizeKeyAggregation
 	}
+
 	if len(indices) > 0 {
 		if !checkUniqueIndices(indices) {
-		//	return Err(Error::new(
-		//		ErrorKind::Aggregation,
-		//		"tried to perform aggregation on a set of non-unique indices",
-		//));
+			return VerificationKey{}, ErrAggregationNonUniqueIndices
 		}
 		return performVerificationKeyLagrangianInterpolationAtOrigin(indices, keys)
 	} else {
@@ -147,17 +146,11 @@ func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (
 
 func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*Signature)  (Signature, error) {
 	if len(points) == 0 || len(values) == 0 {
-		//	return Err(Error::new(
-		//		ErrorKind::Interpolation,
-		//		"tried to perform lagrangian interpolation for an empty set of coordinates",
-		//));
+		return Signature{}, ErrInterpolationEmpty
 	}
 
 	if len(points) != len(values) {
-		//	return Err(Error::new(
-		//		ErrorKind::Interpolation,
-		//		"tried to perform lagrangian interpolation for an incomplete set of coordinates",
-		//));
+		return Signature{}, ErrInterpolationIncomplete
 	}
 
 	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
@@ -182,18 +175,12 @@ func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*
 
 func AggregateSignatures(sigs []*PartialSignature, indices []SignerIndex) (Signature, error) {
 	if len(sigs) == 0 {
-	//Error::new(
-	//		ErrorKind::Aggregation,
-	//		"tried to aggregate empty set of signatures",
-	//)
+		return Signature{}, ErrAggregationEmpty
 	}
 
 	if len(indices) > 0 {
 		if !checkUniqueIndices(indices) {
-			//	return Err(Error::new(
-			//		ErrorKind::Aggregation,
-			//		"tried to perform aggregation on a set of non-unique indices",
-			//));
+			return Signature{}, ErrAggregationNonUniqueIndices
 		}
 		return performSignatureLagrangianInterpolationAtOrigin(indices, sigs)
 	} else {
