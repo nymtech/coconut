@@ -102,7 +102,7 @@ func checkSameKeySize(keys []*VerificationKey) bool {
 		}
 	}
 
-	return false
+	return true
 }
 
 // no generics : (
@@ -115,7 +115,7 @@ func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (
 		return VerificationKey{}, ErrDifferentSizeKeyAggregation
 	}
 
-	if len(indices) > 0 {
+	if indices != nil {
 		if !checkUniqueIndices(indices) {
 			return VerificationKey{}, ErrAggregationNonUniqueIndices
 		}
@@ -178,7 +178,7 @@ func AggregateSignatures(sigs []*PartialSignature, indices []SignerIndex) (Signa
 		return Signature{}, ErrAggregationEmpty
 	}
 
-	if len(indices) > 0 {
+	if indices != nil {
 		if !checkUniqueIndices(indices) {
 			return Signature{}, ErrAggregationNonUniqueIndices
 		}
