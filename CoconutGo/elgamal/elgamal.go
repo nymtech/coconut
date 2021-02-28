@@ -15,10 +15,10 @@
 package elgamal
 
 import (
-	"math/big"
 	"github.com/consensys/gurvy/bls381"
+	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/scheme"
+	"math/big"
 )
 
 type EphemeralKey = big.Int
@@ -42,7 +42,6 @@ func (c *Ciphertext) C2() *bls381.G1Jac {
 	return &c.c2
 }
 
-
 type PrivateKey struct {
 	d big.Int
 }
@@ -60,6 +59,10 @@ func (privateKey *PrivateKey) Decrypt(ciphertext *Ciphertext) bls381.G1Jac {
 
 type PublicKey struct {
 	gamma bls381.G1Jac
+}
+
+func (publicKey *PublicKey) Gamma() *bls381.G1Jac {
+	return &publicKey.gamma
 }
 
 func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac, msg *big.Int) (Ciphertext, EphemeralKey, error) {
@@ -88,7 +91,7 @@ func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac,
 
 type KeyPair struct {
 	privateKey PrivateKey
-	publicKey PublicKey
+	publicKey  PublicKey
 }
 
 func (keypair *KeyPair) PrivateKey() *PrivateKey {
@@ -111,9 +114,8 @@ func Keygen(params *coconut.Parameters) (*KeyPair, error) {
 		privateKey: PrivateKey{
 			d: d,
 		},
-		publicKey:  PublicKey{
+		publicKey: PublicKey{
 			gamma: gamma,
 		},
 	}, nil
 }
-

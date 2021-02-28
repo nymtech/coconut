@@ -181,7 +181,7 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
     if threshold > num_authorities {
         return Err(Error::new(
             ErrorKind::Setup,
-            "tried to generate threshold keys for threshold value being higher than number of the signingn authorities",
+            "tried to generate threshold keys for threshold value being higher than number of the signing authorities",
         ));
     }
 

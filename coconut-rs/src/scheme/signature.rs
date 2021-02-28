@@ -199,15 +199,15 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
     let h = hash_g1(blind_sign_request.commitment.to_bytes());
 
     // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
-    // i.e. compute h * (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[n]) directly (where m is number of PRIVATE attributes)
-    // rather than ((h * pub_m[0]) * y[m + 1] , (h * pub_m[1]) * y[m + 2] , ...).sum() separately
+    // i.e. compute h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n]) directly (where m is number of PRIVATE attributes)
+    // rather than ((h ^ pub_m[0]) ^ y[m + 1] , (h ^ pub_m[1]) ^ y[m + 2] , ...).sum() separately
     let signed_public = h * public_attributes
         .iter()
         .zip(secret_key.ys.iter().skip(num_private))
         .map(|(attr, yi)| attr * yi)
         .sum::<Scalar>();
 
-    // y[0] * c1[0] + ... + y[n] * c1[n]
+    // c1[0] ^ y[0] * ... * c1[m] ^ y[m]
     let sig_1 = blind_sign_request
         .attributes_ciphertexts
         .iter()
@@ -216,7 +216,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
         .map(|(c1, yi)| c1 * yi)
         .sum();
 
-    // x * h + y[0] * c2[0] + ... y[m] * c2[m] + h * (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[n])
+    // h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
     let sig_2 = blind_sign_request
         .attributes_ciphertexts
         .iter()

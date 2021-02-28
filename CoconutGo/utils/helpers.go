@@ -15,9 +15,27 @@
 package utils
 
 import (
+	"encoding/binary"
 	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fr"
 	"math/big"
 )
+
+// R^2 = 2^512 mod q
+var R2 = fr.Element{
+	14526898881837571181,
+	3129137299524312099,
+	419701826671360399,
+	524908885293268753,
+}
+
+// R^3 = 2^768 mod q
+var R3 = fr.Element{
+	14279814937963099055,
+	1963020886675057040,
+	8345518043873801240,
+	7938258146690806761,
+}
 
 // Takes a Scalar and a G1 element by reference and multiplies them together while allocating space for the result
 func G1ScalarMul(g1 *bls381.G1Jac, scalar *big.Int) bls381.G1Jac {
@@ -43,6 +61,12 @@ func G1Add(a *bls381.G1Jac, b *bls381.G1Jac) bls381.G1Jac {
 func ToG1Affine(jac *bls381.G1Jac) bls381.G1Affine {
 	var res bls381.G1Affine
 	res.FromJacobian(jac)
+	return res
+}
+
+func ToG1Jacobian(aff *bls381.G1Affine) bls381.G1Jac {
+	var res bls381.G1Jac
+	res.FromAffine(aff)
 	return res
 }
 
@@ -74,6 +98,30 @@ func ToG2Affine(jac *bls381.G2Jac) bls381.G2Affine {
 	return res
 }
 
+func G1AffineToByteSlice(p *bls381.G1Affine) []byte {
+	pBytes := p.Bytes()
+	return pBytes[:]
+}
+
+func G1JacobianToByteSlice(p *bls381.G1Jac) []byte {
+	pAff := ToG1Affine(p)
+	return G1AffineToByteSlice(&pAff)
+}
+
+func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
+	pAff := ToG2Affine(p)
+	pAffBytes := pAff.Bytes()
+	return pAffBytes[:]
+}
+
+// those two should not be used in performance critical parts of code (JS: they are only used in tests)
+func G1JacobianEqual(p1, p2 *bls381.G1Jac) bool {
+	return ToG1Affine(p1) == ToG1Affine(p2)
+}
+
+func G2JacobianEqual(p1, p2 *bls381.G2Jac) bool {
+	return ToG2Affine(p1) == ToG2Affine(p2)
+}
 
 // that is super temporary as im not really sure whats the appropriate domain for the SWU map
 
@@ -94,6 +142,11 @@ func HashToG1(msg []byte) (bls381.G1Affine, error) {
 	return bls381.HashToCurveG1Svdw(msg, dst)
 }
 
+func incrementAndCheck(msg []byte) bls381.G1Affine {
+	// TODO
+	return bls381.G1Affine{}
+}
+
 func SumScalars(scalars []*big.Int) big.Int {
 	res := big.NewInt(0)
 	for _, scalar := range scalars {
@@ -101,4 +154,59 @@ func SumScalars(scalars []*big.Int) big.Int {
 	}
 
 	return *res
+}
+
+func ReverseBytes(bytes []byte) []byte {
+	bytesNew := make([]byte, len(bytes))
+	for i := 0; i < len(bytes); i ++ {
+		bytesNew[i] = bytes[len(bytes) - i - 1]
+	}
+	return bytesNew
+}
+
+// do it the same way zcash is doing it in the rust library
+func ScalarFromBytesWide(bytes [64]byte) big.Int {
+	var d0 fr.Element
+	var d1 fr.Element
+	// recover limbs
+
+	d0[0] = binary.LittleEndian.Uint64(bytes[0:8])
+	d0[1] = binary.LittleEndian.Uint64(bytes[8:16])
+	d0[2] = binary.LittleEndian.Uint64(bytes[16:24])
+	d0[3] = binary.LittleEndian.Uint64(bytes[24:32])
+
+	d1[0] = binary.LittleEndian.Uint64(bytes[32:40])
+	d1[1] = binary.LittleEndian.Uint64(bytes[40:48])
+	d1[2] = binary.LittleEndian.Uint64(bytes[48:56])
+	d1[3] = binary.LittleEndian.Uint64(bytes[56:64])
+
+	// Convert to Montgomery form
+	// d0 * R2 + d1 * R3
+	var t1 fr.Element
+	t1.Mul(&d0, &R2)
+
+	var t2 fr.Element
+	t2.Mul(&d1, &R3)
+
+	var res fr.Element
+	res.Add(&t1, &t2)
+
+	var resBI big.Int
+	res.ToBigIntRegular(&resBI)
+
+	return resBI
+}
+
+func ScalarToLittleEndian(scalar *big.Int) [32]byte {
+	var frScalar fr.Element
+	// ensure correct order
+	frScalar.SetBigInt(scalar)
+	scalarBytes := frScalar.Bytes()
+
+	var out [32]byte
+	for i := 0; i < 32; i++ {
+		out[31-i] = scalarBytes[i]
+	}
+
+	return out
 }

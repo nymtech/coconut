@@ -14,7 +14,7 @@
 
 use bls12_381::Scalar;
 use rand_chacha::ChaChaRng;
-use sha3::Sha3_256;
+use sha3::{Sha3_256, Sha3_384};
 
 pub mod elgamal;
 pub mod error;
@@ -24,5 +24,6 @@ pub mod utils;
 
 pub type Attribute = Scalar;
 
-pub(crate) type G1HashDigest = Sha3_256;
-pub(crate) type G1HashPRNG = ChaChaRng;
+// pub(crate) type G1HashDigest = Sha3_256;
+// pub(crate) type G1HashPRNG = ChaChaRng;
+pub(crate) type G1HashDigest = Sha3_384;
