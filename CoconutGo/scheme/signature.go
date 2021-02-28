@@ -15,7 +15,6 @@
 package coconut
 
 import (
-	"errors"
 	"github.com/consensys/gurvy/bls381"
 	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
 	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
@@ -32,12 +31,13 @@ func (sig *Signature) Equal(other *Signature) bool {
 	return utils.G1JacobianEqual(&sig.sig1, &other.sig1) && utils.G1JacobianEqual(&sig.sig2, &other.sig2)
 }
 
-type PartialSignature = Signature;
+type PartialSignature = Signature
+
 type SignerIndex = uint64
 
 type SignatureShare struct {
 	signature Signature
-	index SignerIndex
+	index     SignerIndex
 }
 
 func NewSignatureShare(signature Signature, index SignerIndex) SignatureShare {
@@ -405,4 +405,3 @@ func Verify(params *Parameters, verificationKey *VerificationKey, publicAttribut
 
 	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
 }
-
