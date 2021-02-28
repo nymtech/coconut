@@ -223,32 +223,38 @@ impl From<String> for RawAttribute {
     }
 }
 
-fn get_attributes(name: &str) -> Vec<RawAttribute> {
+fn get_attributes(name: &str, entered: u32, max: u32) -> (Vec<RawAttribute>, u32) {
     let mut attributes: Vec<RawAttribute> = Vec::new();
-
+    let mut entered_new = 0;
     loop {
+        println!(
+            "\n[currently entered {} attributes in total out of maximum defined {}]",
+            entered + entered_new,
+            max
+        );
         let attribute: String = input()
             .msg(format!(
-                "Enter your {} attribute (can be none): ",
-                name.to_ascii_uppercase()
+                "Enter your {} attribute (press ENTER to go to next step): ",
+                name.to_ascii_uppercase(),
             ))
             .get();
 
         if attribute.is_empty() {
             println!("Got all {} attributes - {:?}", name, attributes);
-            return attributes;
+            return (attributes, entered_new);
         }
+        entered_new += 1;
 
         attributes.push(attribute.into());
     }
 }
 
-fn get_private_attributes() -> Vec<RawAttribute> {
-    get_attributes("private")
+fn get_private_attributes(entered: u32, max: u32) -> (Vec<RawAttribute>, u32) {
+    get_attributes("private", entered, max)
 }
 
-fn get_public_attributes() -> Vec<RawAttribute> {
-    get_attributes("public")
+fn get_public_attributes(entered: u32, max: u32) -> (Vec<RawAttribute>, u32) {
+    get_attributes("public", entered, max)
 }
 
 fn print_blinded_sigs(sigs: &[BlindedSignature]) {
@@ -277,6 +283,16 @@ fn aggregate_signatures(unoredered_sigs: &[Signature], indices: &[u64]) -> Signa
 
 fn main() {
     // how many attributes
+    println!("\nWelcome to the Nym Credential Library Demo.\n\n\
+    This generates demo outputs a number of identity attributes attributes (claims) and has a set of authorities sign them using the Coconut signature scheme.\n\
+    At each step, you may have options. Press ENTER to go to the next stage.  \n\
+    1)  First, you will be prompted for the number of attributes. You need to enter the total number of attributes. \n\
+    Then you will be asked to enter the values of 2) public attributes and then 3) private attributes (proofs of claims). \n\
+    These values of these attributes can be any number or string, and so can be W3C DIDs like \"did:example:12345abcde.\" \n\
+    4) Then you will be asked for a number of authorities that are authorized to verify your claims.\n\
+    5) Lastly, you will be asked for a threshold value, which is the number of authorities that must be online to verify your claims at any given instance. \n\
+    6) You may then \"re-randomize\" your credential as many times a you want to preserve your privacy. \n\
+    Then in the final step 7) you will be asked to type in the values entered for your attributes in Step 2 and Step 3 again. At the end, the demo will output a credential composed of elliptic curve points.\n\n");
 
     let attributes: u32 = input()
         .msg("Enter the maximum number of credential attributes: ")
@@ -310,8 +326,8 @@ fn main() {
     app.print_authorities();
     println!("\n\n");
 
-    let public_attributes = get_public_attributes();
-    let private_attributes = get_private_attributes();
+    let (public_attributes, entered_public) = get_public_attributes(0, attributes);
+    let (private_attributes, _) = get_private_attributes(entered_public, attributes);
 
     if private_attributes.is_empty() {
         println!("ERROR: Did not provide any private attributes to sign");
@@ -372,37 +388,37 @@ fn main() {
         }
     }
 
-    println!(
-        "Choosing {} random verification keys to aggregate for verification...\n",
-        t
-    );
-    let sample: Vec<_> = indices
-        .choose_multiple(&mut OsRng, t as usize)
-        .map(|v| *v)
-        .collect();
-    println!("Chosen indices: {:?}", sample);
-
-    let aggregated_vk = app.aggregate_keys(&sample);
-    println!(
-        "Aggregated verification key: {}",
-        format_authority(&aggregated_vk)
-    );
-
-    println!("Verifying the credential!");
-    println!("Provide your original attributes");
-
-    let public_attributes = get_public_attributes();
-    let private_attributes = get_private_attributes();
-
-    let verification_result = app.blind_verify(
-        &public_attributes,
-        &private_attributes,
-        &aggregated_vk,
-        &randomised,
-    );
-    if verification_result {
-        println!("\nYour credential verified correctly!")
-    } else {
-        println!("\nYour credential failed to get verified!");
-    }
+    // println!(
+    //     "Choosing {} random verification keys to aggregate for verification...\n",
+    //     t
+    // );
+    // let sample: Vec<_> = indices
+    //     .choose_multiple(&mut OsRng, t as usize)
+    //     .map(|v| *v)
+    //     .collect();
+    // println!("Chosen indices: {:?}", sample);
+    //
+    // let aggregated_vk = app.aggregate_keys(&sample);
+    // println!(
+    //     "Aggregated verification key: {}",
+    //     format_authority(&aggregated_vk)
+    // );
+    //
+    // println!("Verifying the credential!");
+    // println!("Provide your original attributes");
+    //
+    // let public_attributes = get_public_attributes();
+    // let private_attributes = get_private_attributes();
+    //
+    // let verification_result = app.blind_verify(
+    //     &public_attributes,
+    //     &private_attributes,
+    //     &aggregated_vk,
+    //     &randomised,
+    // );
+    // if verification_result {
+    //     println!("\nYour credential verified correctly!")
+    // } else {
+    //     println!("\nYour credential failed to get verified!");
+    // }
 }
