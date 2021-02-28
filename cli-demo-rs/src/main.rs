@@ -374,8 +374,8 @@ fn main() {
     let mut randomised = aggregated_sig.clone();
     loop {
         let r: String = input()
-            .msg("Enter 'r' to randomise the credential again or nothing to finish the procedure: ")
-            .err("Please enter either 'r' or nothing at all")
+            .msg("Enter 'r' to randomise the credential again or just press enter to finish the procedure: ")
+            .err("Please enter either 'r' or enter")
             .get();
         if r.is_empty() {
             break;
