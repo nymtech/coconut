@@ -284,14 +284,14 @@ fn aggregate_signatures(unoredered_sigs: &[Signature], indices: &[u64]) -> Signa
 fn main() {
     // how many attributes
     println!("\nWelcome to the Nym Credential Library Demo.\n\n\
-    This generates demo outputs a number of identity attributes attributes (claims) and has a set of authorities sign them using the Coconut signature scheme.\n\
-    At each step, you may have options. Press ENTER to go to the next stage.  \n\
-    1)  First, you will be prompted for the number of attributes. You need to enter the total number of attributes. \n\
-    Then you will be asked to enter the values of 2) public attributes and then 3) private attributes (proofs of claims). \n\
-    These values of these attributes can be any number or string, and so can be W3C DIDs like \"did:example:12345abcde.\" \n\
-    4) Then you will be asked for a number of authorities that are authorized to verify your claims.\n\
-    5) Lastly, you will be asked for a threshold value, which is the number of authorities that must be online to verify your claims at any given instance. \n\
-    6) You may then \"re-randomize\" your credential as many times a you want to preserve your privacy. \n\
+    This generates demo outputs a number of identity attributes attributes (claims) and has a set of authorities sign them using the Coconut signature scheme.\n\n\
+    At each step, you may have options. Press ENTER to go to the next stage.  \n\n\
+    1)  First, you will be prompted for the number of attributes. You need to enter the total number of attributes. \n\n\
+    Then you will be asked to enter the values of 2) public attributes and then 3) private attributes (proofs of claims). \
+    These values of these attributes can be any number or string, and so can be W3C DIDs like \"did:example:12345abcde.\" \n\n\
+    4) Then you will be asked for a number of authorities that are authorized to verify your claims.\n\n\
+    5) Lastly, you will be asked for a threshold value, which is the number of authorities that must be online to verify your claims at any given instance. \n\n\
+    6) You may then \"re-randomize\" your credential as many times a you want to preserve your privacy. \n\n\
     Then in the final step 7) you will be asked to type in the values entered for your attributes in Step 2 and Step 3 again. At the end, the demo will output a credential composed of elliptic curve points.\n\n");
 
     let attributes: u32 = input()
