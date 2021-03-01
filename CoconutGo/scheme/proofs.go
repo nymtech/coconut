@@ -195,9 +195,9 @@ func (proof *ProofCmCs) verify(
 	}
 
 	hs := params.Hs()
-	Cw := utils.G1ScalarMul(g1, &proof.challenge)       // Cw = (cm * c)
-	tmp := utils.G1ScalarMul(g1, &proof.responseRandom) // tmp = (rr * g1)
-	Cw.AddAssign(&tmp)                                  // Cw = (cm * c) + (rr * g1)
+	Cw := utils.G1ScalarMul(commitment, &proof.challenge) // Cw = (cm * c)
+	tmp := utils.G1ScalarMul(g1, &proof.responseRandom)   // tmp = (rr * g1)
+	Cw.AddAssign(&tmp)                                    // Cw = (cm * c) + (rr * g1)
 	for i := range proof.responseAttributes {
 		hsIJac := utils.ToG1Jacobian(hs[i])
 		tmp := utils.G1ScalarMul(&hsIJac, &proof.responseAttributes[i]) // tmp = (rm[i] * hs[i])
