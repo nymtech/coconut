@@ -93,10 +93,7 @@ func constructProofCmCs(
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(commitment)
-	h, err := utils.HashToG1(cmBytes[:])
-	if err != nil {
-		return ProofCmCs{}, err
-	}
+	h := utils.HashToG1(cmBytes[:])
 	hJac := utils.ToG1Jacobian(&h)
 
 	// witnesses commitments
@@ -168,10 +165,7 @@ func (proof *ProofCmCs) verify(
 
 	// recompute h
 	cmBytes := utils.G1JacobianToByteSlice(commitment)
-	h, err := utils.HashToG1(cmBytes[:])
-	if err != nil {
-		return false
-	}
+	h := utils.HashToG1(cmBytes[:])
 	hJac := utils.ToG1Jacobian(&h)
 
 	g1 := params.Gen1()

@@ -34,15 +34,12 @@ type Parameters struct {
 	g2jac bls381.G2Jac
 }
 
-func Setup(numAttributes uint32) (*Parameters, error) {
+func Setup(numAttributes uint32) *Parameters {
 	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
 
 	hs := make([]*bls381.G1Affine, numAttributes)
 	for i := 1; i <= int(numAttributes); i++ {
-		hi, err := utils.HashToG1([]byte(fmt.Sprintf("h%v", i)))
-		if err != nil {
-			return nil, err
-		}
+		hi := utils.HashToG1([]byte(fmt.Sprintf("h%v", i)))
 		hs[i-1] = &hi
 	}
 
@@ -52,7 +49,7 @@ func Setup(numAttributes uint32) (*Parameters, error) {
 		g2aff: g2aff,
 		g1jac: g1jac,
 		g2jac: g2jac,
-		}, nil
+		}
 }
 
 func (params *Parameters) Gen1() *bls381.G1Jac {

@@ -23,10 +23,7 @@ import (
 )
 
 func TestElGamalKeygen(t *testing.T) {
-	params, err := Setup(1)
-	if err != nil {
-		panic(err)
-	}
+	params := Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -40,10 +37,7 @@ func TestElGamalKeygen(t *testing.T) {
 }
 
 func TestElGamalEncryption(t *testing.T) {
-	params, err := Setup(1)
-	if err != nil {
-		panic(err)
-	}
+	params := Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -77,10 +71,7 @@ func TestElGamalEncryption(t *testing.T) {
 }
 
 func TestElGamalDecryption(t *testing.T) {
-	params, err := Setup(1)
-	if err != nil {
-		panic(err)
-	}
+	params := Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {

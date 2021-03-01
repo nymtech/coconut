@@ -42,7 +42,7 @@ var R3 = fr.Element{
 	7938258146690806761,
 }
 
-// 4, curve coefficient
+// B = 4, i.e. the curve coefficient
 var B = fp.Element {
 	12260768510540316659,
 	6038201419376623626,
@@ -84,7 +84,6 @@ func ToG1Jacobian(aff *bls381.G1Affine) bls381.G1Jac {
 	res.FromAffine(aff)
 	return res
 }
-
 
 // Takes a Scalar and a G1 element by reference and multiplies them together while allocating space for the result
 func G2ScalarMul(g2 *bls381.G2Jac, scalar *big.Int) bls381.G2Jac {
@@ -138,24 +137,8 @@ func G2JacobianEqual(p1, p2 *bls381.G2Jac) bool {
 	return ToG2Affine(p1) == ToG2Affine(p2)
 }
 
-// that is super temporary as im not really sure whats the appropriate domain for the SWU map
-
-// NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!
-// IF https://github.com/ConsenSys/gurvy/issues/24 IS NOT DEALT BEFORE ZCASH DOES SSWU IN RUST
-// WE SHOULD SWITCH TO https://github.com/kilic/bls12-381
-
-var dst = []byte("COCONUT_BLS381_G1_SVDW_TMP")
-
-func HashToG1(msg []byte) (bls381.G1Affine, error) {
-	//
-	//
-	// NOTE!!! THIS USES SVDW METHOD RATHER THAN SSWU FOR CURVE HASHING!!!
-	// IF https://github.com/ConsenSys/gurvy/issues/24 IS NOT DEALT BEFORE ZCASH DOES SSWU IN RUST
-	// WE SHOULD SWITCH TO https://github.com/kilic/bls12-381
-	//
-	//
-	return incrementAndCheck(msg), nil
-	//return bls381.HashToCurveG1Svdw(msg, dst)
+func HashToG1(msg []byte) bls381.G1Affine {
+	return incrementAndCheck(msg)
 }
 
 // Attempts to deserialize an uncompressed element, not checking if the

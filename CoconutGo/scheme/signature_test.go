@@ -16,8 +16,7 @@ func unwrapError(err error) {
 }
 
 func TestVerificationOnTwoPublicAttributes(t *testing.T) {
-	params, err := Setup(2)
-	unwrapError(err)
+	params := Setup(2)
 
 	attributes, err := params.NRandomScalars(2)
 	unwrapError(err)
@@ -40,8 +39,7 @@ func TestVerificationOnTwoPublicAttributes(t *testing.T) {
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
-	params, err := Setup(4)
-	unwrapError(err)
+	params := Setup(4)
 
 	publicAttributes, err := params.NRandomScalars(2)
 	unwrapError(err)
@@ -81,8 +79,7 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing.T) {
-	params, err := Setup(4)
-	unwrapError(err)
+	params := Setup(4)
 
 	publicAttributes, err := params.NRandomScalars(2)
 	unwrapError(err)
@@ -138,10 +135,7 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 
 func BenchmarkDoublePairing(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params, err := Setup(1)
-	if err != nil {
-		panic(err)
-	}
+	params := Setup(1)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()
@@ -178,10 +172,7 @@ var pairCheckGlobal bool
 
 func BenchmarkMiller(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params, err := Setup(1)
-	if err != nil {
-		panic(err)
-	}
+	params := Setup(1)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()

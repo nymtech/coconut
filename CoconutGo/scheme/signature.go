@@ -124,10 +124,7 @@ func PrepareBlindSign(
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(&commitment)
-	h, err := utils.HashToG1(cmBytes[:])
-	if err != nil {
-		return BlindSignRequest{}, err
-	}
+	h := utils.HashToG1(cmBytes[:])
 	hJac := utils.ToG1Jacobian(&h)
 
 	ciphertexts := make([]*elgamal.Ciphertext, len(privateAttributes))
@@ -173,10 +170,7 @@ func BlindSign(
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
-	h, err := utils.HashToG1(cmBytes[:])
-	if err != nil {
-		return BlindedSignature{}, err
-	}
+	h := utils.HashToG1(cmBytes[:])
 	hJac := utils.ToG1Jacobian(&h)
 
 	// sign public attributes
@@ -362,10 +356,7 @@ func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribut
 	baseRawJac := utils.G1ScalarMul(params.Gen1(), &attributesSum)
 	baseRawAff := utils.ToG1Affine(&baseRawJac)
 	baseRawBytesCompressed := baseRawAff.Bytes()
-	h, err := utils.HashToG1(baseRawBytesCompressed[:])
-	if err != nil {
-		return Signature{}, err
-	}
+	h := utils.HashToG1(baseRawBytesCompressed[:])
 
 	var K big.Int
 	K.Set(&secretKey.x) // K = x
