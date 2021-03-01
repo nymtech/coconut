@@ -125,19 +125,3 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 
 	assert.Equal(t, big.NewInt(10), result)
 }
-
-
-func TestFoo(t *testing.T) {
-	big42 := big.NewInt(42)
-	mod := fr.Modulus()
-
-	var inv big.Int
-	inv.ModInverse(big42, mod)
-
-	var product big.Int
-	product.Mul(big42, &inv)
-
-	product.Mod(&product, fr.Modulus())
-
-	assert.Equal(t, *big.NewInt(1), product)
-}

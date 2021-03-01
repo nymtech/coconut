@@ -144,6 +144,8 @@ where
     D: Digest,
     M: AsRef<[u8]>,
 {
+    // TODO: use blake2b??
+
     // TODO: when I'm less tired, do this at compile time
     assert_eq!(D::OutputSize::to_usize(), 48);
 

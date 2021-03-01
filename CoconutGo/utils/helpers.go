@@ -15,9 +15,14 @@
 package utils
 
 import (
+	"crypto"
 	"encoding/binary"
+	"errors"
 	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fp"
 	"github.com/consensys/gurvy/bls381/fr"
+	_ "golang.org/x/crypto/sha3"
+	"io"
 	"math/big"
 )
 
@@ -35,6 +40,16 @@ var R3 = fr.Element{
 	1963020886675057040,
 	8345518043873801240,
 	7938258146690806761,
+}
+
+// 4, curve coefficient
+var B = fp.Element {
+	12260768510540316659,
+	6038201419376623626,
+	5156596810353639551,
+	12813724723179037911,
+	10288881524157229871,
+	708830206584151678,
 }
 
 // Takes a Scalar and a G1 element by reference and multiplies them together while allocating space for the result
@@ -139,12 +154,90 @@ func HashToG1(msg []byte) (bls381.G1Affine, error) {
 	// WE SHOULD SWITCH TO https://github.com/kilic/bls12-381
 	//
 	//
-	return bls381.HashToCurveG1Svdw(msg, dst)
+	return incrementAndCheck(msg), nil
+	//return bls381.HashToCurveG1Svdw(msg, dst)
+}
+
+// Attempts to deserialize an uncompressed element, not checking if the
+// element is in the correct subgroup.
+func g1AffineFromBytesUnchecked(bytes []byte) (bls381.G1Affine, error) {
+	if len(bytes) < bls381.SizeOfG1AffineCompressed {
+		return bls381.G1Affine{}, io.ErrShortBuffer
+	}
+
+	// recover flags
+	compressionFlagSet := ((bytes[0] >> 7) & 1) == 1
+	infinityFlagSet := ((bytes[0] >> 6) & 1) == 1
+	largest := ((bytes[0] >> 5) & 1) == 1
+
+	// first bit must be set - otherwise it implies uncompressed form (i.e. 96 bytes)
+	// second bit must not be set - otherwise it implies the point at infinity
+	if !compressionFlagSet || infinityFlagSet {
+		return bls381.G1Affine{}, io.ErrShortBuffer
+	}
+
+	var p bls381.G1Affine
+
+	originalVal := bytes[0]
+	// mask away the flags
+	bytes[0] &= 0b0001_1111
+
+	p.X.SetBytes(bytes[0 : 0+fp.Bytes])
+
+	// solve the curve equation to compute Y (y = sqrt(x^3 + 4))
+	var YSquared, Y fp.Element
+
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	YSquared.Add(&YSquared, &B)
+	if Y.Sqrt(&YSquared) == nil {
+		return bls381.G1Affine{}, errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+
+	if Y.LexicographicallyLargest() {
+		// Y ">" -Y
+		if !largest {
+			Y.Neg(&Y)
+		}
+	} else {
+		// Y "<=" -Y
+		if largest {
+			Y.Neg(&Y)
+		}
+	}
+
+	p.Y = Y
+
+	// restore flags
+	bytes[0] = originalVal
+
+	return p, nil
 }
 
 func incrementAndCheck(msg []byte) bls381.G1Affine {
-	// TODO
-	return bls381.G1Affine{}
+	// reason for sha3 384 is for the 48 bytes output and it's a good enough solution
+	// for the temporary use it has
+	h := crypto.SHA3_384.New()
+
+	ctr := uint64(0)
+	for {
+		ctrBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(ctrBytes, ctr)
+
+		h.Write(msg)
+		h.Write(ctrBytes)
+		digest := h.Sum([]byte{})
+		h.Reset()
+
+		ctr += 1
+
+		p, err := g1AffineFromBytesUnchecked(digest)
+		if err != nil {
+			continue
+		} else {
+			p.ClearCofactor(&p)
+			return p
+		}
+	}
 }
 
 func SumScalars(scalars []*big.Int) big.Int {
