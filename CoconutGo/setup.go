@@ -29,7 +29,7 @@ type Parameters struct {
 	// TODO: figure out if we want Jacobian or affine coordinates
 	g1aff bls381.G1Affine
 	g1jac bls381.G1Jac
-	hs []*bls381.G1Affine
+	hs    []*bls381.G1Affine
 	g2aff bls381.G2Affine
 	g2jac bls381.G2Jac
 }
@@ -49,7 +49,7 @@ func Setup(numAttributes uint32) *Parameters {
 		g2aff: g2aff,
 		g1jac: g1jac,
 		g2jac: g2jac,
-		}
+	}
 }
 
 func (params *Parameters) Gen1() *bls381.G1Jac {

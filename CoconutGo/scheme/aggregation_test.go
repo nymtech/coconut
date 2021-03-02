@@ -113,13 +113,13 @@ func TestKeyAggregationWithInvalidIndices(t *testing.T) {
 	_, err := AggregateVerificationKeys(keys, []SignerIndex{})
 	assert.Error(t, err)
 
-	_, err = AggregateVerificationKeys(keys, []SignerIndex{1,2})
+	_, err = AggregateVerificationKeys(keys, []SignerIndex{1, 2})
 	assert.Error(t, err)
 }
 
 func TestKeyAggregationWithNonuniqueIndices(t *testing.T) {
 	keys := []*VerificationKey{randomVerificationKey(3), randomVerificationKey(3)}
-	_, err := AggregateVerificationKeys(keys, []SignerIndex{1,1})
+	_, err := AggregateVerificationKeys(keys, []SignerIndex{1, 1})
 	assert.Error(t, err)
 }
 
@@ -150,15 +150,15 @@ func SignatureAggregationForAnySignatureSubset(t *testing.T) {
 		verificationKeys[i] = &keypairs[i].verificationKey
 	}
 
-	aggrSig1, err := AggregateSignatures(sigs[:3], []SignerIndex{1,2,3})
+	aggrSig1, err := AggregateSignatures(sigs[:3], []SignerIndex{1, 2, 3})
 	unwrapError(err)
 
-	aggrSig2, err := AggregateSignatures(sigs[2:], []SignerIndex{3,4,5})
+	aggrSig2, err := AggregateSignatures(sigs[2:], []SignerIndex{3, 4, 5})
 	unwrapError(err)
 	assert.True(t, aggrSig1.Equal(&aggrSig2))
 
 	// verify credential for good measure
-	aggrVk, err := AggregateVerificationKeys(verificationKeys[:3], []SignerIndex{1,2,3})
+	aggrVk, err := AggregateVerificationKeys(verificationKeys[:3], []SignerIndex{1, 2, 3})
 	unwrapError(err)
 	assert.True(t, Verify(params, &aggrVk, attributes, &aggrSig1))
 
@@ -195,13 +195,13 @@ func TestSignatureAggregationWithInvalidIndices(t *testing.T) {
 	_, err := AggregateSignatures(keys, []SignerIndex{})
 	assert.Error(t, err)
 
-	_, err = AggregateSignatures(keys, []SignerIndex{1,2})
+	_, err = AggregateSignatures(keys, []SignerIndex{1, 2})
 	assert.Error(t, err)
 }
 
 func TestSignatureAggregationWithNonuniqueIndices(t *testing.T) {
 	keys := []*Signature{randomSignature(), randomSignature()}
-	_, err := AggregateSignatures(keys, []SignerIndex{1,1})
+	_, err := AggregateSignatures(keys, []SignerIndex{1, 1})
 	assert.Error(t, err)
 }
 

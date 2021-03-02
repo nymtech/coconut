@@ -59,6 +59,14 @@ func TestScalarSerialization(t *testing.T) {
 	assert.Equal(t, expectedBytes, utils.ReverseBytes(frResBytes[:]))
 }
 
+func TestG1Hash(t *testing.T) {
+	input := []byte{1, 2, 3}
+	expectedBytes := []byte{1, 2, 3}
+
+	hashRes := utils.HashToG1(input)
+	assert.Equal(t, expectedBytes, hashRes.Bytes())
+}
+
 func TestParams(t *testing.T) {
 	expectedHsBytes := [][48]byte{
 		{152, 164, 8, 208, 169, 249, 69, 204, 104, 89, 97, 219, 170, 48, 100, 105, 241, 206, 243, 173, 70, 15, 205, 59, 255, 190, 158, 22, 150, 234, 210, 22, 235, 239, 186, 67, 111, 46, 3, 32, 71, 207, 249, 22, 220, 29, 67, 194},

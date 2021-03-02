@@ -90,7 +90,7 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 	elgamalKeypair, err := elgamal.Keygen(params)
 	unwrapError(err)
 
-	keypairs, err := TTPKeygen(params, 2,3)
+	keypairs, err := TTPKeygen(params, 2, 3)
 	unwrapError(err)
 
 	lambda, err := PrepareBlindSign(params, elgamalKeypair.PublicKey(), privateAttributes, publicAttributes)
@@ -109,10 +109,10 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 		verificationKeys[i] = &keypairs[i].verificationKey
 	}
 
-	aggrVk, err := AggregateVerificationKeys(verificationKeys[:2], []uint64{1,2})
+	aggrVk, err := AggregateVerificationKeys(verificationKeys[:2], []uint64{1, 2})
 	unwrapError(err)
 
-	aggrSig, err := AggregateSignatures(sigs[:2],[]uint64{1,2})
+	aggrSig, err := AggregateSignatures(sigs[:2], []uint64{1, 2})
 	unwrapError(err)
 
 	theta, err := ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
@@ -121,10 +121,10 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
 
 	// taking different subset of keys and credentials
-	aggrVk, err = AggregateVerificationKeys(verificationKeys[1:], []uint64{2,3})
+	aggrVk, err = AggregateVerificationKeys(verificationKeys[1:], []uint64{2, 3})
 	unwrapError(err)
 
-	aggrSig, err = AggregateSignatures(sigs[1:],[]uint64{2, 3})
+	aggrSig, err = AggregateSignatures(sigs[1:], []uint64{2, 3})
 	unwrapError(err)
 
 	theta, err = ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
@@ -150,7 +150,6 @@ func BenchmarkDoublePairing(b *testing.B) {
 	g21A := utils.ToG2Affine(&g21)
 	g12A := utils.ToG1Affine(&g12)
 	g22A := utils.ToG2Affine(&g22)
-
 
 	for i := 0; i < b.N; i++ {
 		gt1, err := bls381.Pair([]bls381.G1Affine{g11A}, []bls381.G2Affine{g21A})

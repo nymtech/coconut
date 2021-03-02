@@ -43,7 +43,7 @@ var R3 = fr.Element{
 }
 
 // B = 4, i.e. the curve coefficient
-var B = fp.Element {
+var B = fp.Element{
 	12260768510540316659,
 	6038201419376623626,
 	5156596810353639551,
@@ -143,6 +143,8 @@ func HashToG1(msg []byte) bls381.G1Affine {
 
 // Attempts to deserialize an uncompressed element, not checking if the
 // element is in the correct subgroup.
+// basically copied code from `func (p *G1Affine) SetBytes(buf []byte) (int, error)`
+// but without the subgroup check
 func g1AffineFromBytesUnchecked(bytes []byte) (bls381.G1Affine, error) {
 	if len(bytes) < bls381.SizeOfG1AffineCompressed {
 		return bls381.G1Affine{}, io.ErrShortBuffer
@@ -234,8 +236,8 @@ func SumScalars(scalars []*big.Int) big.Int {
 
 func ReverseBytes(bytes []byte) []byte {
 	bytesNew := make([]byte, len(bytes))
-	for i := 0; i < len(bytes); i ++ {
-		bytesNew[i] = bytes[len(bytes) - i - 1]
+	for i := 0; i < len(bytes); i++ {
+		bytesNew[i] = bytes[len(bytes)-i-1]
 	}
 	return bytesNew
 }

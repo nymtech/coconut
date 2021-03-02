@@ -32,8 +32,7 @@ func checkUniqueIndices(indices []SignerIndex) bool {
 	return true
 }
 
-
-func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, values []*VerificationKey)  (VerificationKey, error) {
+func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, values []*VerificationKey) (VerificationKey, error) {
 	if len(points) == 0 || len(values) == 0 {
 		return VerificationKey{}, ErrInterpolationEmpty
 	}
@@ -81,7 +80,6 @@ func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, valu
 //	return sum
 //}
 
-
 func checkSameKeySize(keys []*VerificationKey) bool {
 	len0 := len(keys[0].beta)
 	for i := 1; i < len(keys); i++ {
@@ -115,7 +113,7 @@ func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (
 		}
 		// set aggregate to be the same as the first key provided
 		aggregate.alpha.Set(keys[0].Alpha())
-		for i := 0; i  < len(keys[0].beta); i++ {
+		for i := 0; i < len(keys[0].beta); i++ {
 			aggregate.beta[i].Set(keys[0].beta[i])
 		}
 
@@ -130,9 +128,7 @@ func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (
 	}
 }
 
-
-
-func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*Signature)  (Signature, error) {
+func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*Signature) (Signature, error) {
 	if len(points) == 0 || len(values) == 0 {
 		return Signature{}, ErrInterpolationEmpty
 	}
@@ -152,14 +148,13 @@ func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*
 		sig2: sig2,
 	}
 
-	for i := 1; i < len(values); i++{
+	for i := 1; i < len(values); i++ {
 		tmpSig2 := utils.G1ScalarMul(&values[i].sig2, coefficients[i])
 		result.sig2.AddAssign(&tmpSig2)
 	}
 
 	return result, nil
 }
-
 
 func AggregateSignatures(sigs []*PartialSignature, indices []SignerIndex) (Signature, error) {
 	if len(sigs) == 0 {
@@ -190,12 +185,10 @@ func AggregateSignatures(sigs []*PartialSignature, indices []SignerIndex) (Signa
 func AggregateSignatureShares(shares []*SignatureShare) (Signature, error) {
 	signatures := make([]*Signature, len(shares))
 	indices := make([]SignerIndex, len(shares))
-	for i := 0 ; i < len(shares); i++ {
+	for i := 0; i < len(shares); i++ {
 		signatures[i] = shares[i].Signature()
 		indices[i] = shares[i].Index()
 	}
 
 	return AggregateSignatures(signatures, indices)
 }
-
-

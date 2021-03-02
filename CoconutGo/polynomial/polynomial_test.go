@@ -31,16 +31,15 @@ func TestPolynomialEvaluation(t *testing.T) {
 	assert.Equal(t, *big.NewInt(42), poly.Evaluate(big.NewInt(0), fr.Modulus()))
 	assert.Equal(t, *big.NewInt(42), poly.Evaluate(big.NewInt(10), fr.Modulus()))
 
-
 	// y = x + 10, at x = 2 (exp: 12)
-	poly = Polynomial {
+	poly = Polynomial{
 		coefficients: []*big.Int{big.NewInt(10), big.NewInt(1)},
 	}
 
 	assert.Equal(t, *big.NewInt(12), poly.Evaluate(big.NewInt(2), fr.Modulus()))
 
 	// y = x^4 - 5x^2 + 2x - 3, at x = 3 (exp: 39)
-	poly = Polynomial {
+	poly = Polynomial{
 		coefficients: []*big.Int{
 			big.NewInt(-3),
 			big.NewInt(2),
@@ -53,14 +52,14 @@ func TestPolynomialEvaluation(t *testing.T) {
 	assert.Equal(t, *big.NewInt(39), poly.Evaluate(big.NewInt(3), fr.Modulus()))
 
 	// empty polynomial
-	poly = Polynomial {
+	poly = Polynomial{
 		coefficients: []*big.Int{},
 	}
 
 	// should always be 0
-	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(1),fr.Modulus()))
-	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(0),fr.Modulus()))
-	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(10),fr.Modulus()))
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(1), fr.Modulus()))
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(0), fr.Modulus()))
+	assert.Equal(t, *big.NewInt(0), poly.Evaluate(big.NewInt(10), fr.Modulus()))
 }
 
 func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
@@ -69,8 +68,8 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 	// 1, 4,
 	// 2, 7,
 	// 3, 12,
-	points := []uint64{1,2,3}
-	values := []*big.Int{big.NewInt(4),big.NewInt(7),big.NewInt(12)}
+	points := []uint64{1, 2, 3}
+	values := []*big.Int{big.NewInt(4), big.NewInt(7), big.NewInt(12)}
 
 	result, err := performBigIntLagrangianInterpolationAtOrigin(points, values)
 	if err != nil {
@@ -99,7 +98,6 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 	}
 
 	assert.Equal(t, big.NewInt(11), result)
-
 
 	// more points than it is required
 	// x^2 + x + 10

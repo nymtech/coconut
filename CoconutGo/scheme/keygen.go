@@ -23,8 +23,6 @@ import (
 	"math/big"
 )
 
-
-
 // SecretKey represents secret key of a Coconut signing authority.
 type SecretKey struct {
 	// TODO: big.Int or Fp.Element?
@@ -191,4 +189,3 @@ func TTPKeygen(params *Parameters, threshold uint64, numAuthorities uint64) ([]K
 
 	return keypairs, nil
 }
-

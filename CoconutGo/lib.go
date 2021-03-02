@@ -1,4 +1,3 @@
-
 package CoconutGo
 
 import (
@@ -9,7 +8,6 @@ import (
 // TODO: or fp.Element?
 
 type Attribute = big.Int
-
 
 var (
 	ErrZeroThreshold = errors.New("tried to generate threshold keys with a 0 threshold value")
@@ -24,7 +22,7 @@ var (
 
 	ErrBlindSignProof = errors.New("failed to verify the proof of knowledge")
 
-	ErrProveNoPrivate =  errors.New("tried to prove a credential with an empty set of private attributes")
+	ErrProveNoPrivate = errors.New("tried to prove a credential with an empty set of private attributes")
 
 	ErrProveTooManyAttributes = errors.New("tried to prove a credential for higher than supported by the provided verification key number of attributes")
 
