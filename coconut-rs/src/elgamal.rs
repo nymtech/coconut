@@ -13,22 +13,21 @@
 // limitations under the License.
 
 use crate::scheme::setup::Parameters;
-use bls12_381::{G1Projective, Scalar};
+use bls12_381::{G1Affine, G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use rand_core::{CryptoRng, RngCore};
 
+/// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
 
-pub struct Ciphertext(pub G1Projective, pub G1Projective);
-// pub struct Ciphertext(G1Projective, G1Projective);
+/// Two G1 points representing ElGamal ciphertext
+pub struct Ciphertext(G1Projective, G1Projective);
 
 impl Ciphertext {
-    // TODO NAMING:
     pub(crate) fn c1(&self) -> &G1Projective {
         &self.0
     }
 
-    // TODO NAMING:
     pub(crate) fn c2(&self) -> &G1Projective {
         &self.1
     }
@@ -40,7 +39,8 @@ impl From<(G1Projective, G1Projective)> for Ciphertext {
     }
 }
 
-pub struct PrivateKey(pub(crate) Scalar);
+/// PrivateKey used in the ElGamal encryption scheme to recover the plaintext
+pub struct PrivateKey(Scalar);
 
 impl PrivateKey {
     /// Decrypt takes the ElGamal encryption of a message and returns a point on the G1 curve
@@ -58,7 +58,8 @@ impl PrivateKey {
 }
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
-pub struct PublicKey(pub(crate) G1Projective);
+/// PublicKey used in the ElGamal encryption scheme to produce the ciphertext
+pub struct PublicKey(G1Projective);
 
 impl PublicKey {
     /// Encrypt encrypts the given message in the form of h^m,
@@ -68,7 +69,6 @@ impl PublicKey {
     pub fn encrypt<R: RngCore + CryptoRng>(
         &self,
         params: &mut Parameters<R>,
-        // TODO NAMING: 'h'
         h: &G1Projective,
         msg: &Scalar,
     ) -> (Ciphertext, EphemeralKey) {
@@ -98,6 +98,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a PublicKey {
     }
 }
 
+/// A convenient wrapper for both keys of the ElGamal keypair
 pub struct KeyPair {
     private_key: PrivateKey,
     public_key: PublicKey,
@@ -113,6 +114,7 @@ impl KeyPair {
     }
 }
 
+/// Generate a fresh ElGamal keypair using the group generator specified by the provided [Parameters]
 pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
     let private_key = params.random_scalar();
     let gamma = params.gen1() * private_key;
@@ -120,6 +122,124 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
     KeyPair {
         private_key: PrivateKey(private_key),
         public_key: PublicKey(gamma),
+    }
+}
+
+use group::Curve;
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "serde")]
+impl Serialize for PrivateKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(32)?;
+        for byte in self.0.to_bytes().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for PrivateKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PrivateKeyVisitor;
+
+        impl<'de> Visitor<'de> for PrivateKeyVisitor {
+            type Value = PrivateKey;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<PrivateKey, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut bytes = [0u8; 32];
+                // I think this way makes it way more readable than the iterator approach
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..32 {
+                    bytes[i] = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+
+                Into::<Option<_>>::into(Scalar::from_bytes(&bytes))
+                    .ok_or_else(|| {
+                        serde::de::Error::custom(&"private key scalar was not canonically encoded")
+                    })
+                    .map(PrivateKey)
+            }
+        }
+
+        deserializer.deserialize_tuple(32, PrivateKeyVisitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(48)?;
+        for byte in self.to_affine().to_compressed().as_ref().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PublicKeyVisitor;
+
+        impl<'de> Visitor<'de> for PublicKeyVisitor {
+            type Value = PublicKey;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<PublicKey, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut bytes = [0u8; 48];
+                // I think this way makes it way more readable than the iterator approach
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..48 {
+                    bytes[i] = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
+                }
+
+                Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
+                    .ok_or_else(|| {
+                        serde::de::Error::custom(
+                            &"public key G1 curve point was not canonically encoded",
+                        )
+                    })
+                    .map(|point_affine| PublicKey(G1Projective::from(point_affine)))
+            }
+        }
+
+        deserializer.deserialize_tuple(48, PublicKeyVisitor)
     }
 }
 
@@ -178,5 +298,46 @@ mod tests {
             expected, dec,
             "after ElGamal decryption, original h^m should be obtained"
         );
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_bincode_private_key_roundtrip() {
+        use super::*;
+
+        let mut params = Parameters::default();
+        let keypair = keygen(&mut params);
+
+        let encoded = bincode::serialize(keypair.private_key()).unwrap();
+        let decoded: PrivateKey = bincode::deserialize(&encoded).unwrap();
+
+        assert_eq!(encoded.len(), 32);
+        // their raw bytes are the same
+        assert_eq!(decoded.0.to_bytes(), keypair.private_key.0.to_bytes());
+
+        // it can also be deserialized directly from the raw bytes
+        let raw_bytes = keypair.private_key.0.to_bytes();
+        let decoded_raw: PrivateKey = bincode::deserialize(&raw_bytes).unwrap();
+        assert_eq!(decoded_raw.0.to_bytes(), keypair.private_key.0.to_bytes());
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_bincode_public_key_roundtrip() {
+        use super::*;
+
+        let mut params = Parameters::default();
+        let keypair = keygen(&mut params);
+
+        let encoded = bincode::serialize(keypair.public_key()).unwrap();
+        let decoded: PublicKey = bincode::deserialize(&encoded).unwrap();
+
+        assert_eq!(encoded.len(), 48);
+        assert_eq!(decoded.0, keypair.public_key.0);
+
+        // it can also be deserialized directly from the raw bytes
+        let raw_bytes = keypair.public_key.0.to_affine().to_compressed();
+        let decoded_raw: PublicKey = bincode::deserialize(&raw_bytes).unwrap();
+        assert_eq!(decoded_raw.0, keypair.public_key.0);
     }
 }
