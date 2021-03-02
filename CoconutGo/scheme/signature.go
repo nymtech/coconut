@@ -396,3 +396,4 @@ func Verify(params *Parameters, verificationKey *VerificationKey, publicAttribut
 
 	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
 }
+

@@ -40,7 +40,7 @@ impl From<(G1Projective, G1Projective)> for Ciphertext {
     }
 }
 
-pub struct PrivateKey(Scalar);
+pub struct PrivateKey(pub(crate) Scalar);
 
 impl PrivateKey {
     /// Decrypt takes the ElGamal encryption of a message and returns a point on the G1 curve
@@ -58,7 +58,7 @@ impl PrivateKey {
 }
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
-pub struct PublicKey(G1Projective);
+pub struct PublicKey(pub(crate) G1Projective);
 
 impl PublicKey {
     /// Encrypt encrypts the given message in the form of h^m,

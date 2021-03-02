@@ -224,3 +224,4 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
 
     Ok(keypairs)
 }
+

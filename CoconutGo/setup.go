@@ -34,6 +34,7 @@ type Parameters struct {
 	g2jac bls381.G2Jac
 }
 
+// TODO: change back to error because of possible numAttributes == 0...
 func Setup(numAttributes uint32) *Parameters {
 	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
 

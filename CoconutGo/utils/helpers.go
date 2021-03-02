@@ -277,7 +277,7 @@ func ScalarFromBytesWide(bytes [64]byte) big.Int {
 
 func ScalarToLittleEndian(scalar *big.Int) [32]byte {
 	var frScalar fr.Element
-	// ensure correct order
+	// ensure correct order and width
 	frScalar.SetBigInt(scalar)
 	scalarBytes := frScalar.Bytes()
 
@@ -287,4 +287,25 @@ func ScalarToLittleEndian(scalar *big.Int) [32]byte {
 	}
 
 	return out
+}
+
+func ScalarFromLittleEndian(bytes []byte) big.Int {
+	var s big.Int
+	// TODO: or do I need to reverse per octet?
+
+	s.SetBytes(ReverseBytes(bytes))
+	return s
+}
+
+func G1JacobianFromBytes(bytes []byte) (bls381.G1Jac, error) {
+	var pAff bls381.G1Affine
+	_, err := pAff.SetBytes(bytes)
+	if err != nil {
+		return bls381.G1Jac{}, err
+	}
+
+	var p bls381.G1Jac
+	p.FromAffine(&pAff)
+
+	return p, nil
 }
