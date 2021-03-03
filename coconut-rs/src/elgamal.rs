@@ -12,10 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::scheme::setup::Parameters;
-use bls12_381::{G1Affine, G1Projective, Scalar};
+use core::fmt;
 use core::ops::{Deref, Mul};
+
+use bls12_381::{G1Affine, G1Projective, Scalar};
+use group::Curve;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::scheme::setup::Parameters;
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -30,6 +38,29 @@ impl Ciphertext {
 
     pub(crate) fn c2(&self) -> &G1Projective {
         &self.1
+    }
+
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
+        bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
+        bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8; 96]) -> Option<Ciphertext> {
+        let mut c1_bytes = [0u8; 48];
+        let mut c2_bytes = [0u8; 48];
+
+        c1_bytes.copy_from_slice(&bytes[..48]);
+        c2_bytes.copy_from_slice(&bytes[48..]);
+
+        let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c1_bytes))
+            .map(G1Projective::from)?;
+
+        let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c2_bytes))
+            .map(G1Projective::from)?;
+
+        Some(Ciphertext(c1, c2))
     }
 }
 
@@ -55,6 +86,14 @@ impl PrivateKey {
     pub fn public_key<R: RngCore + CryptoRng>(&self, params: &Parameters<R>) -> PublicKey {
         PublicKey(params.gen1() * self.0)
     }
+
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+
+    pub fn from_bytes(bytes: &[u8; 32]) -> Option<PrivateKey> {
+        Into::<Option<_>>::into(Scalar::from_bytes(bytes)).map(PrivateKey)
+    }
 }
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
@@ -79,6 +118,16 @@ impl PublicKey {
         let c2 = self.0 * k + h * msg;
 
         (Ciphertext(c1, c2), k)
+    }
+
+    pub fn to_bytes(&self) -> [u8; 48] {
+        self.0.to_affine().to_compressed()
+    }
+
+    pub fn from_bytes(bytes: &[u8; 48]) -> Option<PublicKey> {
+        Into::<Option<G1Affine>>::into(G1Affine::from_compressed(bytes))
+            .map(G1Projective::from)
+            .map(PublicKey)
     }
 }
 
@@ -125,13 +174,6 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
     }
 }
 
-use core::fmt;
-use group::Curve;
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
 #[cfg(feature = "serde")]
 impl Serialize for PrivateKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -140,7 +182,7 @@ impl Serialize for PrivateKey {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(32)?;
-        for byte in self.0.to_bytes().iter() {
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -175,11 +217,9 @@ impl<'de> Deserialize<'de> for PrivateKey {
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
                 }
 
-                Into::<Option<_>>::into(Scalar::from_bytes(&bytes))
-                    .ok_or_else(|| {
-                        serde::de::Error::custom(&"private key scalar was not canonically encoded")
-                    })
-                    .map(PrivateKey)
+                PrivateKey::from_bytes(&bytes).ok_or_else(|| {
+                    serde::de::Error::custom(&"private key scalar was not canonically encoded")
+                })
             }
         }
 
@@ -195,7 +235,7 @@ impl Serialize for PublicKey {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(48)?;
-        for byte in self.to_affine().to_compressed().iter() {
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -230,13 +270,11 @@ impl<'de> Deserialize<'de> for PublicKey {
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
 
-                Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
-                    .ok_or_else(|| {
-                        serde::de::Error::custom(
-                            &"public key G1 curve point was not canonically encoded",
-                        )
-                    })
-                    .map(|point_affine| PublicKey(G1Projective::from(point_affine)))
+                PublicKey::from_bytes(&bytes).ok_or_else(|| {
+                    serde::de::Error::custom(
+                        &"public key G1 curve point was not canonically encoded",
+                    )
+                })
             }
         }
 
@@ -252,10 +290,7 @@ impl Serialize for Ciphertext {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(96)?;
-        for byte in self.0.to_affine().to_compressed().iter() {
-            tup.serialize_element(byte)?;
-        }
-        for byte in self.1.to_affine().to_compressed().iter() {
+        for byte in self.to_bytes().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -281,37 +316,20 @@ impl<'de> Deserialize<'de> for Ciphertext {
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut bytes_c1 = [0u8; 48];
-                let mut bytes_c2 = [0u8; 48];
+                let mut bytes = [0u8; 96];
                 // I think this way makes it way more readable than the iterator approach
                 #[allow(clippy::needless_range_loop)]
-                for i in 0..48 {
-                    bytes_c1[i] = seq.next_element()?.ok_or_else(|| {
-                        serde::de::Error::invalid_length(i, &"expected 96 bytes in total")
-                    })?;
-                }
-                // I think this way makes it way more readable than the iterator approach
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..48 {
-                    bytes_c2[i] = seq.next_element()?.ok_or_else(|| {
-                        serde::de::Error::invalid_length(i, &"expected 96 bytes in total")
-                    })?;
+                for i in 0..96 {
+                    bytes[i] = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
                 }
 
-                let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes_c1))
-                    .ok_or_else(|| {
-                        serde::de::Error::custom(
-                            &"the first ciphertext G1 curve point was not canonically encoded",
-                        )
-                    })?;
-                let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes_c2))
-                    .ok_or_else(|| {
-                        serde::de::Error::custom(
-                            &"the second ciphertext G1 curve point was not canonically encoded",
-                        )
-                    })?;
-
-                Ok(Ciphertext(G1Projective::from(c1), G1Projective::from(c2)))
+                Ciphertext::from_bytes(&bytes).ok_or_else(|| {
+                    serde::de::Error::custom(
+                        &"the ciphertext G1 curve points were not canonically encoded",
+                    )
+                })
             }
         }
 
@@ -321,9 +339,10 @@ impl<'de> Deserialize<'de> for Ciphertext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use group::Group;
     use rand_core::OsRng;
+
+    use super::*;
 
     #[test]
     fn keygen() {
