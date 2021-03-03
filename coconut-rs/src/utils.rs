@@ -23,10 +23,7 @@ use digest::generic_array;
 use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use ff::Field;
-use group::{Group, GroupEncoding};
-use rand_core::{CryptoRng, RngCore, SeedableRng};
-use sha2::Sha384;
-use std::convert::TryInto;
+use rand_core::{CryptoRng, RngCore};
 
 pub struct Polynomial {
     coefficients: Vec<Scalar>,
@@ -184,22 +181,22 @@ where
     }
 }
 
-#[doc(hidden)]
-fn _hash_g1_seeded_rng<D, R, M>(msg: M) -> G1Projective
-where
-    D: Digest,
-    R: RngCore + SeedableRng,
-    R::Seed: From<digest::Output<D>>,
-    M: AsRef<[u8]>,
-{
-    let mut h = D::new();
-    h.update(msg);
-    let digest = h.finalize();
-
-    let mut seeded_rng = R::from_seed(digest.into());
-
-    G1Projective::random(&mut seeded_rng)
-}
+// #[doc(hidden)]
+// fn _hash_g1_seeded_rng<D, R, M>(msg: M) -> G1Projective
+// where
+//     D: Digest,
+//     R: RngCore + SeedableRng,
+//     R::Seed: From<digest::Output<D>>,
+//     M: AsRef<[u8]>,
+// {
+//     let mut h = D::new();
+//     h.update(msg);
+//     let digest = h.finalize();
+//
+//     let mut seeded_rng = R::from_seed(digest.into());
+//
+//     G1Projective::random(&mut seeded_rng)
+// }
 
 #[cfg(test)]
 mod tests {

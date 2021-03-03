@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::fmt;
-use core::ops::{Deref, Mul};
-
 use bls12_381::{G1Affine, G1Projective, Scalar};
+use core::ops::{Deref, Mul};
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
+
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
 #[cfg(feature = "serde")]
@@ -200,7 +199,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
         impl<'de> Visitor<'de> for PrivateKeyVisitor {
             type Value = PrivateKey;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
             }
 
@@ -253,7 +252,7 @@ impl<'de> Deserialize<'de> for PublicKey {
         impl<'de> Visitor<'de> for PublicKeyVisitor {
             type Value = PublicKey;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
             }
 
@@ -308,7 +307,7 @@ impl<'de> Deserialize<'de> for Ciphertext {
         impl<'de> Visitor<'de> for CiphertextVisitor {
             type Value = Ciphertext;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
             }
 

@@ -34,78 +34,78 @@ mod tests {
     use group::GroupEncoding;
     use rand_core::OsRng;
 
-    #[test]
-    fn foo() {
-        let mut params = Parameters::new(OsRng, 4).unwrap();
-        let keypair = keygen::keygen(&mut params);
-
-        println!(
-            "x: {:?},\n y1: {:?},\n y2: {:?}\n y3: {:?}\ny4:{:?}",
-            keypair.secret_key.x.to_bytes(),
-            keypair.secret_key.ys[0].to_bytes(),
-            keypair.secret_key.ys[1].to_bytes(),
-            keypair.secret_key.ys[2].to_bytes(),
-            keypair.secret_key.ys[3].to_bytes(),
-        );
-
-        let attrs_pub = params.n_random_scalars(2);
-        let attrs_priv = params.n_random_scalars(2);
-
-        println!(
-            "PUB attr1: {:?}, attr2: {:?}",
-            attrs_pub[0].to_bytes(),
-            attrs_pub[1].to_bytes()
-        );
-
-        println!(
-            "PRIV attr1: {:?}, attr2: {:?}",
-            attrs_priv[0].to_bytes(),
-            attrs_priv[1].to_bytes()
-        );
-
-        let elgamal = elgamal::keygen(&mut params);
-
-        println!(
-            "ELGAMAL priv: {:?}, pub: {:?}",
-            elgamal.private_key().0.to_bytes(),
-            elgamal.public_key().0.to_bytes()
-        );
-
-        let lambda =
-            prepare_blind_sign(&mut params, elgamal.public_key(), &attrs_priv, &attrs_pub).unwrap();
-
-        let blinded_sig = blind_sign(
-            &mut params,
-            &keypair.secret_key,
-            elgamal.public_key(),
-            &lambda,
-            &attrs_pub,
-        )
-        .unwrap();
-
-        println!(
-            "h: {:?}, sig1: {:?}, sig2: {:?}",
-            blinded_sig.0.to_bytes(),
-            blinded_sig.1 .0.to_bytes(),
-            blinded_sig.1 .1.to_bytes()
-        );
-
-        let sig = blinded_sig.unblind(elgamal.private_key());
-
-        println!(
-            "sig1: {:?}, sig2: {:?}",
-            sig.sig1().to_bytes(),
-            sig.sig2().to_bytes()
-        );
-
-        let theta =
-            prove_credential(&mut params, &keypair.verification_key, &sig, &attrs_priv).unwrap();
-
-        assert!(verify_credential(
-            &params,
-            &keypair.verification_key,
-            &theta,
-            &attrs_pub
-        ))
-    }
+    // #[test]
+    // fn foo() {
+    //     let mut params = Parameters::new(OsRng, 4).unwrap();
+    //     let keypair = keygen::keygen(&mut params);
+    //
+    //     println!(
+    //         "x: {:?},\n y1: {:?},\n y2: {:?}\n y3: {:?}\ny4:{:?}",
+    //         keypair.secret_key.x.to_bytes(),
+    //         keypair.secret_key.ys[0].to_bytes(),
+    //         keypair.secret_key.ys[1].to_bytes(),
+    //         keypair.secret_key.ys[2].to_bytes(),
+    //         keypair.secret_key.ys[3].to_bytes(),
+    //     );
+    //
+    //     let attrs_pub = params.n_random_scalars(2);
+    //     let attrs_priv = params.n_random_scalars(2);
+    //
+    //     println!(
+    //         "PUB attr1: {:?}, attr2: {:?}",
+    //         attrs_pub[0].to_bytes(),
+    //         attrs_pub[1].to_bytes()
+    //     );
+    //
+    //     println!(
+    //         "PRIV attr1: {:?}, attr2: {:?}",
+    //         attrs_priv[0].to_bytes(),
+    //         attrs_priv[1].to_bytes()
+    //     );
+    //
+    //     let elgamal = elgamal::keygen(&mut params);
+    //
+    //     println!(
+    //         "ELGAMAL priv: {:?}, pub: {:?}",
+    //         elgamal.private_key().0.to_bytes(),
+    //         elgamal.public_key().0.to_bytes()
+    //     );
+    //
+    //     let lambda =
+    //         prepare_blind_sign(&mut params, elgamal.public_key(), &attrs_priv, &attrs_pub).unwrap();
+    //
+    //     let blinded_sig = blind_sign(
+    //         &mut params,
+    //         &keypair.secret_key,
+    //         elgamal.public_key(),
+    //         &lambda,
+    //         &attrs_pub,
+    //     )
+    //     .unwrap();
+    //
+    //     println!(
+    //         "h: {:?}, sig1: {:?}, sig2: {:?}",
+    //         blinded_sig.0.to_bytes(),
+    //         blinded_sig.1 .0.to_bytes(),
+    //         blinded_sig.1 .1.to_bytes()
+    //     );
+    //
+    //     let sig = blinded_sig.unblind(elgamal.private_key());
+    //
+    //     println!(
+    //         "sig1: {:?}, sig2: {:?}",
+    //         sig.sig1().to_bytes(),
+    //         sig.sig2().to_bytes()
+    //     );
+    //
+    //     let theta =
+    //         prove_credential(&mut params, &keypair.verification_key, &sig, &attrs_priv).unwrap();
+    //
+    //     assert!(verify_credential(
+    //         &params,
+    //         &keypair.verification_key,
+    //         &theta,
+    //         &attrs_pub
+    //     ))
+    // }
 }
