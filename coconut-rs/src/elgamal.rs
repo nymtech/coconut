@@ -28,7 +28,7 @@ use crate::scheme::setup::Parameters;
 pub type EphemeralKey = Scalar;
 
 /// Two G1 points representing ElGamal ciphertext
-pub struct Ciphertext(G1Projective, G1Projective);
+pub struct Ciphertext(pub(crate) G1Projective, pub(crate) G1Projective);
 
 impl Ciphertext {
     pub(crate) fn c1(&self) -> &G1Projective {
@@ -60,12 +60,6 @@ impl Ciphertext {
             .map(G1Projective::from)?;
 
         Some(Ciphertext(c1, c2))
-    }
-}
-
-impl From<(G1Projective, G1Projective)> for Ciphertext {
-    fn from(raw: (G1Projective, G1Projective)) -> Self {
-        Ciphertext(raw.0, raw.1)
     }
 }
 

@@ -28,8 +28,7 @@ use rand_core::{CryptoRng, RngCore};
 // (h, s)
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
-// pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
-pub struct Signature(pub G1Projective, pub G1Projective);
+pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
 // just a type alias for ease of use
 pub type Credential = Signature;
 
@@ -227,7 +226,7 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
         .chain(std::iter::once(signed_public))
         .sum();
 
-    Ok(BlindedSignature(h, (sig_1, sig_2).into()))
+    Ok(BlindedSignature(h, elgamal::Ciphertext(sig_1, sig_2)))
 }
 
 // TODO NAMING: this whole thing

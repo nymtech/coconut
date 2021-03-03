@@ -90,6 +90,10 @@ impl<R> Parameters<R> {
     }
 }
 
+pub fn setup<R>(rng: R, num_attributes: u32) -> Result<Parameters<R>> {
+    Parameters::new(rng, num_attributes)
+}
+
 // for ease of use in tests requiring params
 // TODO: not sure if this will have to go away when tests require some specific number of generators
 #[cfg(test)]
