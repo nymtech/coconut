@@ -17,7 +17,8 @@ use core::iter::Sum;
 use core::ops::{Add, Mul};
 use std::convert::TryInto;
 
-use bls12_381::{G2Projective, Scalar};
+use bls12_381::{G2Affine, G2Projective, Scalar};
+use group::Curve;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
@@ -119,6 +120,73 @@ pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
     pub(crate) alpha: G2Projective,
     pub(crate) beta: Vec<G2Projective>,
+}
+
+impl VerificationKey {
+    // alpha || beta.len() || beta
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let beta_len = self.beta.len();
+        let mut bytes = Vec::with_capacity(8 + (beta_len + 1) * 96);
+
+        bytes[..96].copy_from_slice(&self.alpha.to_affine().to_compressed());
+        bytes[96..104].copy_from_slice(&beta_len.to_le_bytes());
+        for (i, beta) in self.beta.iter().enumerate() {
+            let start = 40 + i * 96;
+            let end = start + 96;
+            bytes[start..end].copy_from_slice(&beta.to_affine().to_compressed())
+        }
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<VerificationKey> {
+        if bytes.len() < 96 * 2 + 8 || (bytes.len() - 8) % 96 != 0 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize verification key with bytes of invalid length",
+            ));
+        }
+
+        // this conversion will not fail as we are taking the same length of data
+        let alpha_bytes: [u8; 96] = bytes[..96].try_into().unwrap();
+        let beta_len = u64::from_le_bytes(bytes[96..104].try_into().unwrap());
+        let actual_beta_len = (bytes.len() - 40) / 96;
+
+        if beta_len as usize != actual_beta_len {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("tried to deserialize verification key with inconsistent beta len (expected {}, got {})",
+                        beta_len, actual_beta_len
+                )));
+        }
+
+        let alpha = Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&alpha_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize verification key G2 point",
+                )
+            })
+            .map(G2Projective::from)?;
+
+        let mut beta = Vec::with_capacity(actual_beta_len);
+        for i in 0..actual_beta_len {
+            let start = 40 + i * 96;
+            let end = start + 96;
+            let beta_i_bytes = bytes[start..end].try_into().unwrap();
+            let beta_i = Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&beta_i_bytes))
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Deserialization,
+                        "failed to deserialize secret key scalar",
+                    )
+                })
+                .map(G2Projective::from)?;
+
+            beta.push(beta_i)
+        }
+
+        Ok(VerificationKey { alpha, beta })
+    }
 }
 
 impl<'b> Add<&'b VerificationKey> for VerificationKey {
