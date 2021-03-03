@@ -410,12 +410,12 @@ mod tests {
 
         assert_eq!(encoded.len(), 32);
         // their raw bytes are the same
-        assert_eq!(decoded.0.to_bytes(), keypair.private_key.0.to_bytes());
+        assert_eq!(decoded.to_bytes(), keypair.private_key.to_bytes());
 
         // it can also be deserialized directly from the raw bytes
-        let raw_bytes = keypair.private_key.0.to_bytes();
+        let raw_bytes = keypair.private_key.to_bytes();
         let decoded_raw: PrivateKey = bincode::deserialize(&raw_bytes).unwrap();
-        assert_eq!(decoded_raw.0.to_bytes(), keypair.private_key.0.to_bytes());
+        assert_eq!(decoded_raw.to_bytes(), keypair.private_key.to_bytes());
     }
 
     #[test]
@@ -433,7 +433,7 @@ mod tests {
         assert_eq!(decoded.0, keypair.public_key.0);
 
         // it can also be deserialized directly from the raw bytes
-        let raw_bytes = keypair.public_key.0.to_affine().to_compressed();
+        let raw_bytes = keypair.public_key.to_bytes();
         let decoded_raw: PublicKey = bincode::deserialize(&raw_bytes).unwrap();
         assert_eq!(decoded_raw.0, keypair.public_key.0);
     }
@@ -458,11 +458,7 @@ mod tests {
         assert_eq!(decoded.1, ciphertext.1);
 
         // it can also be deserialized directly from the raw bytes
-        let raw_bytes1 = ciphertext.0.to_affine().to_compressed();
-        let raw_bytes2 = ciphertext.1.to_affine().to_compressed();
-        let mut raw_bytes = [0u8; 96];
-        raw_bytes[..48].copy_from_slice(&raw_bytes1);
-        raw_bytes[48..].copy_from_slice(&raw_bytes2);
+        let raw_bytes = ciphertext.to_bytes();
 
         let decoded_raw: Ciphertext = bincode::deserialize(&raw_bytes).unwrap();
         assert_eq!(decoded_raw.0, ciphertext.0);
