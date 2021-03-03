@@ -45,6 +45,9 @@ pub enum ErrorKind {
 
     /// Error originating from the 'verification' phase of the protocol.
     Verification,
+
+    /// Error originating from deserialization of elements.
+    Deserialization,
 }
 
 impl Display for ErrorKind {
@@ -58,6 +61,7 @@ impl Display for ErrorKind {
             }
             ErrorKind::Aggregation => write!(f, "encountered error during the aggregation"),
             ErrorKind::Verification => write!(f, "encountered error during the verification"),
+            ErrorKind::Deserialization => write!(f, "encountered error during deserialization"),
         }
     }
 }

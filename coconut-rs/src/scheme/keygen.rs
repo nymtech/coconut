@@ -12,16 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::borrow::Borrow;
+use core::iter::Sum;
+use core::ops::{Add, Mul};
+use std::convert::TryInto;
+
+use bls12_381::{G2Projective, Scalar};
+use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::utils::Polynomial;
-use bls12_381::{G2Projective, Scalar};
-use core::borrow::Borrow;
-use core::iter::Sum;
-use core::ops::{Add, Mul};
-use rand_core::{CryptoRng, RngCore};
 
 #[derive(Debug)]
 pub struct SecretKey {
@@ -41,6 +48,68 @@ impl SecretKey {
             beta: self.ys.iter().map(|y| g2 * y).collect(),
         }
     }
+
+    // x || ys.len() || ys
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let ys_len = self.ys.len();
+        let mut bytes = Vec::with_capacity(8 + (ys_len + 1) * 32);
+
+        bytes[..32].copy_from_slice(&self.x.to_bytes());
+        bytes[32..40].copy_from_slice(&ys_len.to_le_bytes());
+        for (i, y) in self.ys.iter().enumerate() {
+            let start = 40 + i * 32;
+            let end = start + 32;
+            bytes[start..end].copy_from_slice(&y.to_bytes())
+        }
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey> {
+        if bytes.len() < 32 * 2 + 8 || (bytes.len() - 8) % 32 != 0 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize secret key with bytes of invalid length",
+            ));
+        }
+
+        // this conversion will not fail as we are taking the same length of data
+        let x_bytes: [u8; 32] = bytes[..32].try_into().unwrap();
+        let ys_len = u64::from_le_bytes(bytes[32..40].try_into().unwrap());
+        let actual_ys_len = (bytes.len() - 40) / 32;
+
+        if ys_len as usize != actual_ys_len {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("tried to deserialize secret key with inconsistent ys len (expected {}, got {})",
+                        ys_len, actual_ys_len
+                )));
+        }
+
+        let x = Into::<Option<Scalar>>::into(Scalar::from_bytes(&x_bytes)).ok_or_else(|| {
+            Error::new(
+                ErrorKind::Deserialization,
+                "failed to deserialize secret key scalar",
+            )
+        })?;
+
+        let mut ys = Vec::with_capacity(actual_ys_len);
+        for i in 0..actual_ys_len {
+            let start = 40 + i * 32;
+            let end = start + 32;
+            let y_bytes = bytes[start..end].try_into().unwrap();
+            let y =
+                Into::<Option<Scalar>>::into(Scalar::from_bytes(&y_bytes)).ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::Deserialization,
+                        "failed to deserialize secret key scalar",
+                    )
+                })?;
+
+            ys.push(y)
+        }
+
+        Ok(SecretKey { x, ys })
+    }
 }
 
 // TODO: perhaps change points to affine representation
@@ -50,12 +119,6 @@ pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
     pub(crate) alpha: G2Projective,
     pub(crate) beta: Vec<G2Projective>,
-}
-
-impl VerificationKey {
-    pub fn tmp_get_alpha(&self) -> &G2Projective {
-        &self.alpha
-    }
 }
 
 impl<'b> Add<&'b VerificationKey> for VerificationKey {
@@ -224,4 +287,3 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
 
     Ok(keypairs)
 }
-
