@@ -177,7 +177,7 @@ impl VerificationKey {
                 .ok_or_else(|| {
                     Error::new(
                         ErrorKind::Deserialization,
-                        "failed to deserialize secret key scalar",
+                        "failed to deserialize verification key G2 point",
                     )
                 })
                 .map(G2Projective::from)?;
