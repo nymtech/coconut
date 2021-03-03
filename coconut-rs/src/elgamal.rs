@@ -125,6 +125,7 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
     }
 }
 
+use core::fmt;
 use group::Curve;
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
@@ -157,7 +158,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
         impl<'de> Visitor<'de> for PrivateKeyVisitor {
             type Value = PrivateKey;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
             }
 
@@ -194,7 +195,7 @@ impl Serialize for PublicKey {
     {
         use serde::ser::SerializeTuple;
         let mut tup = serializer.serialize_tuple(48)?;
-        for byte in self.to_affine().to_compressed().as_ref().iter() {
+        for byte in self.to_affine().to_compressed().iter() {
             tup.serialize_element(byte)?;
         }
         tup.end()
@@ -212,7 +213,7 @@ impl<'de> Deserialize<'de> for PublicKey {
         impl<'de> Visitor<'de> for PublicKeyVisitor {
             type Value = PublicKey;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
             }
 
@@ -243,9 +244,86 @@ impl<'de> Deserialize<'de> for PublicKey {
     }
 }
 
+#[cfg(feature = "serde")]
+impl Serialize for Ciphertext {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(96)?;
+        for byte in self.0.to_affine().to_compressed().iter() {
+            tup.serialize_element(byte)?;
+        }
+        for byte in self.1.to_affine().to_compressed().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Ciphertext {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct CiphertextVisitor;
+
+        impl<'de> Visitor<'de> for CiphertextVisitor {
+            type Value = Ciphertext;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Ciphertext, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut bytes_c1 = [0u8; 48];
+                let mut bytes_c2 = [0u8; 48];
+                // I think this way makes it way more readable than the iterator approach
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..48 {
+                    bytes_c1[i] = seq.next_element()?.ok_or_else(|| {
+                        serde::de::Error::invalid_length(i, &"expected 96 bytes in total")
+                    })?;
+                }
+                // I think this way makes it way more readable than the iterator approach
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..48 {
+                    bytes_c2[i] = seq.next_element()?.ok_or_else(|| {
+                        serde::de::Error::invalid_length(i, &"expected 96 bytes in total")
+                    })?;
+                }
+
+                let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes_c1))
+                    .ok_or_else(|| {
+                        serde::de::Error::custom(
+                            &"the first ciphertext G1 curve point was not canonically encoded",
+                        )
+                    })?;
+                let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes_c2))
+                    .ok_or_else(|| {
+                        serde::de::Error::custom(
+                            &"the second ciphertext G1 curve point was not canonically encoded",
+                        )
+                    })?;
+
+                Ok(Ciphertext(G1Projective::from(c1), G1Projective::from(c2)))
+            }
+        }
+
+        deserializer.deserialize_tuple(96, CiphertextVisitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use group::Group;
+    use rand_core::OsRng;
 
     #[test]
     fn keygen() {
@@ -339,5 +417,36 @@ mod tests {
         let raw_bytes = keypair.public_key.0.to_affine().to_compressed();
         let decoded_raw: PublicKey = bincode::deserialize(&raw_bytes).unwrap();
         assert_eq!(decoded_raw.0, keypair.public_key.0);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_bincode_ciphertext_roundtrip() {
+        use super::*;
+
+        let mut params = Parameters::default();
+        let keypair = keygen(&mut params);
+        let m = params.random_scalar();
+        let h = G1Projective::random(OsRng);
+
+        let (ciphertext, _) = keypair.public_key.encrypt(&mut params, &h, &m);
+
+        let encoded = bincode::serialize(&ciphertext).unwrap();
+        let decoded: Ciphertext = bincode::deserialize(&encoded).unwrap();
+
+        assert_eq!(encoded.len(), 96);
+        assert_eq!(decoded.0, ciphertext.0);
+        assert_eq!(decoded.1, ciphertext.1);
+
+        // it can also be deserialized directly from the raw bytes
+        let raw_bytes1 = ciphertext.0.to_affine().to_compressed();
+        let raw_bytes2 = ciphertext.1.to_affine().to_compressed();
+        let mut raw_bytes = [0u8; 96];
+        raw_bytes[..48].copy_from_slice(&raw_bytes1);
+        raw_bytes[48..].copy_from_slice(&raw_bytes2);
+
+        let decoded_raw: Ciphertext = bincode::deserialize(&raw_bytes).unwrap();
+        assert_eq!(decoded_raw.0, ciphertext.0);
+        assert_eq!(decoded_raw.1, ciphertext.1);
     }
 }
