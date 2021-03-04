@@ -254,6 +254,78 @@ where
 //     G1Projective::random(&mut seeded_rng)
 // }
 
+// use core::fmt;
+// #[cfg(feature = "serde")]
+// use serde::de::Visitor;
+// #[cfg(feature = "serde")]
+// use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+//
+// // #[cfg(feature = "serde")]
+// #[serde(remote = "Scalar")]
+// pub(crate) struct ScalarDef(pub Scalar);
+//
+// // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+//
+// impl Serialize for ScalarDef {
+//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         use serde::ser::SerializeTuple;
+//         let mut tup = serializer.serialize_tuple(32)?;
+//         for byte in self.0.to_bytes().iter() {
+//             tup.serialize_element(byte)?;
+//         }
+//         tup.end()
+//     }
+// }
+//
+// impl<'de> Deserialize<'de> for ScalarDef {
+//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         struct ScalarVisitor;
+//
+//         impl<'de> Visitor<'de> for ScalarVisitor {
+//             type Value = ScalarDef;
+//
+//             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+//                 formatter.write_str("a 32-byte canonical bls12_381 scalar")
+//             }
+//
+//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<ScalarDef, A::Error>
+//             where
+//                 A: serde::de::SeqAccess<'de>,
+//             {
+//                 let mut bytes = [0u8; 32];
+//                 for i in 0..32 {
+//                     bytes[i] = seq
+//                         .next_element()?
+//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+//                 }
+//
+//                 let res = Scalar::from_bytes(&bytes);
+//                 if res.is_some().into() {
+//                     Ok(ScalarDef(res.unwrap()))
+//                 } else {
+//                     Err(serde::de::Error::custom(
+//                         &"scalar was not canonically encoded",
+//                     ))
+//                 }
+//             }
+//         }
+//
+//         deserializer.deserialize_tuple(32, ScalarVisitor)
+//     }
+// }
+//
+// #[cfg(feature = "serde")]
+// pub(crate) struct G1ProjectiveSerdeHelper(Scalar);
+//
+// #[cfg(feature = "serde")]
+// pub(crate) struct G2ProjectiveSerdeHelper(Scalar);
+
 #[cfg(test)]
 mod tests {
     use super::*;

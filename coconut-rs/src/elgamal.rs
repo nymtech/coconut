@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::error::Result;
+use crate::scheme::setup::Parameters;
+use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
@@ -21,10 +24,6 @@ use rand_core::{CryptoRng, RngCore};
 use serde::de::Visitor;
 #[cfg(feature = "serde")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::error::{Error, ErrorKind, Result};
-use crate::scheme::setup::Parameters;
-use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -280,60 +279,62 @@ impl<'de> Deserialize<'de> for PublicKey {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for Ciphertext {
-    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(96)?;
-        for byte in self.to_bytes().iter() {
-            tup.serialize_element(byte)?;
-        }
-        tup.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Ciphertext {
-    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct CiphertextVisitor;
-
-        impl<'de> Visitor<'de> for CiphertextVisitor {
-            type Value = Ciphertext;
-
-            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-                formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Ciphertext, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut bytes = [0u8; 96];
-                // I think this way makes it way more readable than the iterator approach
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..96 {
-                    bytes[i] = seq
-                        .next_element()?
-                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
-                }
-
-                Ciphertext::from_bytes(&bytes).map_err(|_| {
-                    serde::de::Error::custom(
-                        &"the ciphertext G1 curve points were not canonically encoded",
-                    )
-                })
-            }
-        }
-
-        deserializer.deserialize_tuple(96, CiphertextVisitor)
-    }
-}
+// TODO: I think that is wrong and should rather serialize both elements separately
+//
+// #[cfg(feature = "serde")]
+// impl Serialize for Ciphertext {
+//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         use serde::ser::SerializeTuple;
+//         let mut tup = serializer.serialize_tuple(96)?;
+//         for byte in self.to_bytes().iter() {
+//             tup.serialize_element(byte)?;
+//         }
+//         tup.end()
+//     }
+// }
+//
+// #[cfg(feature = "serde")]
+// impl<'de> Deserialize<'de> for Ciphertext {
+//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         struct CiphertextVisitor;
+//
+//         impl<'de> Visitor<'de> for CiphertextVisitor {
+//             type Value = Ciphertext;
+//
+//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+//                 formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
+//             }
+//
+//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Ciphertext, A::Error>
+//             where
+//                 A: serde::de::SeqAccess<'de>,
+//             {
+//                 let mut bytes = [0u8; 96];
+//                 // I think this way makes it way more readable than the iterator approach
+//                 #[allow(clippy::needless_range_loop)]
+//                 for i in 0..96 {
+//                     bytes[i] = seq
+//                         .next_element()?
+//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
+//                 }
+//
+//                 Ciphertext::from_bytes(&bytes).map_err(|_| {
+//                     serde::de::Error::custom(
+//                         &"the ciphertext G1 curve points were not canonically encoded",
+//                     )
+//                 })
+//             }
+//         }
+//
+//         deserializer.deserialize_tuple(96, CiphertextVisitor)
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -436,30 +437,30 @@ mod tests {
         assert_eq!(decoded_raw.0, keypair.public_key.0);
     }
 
-    #[test]
-    #[cfg(feature = "serde")]
-    fn serde_bincode_ciphertext_roundtrip() {
-        use super::*;
-
-        let mut params = Parameters::default();
-        let keypair = keygen(&mut params);
-        let m = params.random_scalar();
-        let h = G1Projective::random(OsRng);
-
-        let (ciphertext, _) = keypair.public_key.encrypt(&mut params, &h, &m);
-
-        let encoded = bincode::serialize(&ciphertext).unwrap();
-        let decoded: Ciphertext = bincode::deserialize(&encoded).unwrap();
-
-        assert_eq!(encoded.len(), 96);
-        assert_eq!(decoded.0, ciphertext.0);
-        assert_eq!(decoded.1, ciphertext.1);
-
-        // it can also be deserialized directly from the raw bytes
-        let raw_bytes = ciphertext.to_bytes();
-
-        let decoded_raw: Ciphertext = bincode::deserialize(&raw_bytes).unwrap();
-        assert_eq!(decoded_raw.0, ciphertext.0);
-        assert_eq!(decoded_raw.1, ciphertext.1);
-    }
+    // #[test]
+    // #[cfg(feature = "serde")]
+    // fn serde_bincode_ciphertext_roundtrip() {
+    //     use super::*;
+    //
+    //     let mut params = Parameters::default();
+    //     let keypair = keygen(&mut params);
+    //     let m = params.random_scalar();
+    //     let h = G1Projective::random(OsRng);
+    //
+    //     let (ciphertext, _) = keypair.public_key.encrypt(&mut params, &h, &m);
+    //
+    //     let encoded = bincode::serialize(&ciphertext).unwrap();
+    //     let decoded: Ciphertext = bincode::deserialize(&encoded).unwrap();
+    //
+    //     assert_eq!(encoded.len(), 96);
+    //     assert_eq!(decoded.0, ciphertext.0);
+    //     assert_eq!(decoded.1, ciphertext.1);
+    //
+    //     // it can also be deserialized directly from the raw bytes
+    //     let raw_bytes = ciphertext.to_bytes();
+    //
+    //     let decoded_raw: Ciphertext = bincode::deserialize(&raw_bytes).unwrap();
+    //     assert_eq!(decoded_raw.0, ciphertext.0);
+    //     assert_eq!(decoded_raw.1, ciphertext.1);
+    // }
 }

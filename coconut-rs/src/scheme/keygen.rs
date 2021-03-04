@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::borrow::Borrow;
-use core::iter::Sum;
-use core::ops::{Add, Mul};
-use std::convert::TryInto;
-
-use bls12_381::{G2Affine, G2Projective, Scalar};
-use group::Curve;
-use rand_core::{CryptoRng, RngCore};
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
@@ -32,9 +19,26 @@ use crate::scheme::SignerIndex;
 use crate::utils::{
     try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec, Polynomial,
 };
+use bls12_381::{G2Projective, Scalar};
+use core::borrow::Borrow;
+use core::iter::Sum;
+use core::ops::{Add, Mul};
+use group::Curve;
+use rand_core::{CryptoRng, RngCore};
+use std::convert::TryInto;
+
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+#[cfg(feature = "serde")]
+use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+// #[cfg(feature = "serde")]
+// use crate::utils::ScalarDef;
 
 #[derive(Debug)]
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecretKey {
+    // #[cfg_attr(feature = "serde", serde(with = "ScalarSerdeHelper"))]
     pub(crate) x: Scalar,
     pub(crate) ys: Vec<Scalar>,
 }
@@ -244,6 +248,130 @@ pub struct KeyPair {
     /// Optional index value specifying polynomial point used during threshold key generation.
     pub index: Option<SignerIndex>,
 }
+
+// #[cfg(feature = "serde")]
+// impl Serialize for SecretKey {
+//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         use serde::ser::SerializeStruct;
+//         use serde::ser::SerializeTuple;
+//
+//         let mut state = serializer.serialize_struct("SecretKey", 2)?;
+//
+//         state.serialize_field("x", &self.x);
+//         state.serialize_field("ys", &self.ys);
+//
+//         // state.serialize_field("x")
+//
+//         // let mut tup = serializer.serialize_tuple(32)?;
+//         // for byte in self.to_bytes().iter() {
+//         //     tup.serialize_element(byte)?;
+//         // }
+//         state.end()
+//     }
+// }
+//
+// #[cfg(feature = "serde")]
+// impl<'de> Deserialize<'de> for SecretKey {
+//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         #[derive(Deserialize)]
+//         #[serde(field_identifier, rename_all = "lowercase")]
+//         enum Field {
+//             X,
+//             Ys,
+//         }
+//
+//         struct SecretKeyVisitor;
+//
+//         impl<'de> Visitor<'de> for SecretKeyVisitor {
+//             type Value = SecretKey;
+//
+//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+//                 formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
+//             }
+//
+//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<SecretKey, A::Error>
+//             where
+//                 A: serde::de::SeqAccess<'de>,
+//             {
+//                 let mut bytes = [0u8; 32];
+//                 // I think this way makes it way more readable than the iterator approach
+//                 #[allow(clippy::needless_range_loop)]
+//                 for i in 0..32 {
+//                     bytes[i] = seq
+//                         .next_element()?
+//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+//                 }
+//
+//                 SecretKey::from_bytes(&bytes).ok_or_else(|| {
+//                     serde::de::Error::custom(&"private key scalar was not canonically encoded")
+//                 })
+//             }
+//         }
+//
+//         deserializer.deserialize_tuple(32, SecretKeyVisitor)
+//     }
+// }
+//
+// #[cfg(feature = "serde")]
+// impl Serialize for VerificationKey {
+//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         use serde::ser::SerializeTuple;
+//         let mut tup = serializer.serialize_tuple(48)?;
+//         for byte in self.to_bytes().iter() {
+//             tup.serialize_element(byte)?;
+//         }
+//         tup.end()
+//     }
+// }
+//
+// #[cfg(feature = "serde")]
+// impl<'de> Deserialize<'de> for VerificationKey {
+//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         struct VerificationKeyVisitor;
+//
+//         impl<'de> Visitor<'de> for VerificationKeyVisitor {
+//             type Value = VerificationKey;
+//
+//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+//                 formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
+//             }
+//
+//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<VerificationKey, A::Error>
+//             where
+//                 A: serde::de::SeqAccess<'de>,
+//             {
+//                 let mut bytes = [0u8; 48];
+//                 // I think this way makes it way more readable than the iterator approach
+//                 #[allow(clippy::needless_range_loop)]
+//                 for i in 0..48 {
+//                     bytes[i] = seq
+//                         .next_element()?
+//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
+//                 }
+//
+//                 VerificationKey::from_bytes(&bytes).ok_or_else(|| {
+//                     serde::de::Error::custom(
+//                         &"public key G1 curve point was not canonically encoded",
+//                     )
+//                 })
+//             }
+//         }
+//
+//         deserializer.deserialize_tuple(48, VerificationKeyVisitor)
+//     }
+// }
 
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys

@@ -128,14 +128,14 @@ impl ProofCmCs {
 
         // TODO NAMING: Aw, Bw, Cw.... ?
         // Aw[i] = (wk[i] * g1)
-        let Aw_bytes = witness_keys
+        let commitment_keys1_bytes = witness_keys
             .iter()
             .map(|wk_i| g1 * wk_i)
             .map(|witness| witness.to_bytes())
             .collect::<Vec<_>>();
 
         // Bw[i] = (wm[i] * h) + (wk[i] * gamma)
-        let Bw_bytes = witness_keys
+        let commitment_keys2_bytes = witness_keys
             .iter()
             .zip(witness_attributes.iter())
             .map(|(wk_i, wm_i)| pub_key * wk_i + h * wm_i)
@@ -158,8 +158,8 @@ impl ProofCmCs {
                 .chain(std::iter::once(h.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
-                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
-                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
+                .chain(commitment_keys1_bytes.iter().map(|aw| aw.as_ref()))
+                .chain(commitment_keys2_bytes.iter().map(|bw| bw.as_ref())),
         );
 
         // responses
@@ -209,7 +209,7 @@ impl ProofCmCs {
 
         // Aw[i] = (c * c1[i]) + (rk[i] * g1)
         // TODO NAMING: Aw, Bw...
-        let Aw_bytes = attributes_ciphertexts
+        let commitment_keys1_bytes = attributes_ciphertexts
             .iter()
             .map(|ciphertext| ciphertext.c1())
             .zip(self.response_keys.iter())
@@ -218,7 +218,7 @@ impl ProofCmCs {
             .collect::<Vec<_>>();
 
         // Bw[i] = (c * c2[i]) + (rk[i] * gamma) + (rm[i] * h)
-        let Bw_bytes = izip!(
+        let commitment_keys2_bytes = izip!(
             attributes_ciphertexts
                 .iter()
                 .map(|ciphertext| ciphertext.c2()),
@@ -247,8 +247,8 @@ impl ProofCmCs {
                 .chain(std::iter::once(h.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
-                .chain(Aw_bytes.iter().map(|aw| aw.as_ref()))
-                .chain(Bw_bytes.iter().map(|bw| bw.as_ref())),
+                .chain(commitment_keys1_bytes.iter().map(|aw| aw.as_ref()))
+                .chain(commitment_keys2_bytes.iter().map(|bw| bw.as_ref())),
         );
 
         challenge == self.challenge
@@ -365,7 +365,7 @@ impl ProofKappaNu {
         // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
         // TODO: kappa commitment??
         // TODO NAMING: Aw, Bw
-        let Aw = params.gen2() * witness_blinder
+        let commitment_kappa = params.gen2() * witness_blinder
             + verification_key.alpha
             + witness_attributes
                 .iter()
@@ -373,14 +373,14 @@ impl ProofKappaNu {
                 .map(|(wm_i, beta_i)| beta_i * wm_i)
                 .sum::<G2Projective>();
 
-        let Bw = h * witness_blinder;
+        let commitment_blinder = h * witness_blinder;
 
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
-                .chain(std::iter::once(Aw.to_bytes().as_ref()))
-                .chain(std::iter::once(Bw.to_bytes().as_ref()))
+                .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
+                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
@@ -425,7 +425,7 @@ impl ProofKappaNu {
         // re-compute witnesses commitments
         // Aw = (c * kappa) + (rt * g2) + ((1 - c) * alpha) + (rm[0] * beta[0]) + ... + (rm[i] * beta[i])
         // TODO NAMING: Aw, Bw...
-        let Aw = kappa * self.challenge
+        let commitment_kappa = kappa * self.challenge
             + params.gen2() * self.response_blinder
             + verification_key.alpha * (Scalar::one() - self.challenge)
             + self
@@ -436,15 +436,15 @@ impl ProofKappaNu {
                 .sum::<G2Projective>();
 
         // Bw = (c * nu) + (rt * h)
-        let Bw = nu * self.challenge + signature.sig1() * self.response_blinder;
+        let commitment_blinder = nu * self.challenge + signature.sig1() * self.response_blinder;
 
         // compute the challenge prime ([g1, g2, alpha, Aw, Bw]+hs+beta)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
-                .chain(std::iter::once(Aw.to_bytes().as_ref()))
-                .chain(std::iter::once(Bw.to_bytes().as_ref()))
+                .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
+                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
