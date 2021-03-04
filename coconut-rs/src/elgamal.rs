@@ -55,17 +55,21 @@ impl Ciphertext {
         c2_bytes.copy_from_slice(&bytes[48..]);
 
         let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c1_bytes))
-            .ok_or(Error::new(
-                ErrorKind::Deserialization,
-                "failed to deserialize compressed c1",
-            ))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed c1",
+                )
+            })
             .map(G1Projective::from)?;
 
         let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c2_bytes))
-            .ok_or(Error::new(
-                ErrorKind::Deserialization,
-                "failed to deserialize compressed c2",
-            ))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed c2",
+                )
+            })
             .map(G1Projective::from)?;
 
         Ok(Ciphertext(c1, c2))
@@ -95,10 +99,12 @@ impl PrivateKey {
 
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<PrivateKey> {
         Into::<Option<_>>::into(Scalar::from_bytes(bytes))
-            .ok_or(Error::new(
-                ErrorKind::Deserialization,
-                "failed to deserialize ElGamal private key - it was not in the canonical form",
-            ))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize ElGamal private key - it was not in the canonical form",
+                )
+            })
             .map(PrivateKey)
     }
 }
@@ -133,10 +139,12 @@ impl PublicKey {
 
     pub fn from_bytes(bytes: &[u8; 48]) -> Result<PublicKey> {
         Into::<Option<G1Affine>>::into(G1Affine::from_compressed(bytes))
-            .ok_or(Error::new(
-                ErrorKind::Deserialization,
-                "failed to deserialize compressed ElGamal public key",
-            ))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed ElGamal public key",
+                )
+            })
             .map(G1Projective::from)
             .map(PublicKey)
     }
