@@ -15,10 +15,12 @@
 // TODO: implement https://crates.io/crates/signature traits?
 
 use crate::elgamal;
-use crate::error::Result;
+use crate::elgamal::Ciphertext;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
-use bls12_381::G1Projective;
+use bls12_381::{G1Affine, G1Projective};
+use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
 use rand_core::{CryptoRng, RngCore};
 
@@ -56,15 +58,77 @@ impl Signature {
     pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
         aggregate_signatures(sigs, indices)
     }
+
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
+        bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
+        bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8; 96]) -> Result<Signature> {
+        let mut sig1_bytes = [0u8; 48];
+        let mut sig2_bytes = [0u8; 48];
+
+        sig1_bytes.copy_from_slice(&bytes[..48]);
+        sig2_bytes.copy_from_slice(&bytes[48..]);
+
+        let sig1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&sig1_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed sig1",
+                )
+            })
+            .map(G1Projective::from)?;
+
+        let sig2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&sig2_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed sig2",
+                )
+            })
+            .map(G1Projective::from)?;
+
+        Ok(Signature(sig1, sig2))
+    }
 }
 
-pub struct BlindedSignature(pub G1Projective, pub elgamal::Ciphertext);
-// pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
+pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
 impl BlindedSignature {
     pub fn unblind(self, private_key: &elgamal::PrivateKey) -> Signature {
         let sig2 = private_key.decrypt(&self.1);
         Signature(self.0, sig2)
+    }
+
+    pub fn to_bytes(&self) -> [u8; 144] {
+        let mut bytes = [0u8; 144];
+        bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
+        bytes[48..].copy_from_slice(&self.1.to_bytes());
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8; 144]) -> Result<BlindedSignature> {
+        let mut h_bytes = [0u8; 48];
+        let mut c_tilde_bytes = [0u8; 96];
+
+        h_bytes.copy_from_slice(&bytes[..48]);
+        c_tilde_bytes.copy_from_slice(&bytes[48..]);
+
+        let h = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&h_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize compressed h",
+                )
+            })
+            .map(G1Projective::from)?;
+
+        let c_tilde = Ciphertext::from_bytes(&c_tilde_bytes)?;
+
+        Ok(BlindedSignature(h, c_tilde))
     }
 }
 
