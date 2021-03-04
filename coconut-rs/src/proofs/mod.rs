@@ -17,7 +17,7 @@
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::{Signature, VerificationKey};
-use crate::utils::{deserialize_scalar_vec, hash_g1};
+use crate::utils::{hash_g1, try_deserialize_scalar, try_deserialize_scalar_vec};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, G2Projective, Scalar};
 use digest::generic_array::typenum::Unsigned;
@@ -290,21 +290,11 @@ impl ProofCmCs {
         let challenge_bytes = bytes[..32].try_into().unwrap();
         let rr_bytes = bytes[32..64].try_into().unwrap();
 
-        let challenge = Into::<Option<Scalar>>::into(Scalar::from_bytes(&challenge_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize challenge",
-                )
-            })?;
-
-        let response_random = Into::<Option<Scalar>>::into(Scalar::from_bytes(&rr_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize the response to the random",
-                )
-            })?;
+        let challenge =
+            try_deserialize_scalar(&challenge_bytes, || "failed to deserialize challenge")?;
+        let response_random = try_deserialize_scalar(&rr_bytes, || {
+            "failed to deserialize the response to the random"
+        })?;
 
         let rk_len = u64::from_le_bytes(bytes[64..72].try_into().unwrap());
         if bytes[72..].len() < rk_len as usize * 32 + 8 {
@@ -315,22 +305,14 @@ impl ProofCmCs {
         }
 
         let rk_end = 72 + rk_len as usize * 32;
-        let response_keys =
-            deserialize_scalar_vec(rk_len, &bytes[72..rk_end]).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize keys response",
-                )
-            })?;
+        let response_keys = try_deserialize_scalar_vec(rk_len, &bytes[72..rk_end], || {
+            "failed to deserialize keys response"
+        })?;
 
         let rm_len = u64::from_le_bytes(bytes[rk_end..rk_end + 8].try_into().unwrap());
-        let response_attributes =
-            deserialize_scalar_vec(rm_len, &bytes[rk_end + 8..]).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize attributes response",
-                )
-            })?;
+        let response_attributes = try_deserialize_scalar_vec(rm_len, &bytes[rk_end + 8..], || {
+            "failed to deserialize attributes response"
+        })?;
 
         Ok(ProofCmCs {
             challenge,
@@ -498,13 +480,8 @@ impl ProofKappaNu {
         }
 
         let challenge_bytes = bytes[..32].try_into().unwrap();
-        let challenge = Into::<Option<Scalar>>::into(Scalar::from_bytes(&challenge_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize challenge",
-                )
-            })?;
+        let challenge =
+            try_deserialize_scalar(&challenge_bytes, || "failed to deserialize challenge")?;
 
         let rm_len = u64::from_le_bytes(bytes[32..40].try_into().unwrap());
         if bytes[40..].len() != (rm_len + 1) as usize * 32 {
@@ -515,22 +492,13 @@ impl ProofKappaNu {
         }
 
         let rm_end = 72 + rm_len as usize * 32;
-        let response_attributes =
-            deserialize_scalar_vec(rm_len, &bytes[40..rm_end]).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize attributes response",
-                )
-            })?;
+        let response_attributes = try_deserialize_scalar_vec(rm_len, &bytes[40..rm_end], || {
+            "failed to deserialize attributes response"
+        })?;
 
         let blinder_bytes = bytes[rm_end..].try_into().unwrap();
-        let response_blinder = Into::<Option<Scalar>>::into(Scalar::from_bytes(&blinder_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize the blinder",
-                )
-            })?;
+        let response_blinder =
+            try_deserialize_scalar(&blinder_bytes, || "failed to deserialize the blinder")?;
 
         Ok(ProofKappaNu {
             challenge,

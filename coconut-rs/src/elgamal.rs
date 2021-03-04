@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bls12_381::{G1Affine, G1Projective, Scalar};
+use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
@@ -24,6 +24,7 @@ use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
+use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -54,23 +55,10 @@ impl Ciphertext {
         c1_bytes.copy_from_slice(&bytes[..48]);
         c2_bytes.copy_from_slice(&bytes[48..]);
 
-        let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c1_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed c1",
-                )
-            })
-            .map(G1Projective::from)?;
-
-        let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c2_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed c2",
-                )
-            })
-            .map(G1Projective::from)?;
+        let c1 =
+            try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
+        let c2 =
+            try_deserialize_g1_projective(&c2_bytes, || "failed to deserialize compressed c2")?;
 
         Ok(Ciphertext(c1, c2))
     }
@@ -98,14 +86,10 @@ impl PrivateKey {
     }
 
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<PrivateKey> {
-        Into::<Option<_>>::into(Scalar::from_bytes(bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize ElGamal private key - it was not in the canonical form",
-                )
-            })
-            .map(PrivateKey)
+        try_deserialize_scalar(bytes, || {
+            "failed to deserialize ElGamal private key - it was not in the canonical form"
+        })
+        .map(PrivateKey)
     }
 }
 
@@ -138,15 +122,10 @@ impl PublicKey {
     }
 
     pub fn from_bytes(bytes: &[u8; 48]) -> Result<PublicKey> {
-        Into::<Option<G1Affine>>::into(G1Affine::from_compressed(bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed ElGamal public key",
-                )
-            })
-            .map(G1Projective::from)
-            .map(PublicKey)
+        try_deserialize_g1_projective(bytes, || {
+            "failed to deserialize compressed ElGamal public key"
+        })
+        .map(PublicKey)
     }
 }
 

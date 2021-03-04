@@ -16,10 +16,11 @@
 
 use crate::elgamal;
 use crate::elgamal::Ciphertext;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
-use bls12_381::{G1Affine, G1Projective};
+use crate::utils::try_deserialize_g1_projective;
+use bls12_381::G1Projective;
 use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
 use rand_core::{CryptoRng, RngCore};
@@ -73,23 +74,11 @@ impl Signature {
         sig1_bytes.copy_from_slice(&bytes[..48]);
         sig2_bytes.copy_from_slice(&bytes[48..]);
 
-        let sig1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&sig1_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed sig1",
-                )
-            })
-            .map(G1Projective::from)?;
+        let sig1 =
+            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
 
-        let sig2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&sig2_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed sig2",
-                )
-            })
-            .map(G1Projective::from)?;
+        let sig2 =
+            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
 
         Ok(Signature(sig1, sig2))
     }
@@ -117,15 +106,7 @@ impl BlindedSignature {
         h_bytes.copy_from_slice(&bytes[..48]);
         c_tilde_bytes.copy_from_slice(&bytes[48..]);
 
-        let h = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&h_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize compressed h",
-                )
-            })
-            .map(G1Projective::from)?;
-
+        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
         let c_tilde = Ciphertext::from_bytes(&c_tilde_bytes)?;
 
         Ok(BlindedSignature(h, c_tilde))

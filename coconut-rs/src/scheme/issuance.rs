@@ -20,7 +20,7 @@ use crate::scheme::SecretKey;
 use crate::scheme::{BlindedSignature, Signature};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
-use bls12_381::{G1Affine, G1Projective, Scalar};
+use bls12_381::{G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
@@ -77,10 +77,9 @@ impl BlindSignRequest {
         }
 
         let cm_bytes = bytes[..48].try_into().unwrap();
-        let commitment = try_deserialize_g1_projective(
-            &cm_bytes,
-            "failed to deserialize compressed commitment",
-        )?;
+        let commitment = try_deserialize_g1_projective(&cm_bytes, || {
+            "failed to deserialize compressed commitment"
+        })?;
 
         let c_len = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
         if bytes[56..].len() < c_len as usize * 96 {

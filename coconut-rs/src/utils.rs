@@ -182,28 +182,50 @@ where
     }
 }
 
-pub(crate) fn deserialize_scalar_vec(expected_len: u64, bytes: &[u8]) -> Option<Vec<Scalar>> {
+pub(crate) fn try_deserialize_scalar_vec<E, F>(
+    expected_len: u64,
+    bytes: &[u8],
+    err: F,
+) -> Result<Vec<Scalar>>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    F: FnOnce() -> E,
+{
     if bytes.len() != expected_len as usize * 32 {
-        return None;
+        return Err(Error::new(ErrorKind::Deserialization, err()));
     }
 
     let mut out = Vec::with_capacity(expected_len as usize);
     for i in 0..expected_len as usize {
         let s_bytes = bytes[i * 32..(i + 1) * 32].try_into().unwrap();
-        let s = Into::<Option<Scalar>>::into(Scalar::from_bytes(&s_bytes))?;
+        let s = match Into::<Option<Scalar>>::into(Scalar::from_bytes(&s_bytes)) {
+            None => return Err(Error::new(ErrorKind::Deserialization, err())),
+            Some(scalar) => scalar,
+        };
         out.push(s)
     }
 
-    Some(out)
+    Ok(out)
 }
 
-pub(crate) fn try_deserialize_g1_projective<E>(bytes: &[u8; 48], err: E) -> Result<G1Projective>
+pub(crate) fn try_deserialize_g1_projective<E, F>(bytes: &[u8; 48], err: F) -> Result<G1Projective>
 where
     E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    F: FnOnce() -> E,
 {
     Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
-        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err))
+        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
         .map(G1Projective::from)
+}
+
+// TODO: change  E to FnOnce -> E
+pub(crate) fn try_deserialize_scalar<E, F>(bytes: &[u8; 32], err: F) -> Result<Scalar>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    F: FnOnce() -> E,
+{
+    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes))
+        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
 }
 
 // #[doc(hidden)]

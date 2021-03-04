@@ -84,19 +84,10 @@ impl SecretKey {
                 )));
         }
 
-        let x = Into::<Option<Scalar>>::into(Scalar::from_bytes(&x_bytes)).ok_or_else(|| {
-            Error::new(
-                ErrorKind::Deserialization,
-                "failed to deserialize secret key scalar",
-            )
+        let x = try_deserialize_scalar(&x_bytes, || "failed to deserialize secret key scalar")?;
+        let ys = try_deserialize_scalar_vec(ys_len, &bytes[40..], || {
+            "failed to deserialize secret key scalars"
         })?;
-
-        let ys = deserialize_scalar_vec(ys_len, &bytes[40..]).ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::Deserialization,
-                "failed to deserialize secret key scalars",
-                    )
-                })?;
 
         Ok(SecretKey { x, ys })
     }
