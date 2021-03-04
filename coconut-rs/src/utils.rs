@@ -16,7 +16,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::G1HashDigest;
-use bls12_381::{G1Affine, G1Projective, Scalar};
+use bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 use core::iter::Sum;
 use core::ops::Mul;
 use digest::generic_array;
@@ -208,6 +208,15 @@ where
     Ok(out)
 }
 
+pub(crate) fn try_deserialize_scalar<E, F>(bytes: &[u8; 32], err: F) -> Result<Scalar>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    F: FnOnce() -> E,
+{
+    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes))
+        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
+}
+
 pub(crate) fn try_deserialize_g1_projective<E, F>(bytes: &[u8; 48], err: F) -> Result<G1Projective>
 where
     E: Into<Box<dyn std::error::Error + Send + Sync>>,
@@ -218,14 +227,14 @@ where
         .map(G1Projective::from)
 }
 
-// TODO: change  E to FnOnce -> E
-pub(crate) fn try_deserialize_scalar<E, F>(bytes: &[u8; 32], err: F) -> Result<Scalar>
+pub(crate) fn try_deserialize_g2_projective<E, F>(bytes: &[u8; 96], err: F) -> Result<G2Projective>
 where
     E: Into<Box<dyn std::error::Error + Send + Sync>>,
     F: FnOnce() -> E,
 {
-    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes))
+    Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&bytes))
         .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
+        .map(G2Projective::from)
 }
 
 // #[doc(hidden)]

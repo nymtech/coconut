@@ -17,11 +17,13 @@ use crate::proofs::ProofKappaNu;
 use crate::scheme::setup::Parameters;
 use crate::scheme::Signature;
 use crate::scheme::VerificationKey;
+use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective};
 use crate::Attribute;
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
 use core::ops::Neg;
-use group::{Curve, Group};
+use group::{Curve, Group, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
+use std::convert::TryInto;
 
 // TODO NAMING: this whole thing
 // Theta
@@ -45,6 +47,52 @@ impl Theta {
             &self.kappa,
             &self.nu,
         )
+    }
+
+    // TODO: perhaps also include pi_v.len()?
+    // to be determined once we implement serde to make sure its 1:1 compatible
+    // with bincode
+    // kappa || nu || credential || pi_v
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let kappa_bytes = self.kappa.to_affine().to_compressed();
+        let nu_bytes = self.nu.to_affine().to_compressed();
+        let credential_bytes = self.credential.to_bytes();
+        let proof_bytes = self.pi_v.to_bytes();
+
+        let mut bytes = Vec::with_capacity(240 + proof_bytes.len());
+        bytes.copy_from_slice(&kappa_bytes);
+        bytes.copy_from_slice(&nu_bytes);
+        bytes.copy_from_slice(&credential_bytes);
+        bytes.copy_from_slice(&proof_bytes);
+
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Theta> {
+        if bytes.len() < 240 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize theta with insufficient number of bytes",
+            ));
+        }
+
+        let kappa_bytes = bytes[..96].try_into().unwrap();
+        let kappa = try_deserialize_g2_projective(&kappa_bytes, || "failed to deserialize kappa")?;
+
+        let nu_bytes = bytes[96..144].try_into().unwrap();
+        let nu = try_deserialize_g1_projective(&nu_bytes, || "failed to deserialize kappa")?;
+
+        let credential_bytes = bytes[144..240].try_into().unwrap();
+        let credential = Signature::from_bytes(&credential_bytes)?;
+
+        let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
+
+        Ok(Theta {
+            kappa,
+            nu,
+            credential,
+            pi_v,
+        })
     }
 }
 
