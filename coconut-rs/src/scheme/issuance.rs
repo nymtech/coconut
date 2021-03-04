@@ -53,7 +53,7 @@ impl BlindSignRequest {
     pub fn to_bytes(&self) -> Vec<u8> {
         let cm_bytes = self.commitment.to_affine().to_compressed();
         let c_len = self.attributes_ciphertexts.len() as u64;
-        let mut proof_bytes = self.pi_s.to_bytes();
+        let proof_bytes = self.pi_s.to_bytes();
 
         let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
 
@@ -63,7 +63,7 @@ impl BlindSignRequest {
             bytes.copy_from_slice(&c.to_bytes());
         }
 
-        bytes.append(&mut proof_bytes);
+        bytes.copy_from_slice(&proof_bytes);
 
         bytes
     }

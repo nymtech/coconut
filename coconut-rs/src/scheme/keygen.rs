@@ -29,7 +29,9 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
-use crate::utils::Polynomial;
+use crate::utils::{
+    try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec, Polynomial,
+};
 
 #[derive(Debug)]
 pub struct SecretKey {
@@ -137,28 +139,18 @@ impl VerificationKey {
                 )));
         }
 
-        let alpha = Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&alpha_bytes))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Deserialization,
-                    "failed to deserialize verification key G2 point",
-                )
-            })
-            .map(G2Projective::from)?;
+        let alpha = try_deserialize_g2_projective(&alpha_bytes, || {
+            "failed to deserialize verification key G2 point"
+        })?;
 
         let mut beta = Vec::with_capacity(actual_beta_len);
         for i in 0..actual_beta_len {
             let start = 40 + i * 96;
             let end = start + 96;
             let beta_i_bytes = bytes[start..end].try_into().unwrap();
-            let beta_i = Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&beta_i_bytes))
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::Deserialization,
-                        "failed to deserialize verification key G2 point",
-                    )
-                })
-                .map(G2Projective::from)?;
+            let beta_i = try_deserialize_g2_projective(&beta_i_bytes, || {
+                "failed to deserialize verification key G2 point"
+            })?;
 
             beta.push(beta_i)
         }
