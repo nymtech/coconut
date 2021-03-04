@@ -22,6 +22,7 @@ use serde::de::Visitor;
 #[cfg(feature = "serde")]
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
@@ -46,7 +47,7 @@ impl Ciphertext {
         bytes
     }
 
-    pub fn from_bytes(bytes: &[u8; 96]) -> Option<Ciphertext> {
+    pub fn from_bytes(bytes: &[u8; 96]) -> Result<Ciphertext> {
         let mut c1_bytes = [0u8; 48];
         let mut c2_bytes = [0u8; 48];
 
@@ -54,12 +55,20 @@ impl Ciphertext {
         c2_bytes.copy_from_slice(&bytes[48..]);
 
         let c1 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c1_bytes))
+            .ok_or(Error::new(
+                ErrorKind::Deserialization,
+                "failed to deserialize compressed c1",
+            ))
             .map(G1Projective::from)?;
 
         let c2 = Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&c2_bytes))
+            .ok_or(Error::new(
+                ErrorKind::Deserialization,
+                "failed to deserialize compressed c2",
+            ))
             .map(G1Projective::from)?;
 
-        Some(Ciphertext(c1, c2))
+        Ok(Ciphertext(c1, c2))
     }
 }
 
@@ -84,8 +93,13 @@ impl PrivateKey {
         self.0.to_bytes()
     }
 
-    pub fn from_bytes(bytes: &[u8; 32]) -> Option<PrivateKey> {
-        Into::<Option<_>>::into(Scalar::from_bytes(bytes)).map(PrivateKey)
+    pub fn from_bytes(bytes: &[u8; 32]) -> Result<PrivateKey> {
+        Into::<Option<_>>::into(Scalar::from_bytes(bytes))
+            .ok_or(Error::new(
+                ErrorKind::Deserialization,
+                "failed to deserialize ElGamal private key - it was not in the canonical form",
+            ))
+            .map(PrivateKey)
     }
 }
 
@@ -117,8 +131,12 @@ impl PublicKey {
         self.0.to_affine().to_compressed()
     }
 
-    pub fn from_bytes(bytes: &[u8; 48]) -> Option<PublicKey> {
+    pub fn from_bytes(bytes: &[u8; 48]) -> Result<PublicKey> {
         Into::<Option<G1Affine>>::into(G1Affine::from_compressed(bytes))
+            .ok_or(Error::new(
+                ErrorKind::Deserialization,
+                "failed to deserialize compressed ElGamal public key",
+            ))
             .map(G1Projective::from)
             .map(PublicKey)
     }
@@ -169,7 +187,7 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
 
 #[cfg(feature = "serde")]
 impl Serialize for PrivateKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -184,7 +202,7 @@ impl Serialize for PrivateKey {
 
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for PrivateKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -197,7 +215,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
                 formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<PrivateKey, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<PrivateKey, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
             {
@@ -210,7 +228,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
                 }
 
-                PrivateKey::from_bytes(&bytes).ok_or_else(|| {
+                PrivateKey::from_bytes(&bytes).map_err(|_| {
                     serde::de::Error::custom(&"private key scalar was not canonically encoded")
                 })
             }
@@ -222,7 +240,7 @@ impl<'de> Deserialize<'de> for PrivateKey {
 
 #[cfg(feature = "serde")]
 impl Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -237,7 +255,7 @@ impl Serialize for PublicKey {
 
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -250,7 +268,7 @@ impl<'de> Deserialize<'de> for PublicKey {
                 formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<PublicKey, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<PublicKey, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
             {
@@ -263,7 +281,7 @@ impl<'de> Deserialize<'de> for PublicKey {
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
                 }
 
-                PublicKey::from_bytes(&bytes).ok_or_else(|| {
+                PublicKey::from_bytes(&bytes).map_err(|_| {
                     serde::de::Error::custom(
                         &"public key G1 curve point was not canonically encoded",
                     )
@@ -277,7 +295,7 @@ impl<'de> Deserialize<'de> for PublicKey {
 
 #[cfg(feature = "serde")]
 impl Serialize for Ciphertext {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -292,7 +310,7 @@ impl Serialize for Ciphertext {
 
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Ciphertext {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -305,7 +323,7 @@ impl<'de> Deserialize<'de> for Ciphertext {
                 formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<Ciphertext, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Ciphertext, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
             {
@@ -318,7 +336,7 @@ impl<'de> Deserialize<'de> for Ciphertext {
                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
                 }
 
-                Ciphertext::from_bytes(&bytes).ok_or_else(|| {
+                Ciphertext::from_bytes(&bytes).map_err(|_| {
                     serde::de::Error::custom(
                         &"the ciphertext G1 curve points were not canonically encoded",
                     )
