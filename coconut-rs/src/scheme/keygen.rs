@@ -91,21 +91,12 @@ impl SecretKey {
             )
         })?;
 
-        let mut ys = Vec::with_capacity(actual_ys_len);
-        for i in 0..actual_ys_len {
-            let start = 40 + i * 32;
-            let end = start + 32;
-            let y_bytes = bytes[start..end].try_into().unwrap();
-            let y =
-                Into::<Option<Scalar>>::into(Scalar::from_bytes(&y_bytes)).ok_or_else(|| {
+        let ys = deserialize_scalar_vec(ys_len, &bytes[40..]).ok_or_else(|| {
                     Error::new(
                         ErrorKind::Deserialization,
-                        "failed to deserialize secret key scalar",
+                "failed to deserialize secret key scalars",
                     )
                 })?;
-
-            ys.push(y)
-        }
 
         Ok(SecretKey { x, ys })
     }
