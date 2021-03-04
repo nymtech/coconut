@@ -24,6 +24,7 @@ use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use ff::Field;
 use rand_core::{CryptoRng, RngCore};
+use std::convert::TryInto;
 
 pub struct Polynomial {
     coefficients: Vec<Scalar>,
@@ -179,6 +180,21 @@ where
             return point_projective.clear_cofactor();
         }
     }
+}
+
+pub(crate) fn deserialize_scalar_vec(expected_len: u64, bytes: &[u8]) -> Option<Vec<Scalar>> {
+    if bytes.len() != expected_len as usize * 32 {
+        return None;
+    }
+
+    let mut out = Vec::with_capacity(expected_len as usize);
+    for i in 0..expected_len as usize {
+        let s_bytes = bytes[i * 32..(i + 1) * 32].try_into().unwrap();
+        let s = Into::<Option<Scalar>>::into(Scalar::from_bytes(&s_bytes))?;
+        out.push(s)
+    }
+
+    Some(out)
 }
 
 // #[doc(hidden)]

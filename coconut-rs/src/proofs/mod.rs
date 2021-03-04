@@ -14,10 +14,11 @@
 
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::signature::Signature;
 use crate::scheme::VerificationKey;
-use crate::utils::hash_g1;
+use crate::utils::{deserialize_scalar_vec, hash_g1};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, G2Projective, Scalar};
 use digest::generic_array::typenum::Unsigned;
@@ -27,6 +28,7 @@ use itertools::izip;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
 use std::borrow::Borrow;
+use std::convert::TryInto;
 
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
@@ -251,6 +253,92 @@ impl ProofCmCs {
         );
 
         challenge == self.challenge
+    }
+
+    // challenge || rr || rk.len() || rk || rm.len() || rm
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+        let keys_len = self.response_keys.len() as u64;
+        let attributes_len = self.response_attributes.len() as u64;
+
+        let mut bytes = Vec::with_capacity(16 + (keys_len + attributes_len + 2) as usize * 32);
+
+        bytes.extend_from_slice(&self.challenge.to_bytes());
+        bytes.extend_from_slice(&self.response_random.to_bytes());
+        bytes.extend_from_slice(&keys_len.to_le_bytes());
+
+        for rk in &self.response_keys {
+            bytes.extend_from_slice(&rk.to_bytes());
+        }
+
+        bytes.extend_from_slice(&attributes_len.to_le_bytes());
+
+        for rm in &self.response_attributes {
+            bytes.extend_from_slice(&rm.to_bytes());
+        }
+
+        bytes
+    }
+
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        // at the very minimum there must be a single attribute being proven
+        if bytes.len() < 32 * 4 + 16 || (bytes.len() - 16) % 32 != 0 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize proof of ciphertexts and commitment with bytes of invalid length",
+            ));
+        }
+
+        let challenge_bytes = bytes[..32].try_into().unwrap();
+        let rr_bytes = bytes[32..64].try_into().unwrap();
+
+        let challenge = Into::<Option<Scalar>>::into(Scalar::from_bytes(&challenge_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize challenge",
+                )
+            })?;
+
+        let response_random = Into::<Option<Scalar>>::into(Scalar::from_bytes(&rr_bytes))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize the response to the random",
+                )
+            })?;
+
+        let rk_len = u64::from_le_bytes(bytes[64..72].try_into().unwrap());
+        if bytes[72..].len() < rk_len as usize * 32 + 8 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided",
+            ));
+        }
+
+        let rk_end = 72 + rk_len as usize * 32;
+        let response_keys =
+            deserialize_scalar_vec(rk_len, &bytes[72..rk_end]).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize keys response",
+                )
+            })?;
+
+        let rm_len = u64::from_le_bytes(bytes[rk_end..rk_end + 8].try_into().unwrap());
+        let response_attributes =
+            deserialize_scalar_vec(rm_len, &bytes[rk_end + 8..]).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Deserialization,
+                    "failed to deserialize attributes response",
+                )
+            })?;
+
+        Ok(ProofCmCs {
+            challenge,
+            response_random,
+            response_keys,
+            response_attributes,
+        })
     }
 }
 
