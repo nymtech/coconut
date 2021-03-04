@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::elgamal::Ciphertext;
 use crate::error::{Error, ErrorKind, Result};
 use crate::proofs::ProofCmCs;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SecretKey;
 use crate::scheme::{BlindedSignature, Signature};
-use crate::utils::hash_g1;
+use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
-use bls12_381::{G1Projective, Scalar};
-use group::GroupEncoding;
+use bls12_381::{G1Affine, G1Projective, Scalar};
+use group::{Curve, GroupEncoding};
 use rand_core::{CryptoRng, RngCore};
+use std::convert::TryInto;
 
 // TODO NAMING: double check this one
 // Lambda
@@ -42,6 +44,67 @@ impl BlindSignRequest {
             &self.commitment,
             &self.attributes_ciphertexts,
         )
+    }
+
+    // TODO: perhaps also include pi_s.len()?
+    // to be determined once we implement serde to make sure its 1:1 compatible
+    // with bincode
+    // cm || c.len() || c || pi_s
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let cm_bytes = self.commitment.to_affine().to_compressed();
+        let c_len = self.attributes_ciphertexts.len() as u64;
+        let mut proof_bytes = self.pi_s.to_bytes();
+
+        let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
+
+        bytes.copy_from_slice(&cm_bytes);
+        bytes.copy_from_slice(&c_len.to_le_bytes());
+        for c in &self.attributes_ciphertexts {
+            bytes.copy_from_slice(&c.to_bytes());
+        }
+
+        bytes.append(&mut proof_bytes);
+
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<BlindSignRequest> {
+        if bytes.len() < 48 + 8 + 96 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize blind sign request with insufficient number of bytes",
+            ));
+        }
+
+        let cm_bytes = bytes[..48].try_into().unwrap();
+        let commitment = try_deserialize_g1_projective(
+            &cm_bytes,
+            "failed to deserialize compressed commitment",
+        )?;
+
+        let c_len = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
+        if bytes[56..].len() < c_len as usize * 96 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize blind sign request with insufficient number of bytes",
+            ));
+        }
+
+        let mut attributes_ciphertexts = Vec::with_capacity(c_len as usize);
+        for i in 0..c_len as usize {
+            let start = 56 + i * 96;
+            let end = start + 96;
+            let c_bytes = bytes[start..end].try_into().unwrap();
+            attributes_ciphertexts.push(Ciphertext::from_bytes(&c_bytes)?)
+        }
+
+        let pi_s = ProofCmCs::from_bytes(&bytes[56 + c_len as usize * 96..])?;
+
+        Ok(BlindSignRequest {
+            commitment,
+            attributes_ciphertexts,
+            pi_s,
+        })
     }
 }
 

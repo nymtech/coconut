@@ -197,6 +197,15 @@ pub(crate) fn deserialize_scalar_vec(expected_len: u64, bytes: &[u8]) -> Option<
     Some(out)
 }
 
+pub(crate) fn try_deserialize_g1_projective<E>(bytes: &[u8; 48], err: E) -> Result<G1Projective>
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
+        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err))
+        .map(G1Projective::from)
+}
+
 // #[doc(hidden)]
 // fn _hash_g1_seeded_rng<D, R, M>(msg: M) -> G1Projective
 // where
