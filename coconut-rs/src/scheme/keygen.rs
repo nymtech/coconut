@@ -52,15 +52,13 @@ impl SecretKey {
 
     // x || ys.len() || ys
     pub fn to_bytes(&self) -> Vec<u8> {
-        let ys_len = self.ys.len();
-        let mut bytes = Vec::with_capacity(8 + (ys_len + 1) * 32);
+        let ys_len = self.ys.len() as u64;
+        let mut bytes = Vec::with_capacity(8 + (ys_len + 1) as usize * 32);
 
-        bytes[..32].copy_from_slice(&self.x.to_bytes());
-        bytes[32..40].copy_from_slice(&ys_len.to_le_bytes());
-        for (i, y) in self.ys.iter().enumerate() {
-            let start = 40 + i * 32;
-            let end = start + 32;
-            bytes[start..end].copy_from_slice(&y.to_bytes())
+        bytes.extend_from_slice(&self.x.to_bytes());
+        bytes.extend_from_slice(&ys_len.to_le_bytes());
+        for y in self.ys.iter() {
+            bytes.extend_from_slice(&y.to_bytes())
         }
         bytes
     }
@@ -125,15 +123,13 @@ pub struct VerificationKey {
 impl VerificationKey {
     // alpha || beta.len() || beta
     pub fn to_bytes(&self) -> Vec<u8> {
-        let beta_len = self.beta.len();
-        let mut bytes = Vec::with_capacity(8 + (beta_len + 1) * 96);
+        let beta_len = self.beta.len() as u64;
+        let mut bytes = Vec::with_capacity(8 + (beta_len + 1) as usize * 96);
 
-        bytes[..96].copy_from_slice(&self.alpha.to_affine().to_compressed());
-        bytes[96..104].copy_from_slice(&beta_len.to_le_bytes());
-        for (i, beta) in self.beta.iter().enumerate() {
-            let start = 40 + i * 96;
-            let end = start + 96;
-            bytes[start..end].copy_from_slice(&beta.to_affine().to_compressed())
+        bytes.extend_from_slice(&self.alpha.to_affine().to_compressed());
+        bytes.extend_from_slice(&beta_len.to_le_bytes());
+        for beta in self.beta.iter() {
+            bytes.extend_from_slice(&beta.to_affine().to_compressed())
         }
         bytes
     }
