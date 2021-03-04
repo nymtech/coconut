@@ -21,7 +21,7 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective}
 use crate::Attribute;
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
 use core::ops::Neg;
-use group::{Curve, Group, GroupEncoding};
+use group::{Curve, Group};
 use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
 
