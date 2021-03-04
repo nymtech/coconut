@@ -16,8 +16,7 @@
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
-use crate::scheme::signature::Signature;
-use crate::scheme::VerificationKey;
+use crate::scheme::{Signature, VerificationKey};
 use crate::utils::{deserialize_scalar_vec, hash_g1};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, G2Projective, Scalar};

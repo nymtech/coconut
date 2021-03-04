@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::scheme::signature::{PartialSignature, Signature, SignatureShare};
-use crate::scheme::{SignerIndex, VerificationKey};
+use crate::scheme::{PartialSignature, Signature, SignatureShare, SignerIndex, VerificationKey};
 use crate::utils::perform_lagrangian_interpolation_at_origin;
 use bls12_381::Scalar;
 use core::iter::Sum;
@@ -117,9 +116,10 @@ pub fn aggregate_signature_shares(shares: &[SignatureShare]) -> Result<Signature
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scheme::issuance::sign;
     use crate::scheme::keygen::ttp_keygen;
     use crate::scheme::setup::Parameters;
-    use crate::scheme::signature::{sign, verify};
+    use crate::scheme::verification::verify;
     use bls12_381::G1Projective;
     use group::Group;
     use rand_core::OsRng;
