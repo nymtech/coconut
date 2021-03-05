@@ -134,7 +134,7 @@ impl VerificationKey {
         // this conversion will not fail as we are taking the same length of data
         let alpha_bytes: [u8; 96] = bytes[..96].try_into().unwrap();
         let beta_len = u64::from_le_bytes(bytes[96..104].try_into().unwrap());
-        let actual_beta_len = (bytes.len() - 40) / 96;
+        let actual_beta_len = (bytes.len() - 104) / 96;
 
         if beta_len as usize != actual_beta_len {
             return Err(Error::new(
