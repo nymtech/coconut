@@ -53,8 +53,8 @@ func (publicKey *PublicKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-// UnmarshalBinary is an implementation of a method on the
-// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (ciphertext *Ciphertext) MarshalBinary() (data []byte, err error) {
 	c1Bytes := utils.G1JacobianToByteSlice(ciphertext.C1())
 	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())

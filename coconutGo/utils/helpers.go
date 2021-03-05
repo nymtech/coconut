@@ -195,12 +195,27 @@ func ScalarToLittleEndian(scalar *big.Int) [32]byte {
 	return out
 }
 
+// TODO: this is not checking for correct scalar...
 func ScalarFromLittleEndian(bytes []byte) big.Int {
 	var s big.Int
 	// TODO: or do I need to reverse per octet?
 
 	s.SetBytes(ReverseBytes(bytes))
 	return s
+}
+
+func DeserializeScalarVec(expectedLen uint64, bytes []byte) ([]big.Int, error) {
+	if len(bytes) != int(expectedLen)*32 {
+		return nil, errors.New("tried to deserialize scalar vector with inconsistent number of bytes")
+	}
+
+	out := make([]big.Int, expectedLen)
+	for i := 0; i < int(expectedLen); i++ {
+		s := ScalarFromLittleEndian(bytes[i*32 : (i+1)*32])
+		out[i] = s
+	}
+
+	return out, nil
 }
 
 func G1JacobianFromBytes(bytes []byte) (bls381.G1Jac, error) {
@@ -211,6 +226,19 @@ func G1JacobianFromBytes(bytes []byte) (bls381.G1Jac, error) {
 	}
 
 	var p bls381.G1Jac
+	p.FromAffine(&pAff)
+
+	return p, nil
+}
+
+func G2JacobianFromBytes(bytes []byte) (bls381.G2Jac, error) {
+	var pAff bls381.G2Affine
+	_, err := pAff.SetBytes(bytes)
+	if err != nil {
+		return bls381.G2Jac{}, err
+	}
+
+	var p bls381.G2Jac
 	p.FromAffine(&pAff)
 
 	return p, nil
