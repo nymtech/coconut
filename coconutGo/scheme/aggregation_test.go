@@ -17,14 +17,14 @@ package coconut
 import (
 	"github.com/consensys/gurvy/bls381"
 	"github.com/stretchr/testify/assert"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"testing"
 )
 
 // just helpers
 func randomSignature() *Signature {
-	params := CoconutGo.Setup(1)
+	params := coconutGo.Setup(1)
 
 	r, err := params.RandomScalar()
 	unwrapError(err)
@@ -41,7 +41,7 @@ func randomSignature() *Signature {
 }
 
 func randomVerificationKey(size int) *VerificationKey {
-	params := CoconutGo.Setup(1)
+	params := coconutGo.Setup(1)
 
 	r, err := params.RandomScalar()
 	unwrapError(err)
@@ -64,7 +64,7 @@ func randomVerificationKey(size int) *VerificationKey {
 }
 
 func TestKeyAggregationOfAnyKeySubset(t *testing.T) {
-	params := CoconutGo.Setup(4)
+	params := coconutGo.Setup(4)
 
 	keypairs, err := TTPKeygen(params, 3, 5)
 	unwrapError(err)
@@ -130,7 +130,7 @@ func TestKeyAggregationOfDifferentKeySizes(t *testing.T) {
 }
 
 func SignatureAggregationForAnySignatureSubset(t *testing.T) {
-	params := CoconutGo.Setup(2)
+	params := coconutGo.Setup(2)
 
 	attributes, err := params.NRandomScalars(2)
 	unwrapError(err)

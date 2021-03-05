@@ -16,9 +16,9 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/polynomial"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/polynomial"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 )
 
 func checkUniqueIndices(indices []SignerIndex) bool {
@@ -34,11 +34,11 @@ func checkUniqueIndices(indices []SignerIndex) bool {
 
 func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, values []*VerificationKey) (VerificationKey, error) {
 	if len(points) == 0 || len(values) == 0 {
-		return VerificationKey{}, ErrInterpolationEmpty
+		return VerificationKey{}, coconutGo.ErrInterpolationEmpty
 	}
 
 	if len(points) != len(values) {
-		return VerificationKey{}, ErrInterpolationIncomplete
+		return VerificationKey{}, coconutGo.ErrInterpolationIncomplete
 	}
 
 	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
@@ -94,16 +94,16 @@ func checkSameKeySize(keys []*VerificationKey) bool {
 // no generics : (
 func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (VerificationKey, error) {
 	if len(keys) == 0 {
-		return VerificationKey{}, ErrAggregationEmpty
+		return VerificationKey{}, coconutGo.ErrAggregationEmpty
 	}
 
 	if !checkSameKeySize(keys) {
-		return VerificationKey{}, ErrDifferentSizeKeyAggregation
+		return VerificationKey{}, coconutGo.ErrDifferentSizeKeyAggregation
 	}
 
 	if indices != nil {
 		if !checkUniqueIndices(indices) {
-			return VerificationKey{}, ErrAggregationNonUniqueIndices
+			return VerificationKey{}, coconutGo.ErrAggregationNonUniqueIndices
 		}
 		return performVerificationKeyLagrangianInterpolationAtOrigin(indices, keys)
 	} else {
@@ -130,11 +130,11 @@ func AggregateVerificationKeys(keys []*VerificationKey, indices []SignerIndex) (
 
 func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*Signature) (Signature, error) {
 	if len(points) == 0 || len(values) == 0 {
-		return Signature{}, ErrInterpolationEmpty
+		return Signature{}, coconutGo.ErrInterpolationEmpty
 	}
 
 	if len(points) != len(values) {
-		return Signature{}, ErrInterpolationIncomplete
+		return Signature{}, coconutGo.ErrInterpolationIncomplete
 	}
 
 	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
@@ -158,12 +158,12 @@ func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*
 
 func AggregateSignatures(sigs []*PartialSignature, indices []SignerIndex) (Signature, error) {
 	if len(sigs) == 0 {
-		return Signature{}, ErrAggregationEmpty
+		return Signature{}, coconutGo.ErrAggregationEmpty
 	}
 
 	if indices != nil {
 		if !checkUniqueIndices(indices) {
-			return Signature{}, ErrAggregationNonUniqueIndices
+			return Signature{}, coconutGo.ErrAggregationNonUniqueIndices
 		}
 		return performSignatureLagrangianInterpolationAtOrigin(indices, sigs)
 	} else {

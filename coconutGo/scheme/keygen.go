@@ -17,9 +17,9 @@ package coconut
 import (
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fr"
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/polynomial"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/polynomial"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 )
 
@@ -39,7 +39,7 @@ func (sk *SecretKey) Ys() *[]big.Int {
 }
 
 // Derive verification key using this secret key.
-func (sk *SecretKey) VerificationKey(params *Parameters) VerificationKey {
+func (sk *SecretKey) VerificationKey(params *coconutGo.Parameters) VerificationKey {
 	g2 := params.Gen2()
 
 	alpha := utils.G2ScalarMul(g2, &sk.x)
@@ -99,7 +99,7 @@ type KeyPair struct {
 // Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 // It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 // that are independent of each other.
-func Keygen(params *Parameters) (KeyPair, error) {
+func Keygen(params *coconutGo.Parameters) (KeyPair, error) {
 	attributes := len(params.Hs())
 	x, err := params.RandomScalar()
 	if err != nil {
@@ -127,13 +127,13 @@ func Keygen(params *Parameters) (KeyPair, error) {
 // Generate a set of n Coconut keypairs [((x, y0, y1...), (g2^x, g2^y0, ...)), ...],
 // such that they support threshold aggregation by `threshold` number of parties.
 // It is expected that this procedure is executed by a Trusted Third Party.
-func TTPKeygen(params *Parameters, threshold uint64, numAuthorities uint64) ([]KeyPair, error) {
+func TTPKeygen(params *coconutGo.Parameters, threshold uint64, numAuthorities uint64) ([]KeyPair, error) {
 	if threshold == 0 {
-		return nil, ErrZeroThreshold
+		return nil, coconutGo.ErrZeroThreshold
 	}
 
 	if threshold > numAuthorities {
-		return nil, ErrInvalidThreshold
+		return nil, coconutGo.ErrInvalidThreshold
 	}
 
 	attributes := len(params.Hs())

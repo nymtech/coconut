@@ -1,4 +1,4 @@
-package CoconutGo
+package coconutGo
 
 import (
 	"errors"

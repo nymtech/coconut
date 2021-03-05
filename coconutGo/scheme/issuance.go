@@ -16,68 +16,11 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 )
-
-type Signature struct {
-	sig1 bls381.G1Jac
-	sig2 bls381.G1Jac
-}
-
-func (sig *Signature) Equal(other *Signature) bool {
-	return utils.G1JacobianEqual(&sig.sig1, &other.sig1) && utils.G1JacobianEqual(&sig.sig2, &other.sig2)
-}
-
-type PartialSignature = Signature
-
-type SignerIndex = uint64
-
-type SignatureShare struct {
-	signature Signature
-	index     SignerIndex
-}
-
-func NewSignatureShare(signature Signature, index SignerIndex) SignatureShare {
-	return SignatureShare{signature: signature, index: index}
-}
-
-func (sigShare *SignatureShare) Signature() *Signature {
-	return &sigShare.signature
-}
-
-func (sigShare *SignatureShare) Index() SignerIndex {
-	return sigShare.index
-}
-
-func (sig *Signature) Randomise(params *Parameters) (Signature, error) {
-	r, err := params.RandomScalar()
-	if err != nil {
-		return Signature{}, err
-	}
-
-	sig1 := utils.G1ScalarMul(&sig.sig1, &r)
-	sig2 := utils.G1ScalarMul(&sig.sig2, &r)
-
-	return Signature{
-		sig1: sig1,
-		sig2: sig2,
-	}, nil
-}
-
-type BlindedSignature struct {
-	sig1 bls381.G1Jac
-	sig2 elgamal.Ciphertext
-}
-
-func (blindedSig *BlindedSignature) Unblind(privateKey *elgamal.PrivateKey) Signature {
-	return Signature{
-		sig1: blindedSig.sig1,
-		sig2: privateKey.Decrypt(&blindedSig.sig2),
-	}
-}
 
 // Lambda
 type BlindSignRequest struct {
@@ -89,24 +32,24 @@ type BlindSignRequest struct {
 	piS ProofCmCs
 }
 
-func (blindSignRequest *BlindSignRequest) verifyProof(params *Parameters, pubKey *elgamal.PublicKey) bool {
+func (blindSignRequest *BlindSignRequest) verifyProof(params *coconutGo.Parameters, pubKey *elgamal.PublicKey) bool {
 	return blindSignRequest.piS.verify(params, pubKey, &blindSignRequest.commitment, blindSignRequest.attributesCiphertexts)
 }
 
 func PrepareBlindSign(
-	params *Parameters,
+	params *coconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
-	privateAttributes []*Attribute,
-	publicAttributes []*Attribute,
+	privateAttributes []*coconutGo.Attribute,
+	publicAttributes []*coconutGo.Attribute,
 ) (BlindSignRequest, error) {
 	if len(privateAttributes) == 0 {
-		return BlindSignRequest{}, ErrPrepareBlindSignNoPrivate
+		return BlindSignRequest{}, coconutGo.ErrPrepareBlindSignNoPrivate
 	}
 
 	hs := params.Hs()
 
 	if len(privateAttributes)+len(publicAttributes) > len(hs) {
-		return BlindSignRequest{}, ErrPrepareBlindSignTooManyAttributes
+		return BlindSignRequest{}, coconutGo.ErrPrepareBlindSignTooManyAttributes
 	}
 
 	// prepare commitment
@@ -152,21 +95,21 @@ func PrepareBlindSign(
 }
 
 func BlindSign(
-	params *Parameters,
+	params *coconutGo.Parameters,
 	secretKey *SecretKey,
 	publicKey *elgamal.PublicKey,
 	blindSignRequest *BlindSignRequest,
-	publicAttributes []*Attribute,
+	publicAttributes []*coconutGo.Attribute,
 ) (BlindedSignature, error) {
 	numPrivate := len(blindSignRequest.attributesCiphertexts)
 	hs := params.Hs()
 
 	if numPrivate+len(publicAttributes) > len(hs) {
-		return BlindedSignature{}, ErrBlindSignTooManyAttributes
+		return BlindedSignature{}, coconutGo.ErrBlindSignTooManyAttributes
 	}
 
 	if !blindSignRequest.verifyProof(params, publicKey) {
-		return BlindedSignature{}, ErrBlindSignProof
+		return BlindedSignature{}, coconutGo.ErrBlindSignProof
 	}
 
 	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
@@ -226,123 +169,8 @@ func BlindSign(
 	}, nil
 }
 
-// TODO NAMING: this whole thing
-// Theta
-type Theta struct {
-	// kappa
-	kappa bls381.G2Jac
-	// nu
-	nu bls381.G1Jac
-	// sigma
-	credential Signature
-	// pi_v
-	piV ProofKappaNu
-}
 
-func (theta *Theta) verifyProof(params *Parameters, verificationKey *VerificationKey) bool {
-	return theta.piV.verify(params, verificationKey, &theta.credential, &theta.kappa, &theta.nu)
-}
-
-func ProveCredential(
-	params *Parameters,
-	verificationKey *VerificationKey,
-	signature *Signature,
-	privateAttributes []*Attribute,
-) (Theta, error) {
-	if len(privateAttributes) == 0 {
-		return Theta{}, ErrProveNoPrivate
-	}
-
-	if len(privateAttributes) > len(verificationKey.beta) {
-		return Theta{}, ErrProveTooManyAttributes
-	}
-
-	// TODO: should randomization be part of this procedure or should
-	// it be up to the user?
-	signaturePrime, err := signature.Randomise(params)
-	if err != nil {
-		return Theta{}, err
-	}
-
-	blindingFactor, err := params.RandomScalar()
-	if err != nil {
-		return Theta{}, err
-	}
-
-	kappa := utils.G2ScalarMul(params.Gen2(), &blindingFactor) // kappa = g2 ^ r
-	kappa.AddAssign(&verificationKey.alpha)                    // kappa = g2 ^ r * alpha
-	for i := 0; i < len(privateAttributes); i++ {
-		tmp := utils.G2ScalarMul(verificationKey.beta[i], privateAttributes[i]) // tmp = beta[i] ^ priv[i]
-		kappa.AddAssign(&tmp)                                                   // kappa = g2 ^ r * alpha * beta[0] ^ priv[0] * ... * beta[m] ^ priv[m]
-	}
-
-	nu := utils.G1ScalarMul(&signaturePrime.sig1, &blindingFactor) // nu = h^r
-
-	piV, err := constructProofKappaNu(params, verificationKey, &signaturePrime, privateAttributes, &blindingFactor)
-	if err != nil {
-		return Theta{}, err
-	}
-
-	return Theta{
-		kappa:      kappa,
-		nu:         nu,
-		credential: signaturePrime,
-		piV:        piV,
-	}, nil
-}
-
-/// Checks whether e(P, Q) * e(-R, S) == id
-func checkBillinearPairing(p *bls381.G1Jac, q bls381.G2Affine, r *bls381.G1Jac, s bls381.G2Affine) bool {
-	var rNeg bls381.G1Affine
-	rNeg.FromJacobian(r)
-	rNeg.Neg(&rNeg)
-
-	pairCheck, err := bls381.PairingCheck(
-		[]bls381.G1Affine{utils.ToG1Affine(p), rNeg},
-		[]bls381.G2Affine{q, s},
-	)
-
-	if err != nil {
-		return false
-	}
-
-	return pairCheck
-}
-
-func VerifyCredential(
-	params *Parameters,
-	verificationKey *VerificationKey,
-	theta *Theta,
-	publicAttributes []*Attribute,
-) bool {
-	numPrivate := len(theta.piV.responseAttributes)
-
-	if len(publicAttributes)+numPrivate > len(verificationKey.beta) {
-		return false
-	}
-
-	if !theta.verifyProof(params, verificationKey) {
-		return false
-	}
-
-	var kappa bls381.G2Jac
-	kappa.Set(&theta.kappa)
-
-	if len(publicAttributes) > 0 {
-		for i := 0; i < len(publicAttributes); i++ {
-			tmp := utils.G2ScalarMul(verificationKey.beta[i+numPrivate], publicAttributes[i]) // tmp = beta[m + i] ^ pubAttr[i]
-			kappa.AddAssign(&tmp)
-		}
-	}
-
-	var r bls381.G1Jac
-	r.Set(&theta.credential.sig2)
-	r.AddAssign(&theta.nu)
-
-	return checkBillinearPairing(&theta.credential.sig1, utils.ToG2Affine(&kappa), &r, *params.Gen2Affine()) && !theta.credential.sig1.Z.IsZero()
-}
-
-func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribute) (Signature, error) {
+func Sign(params *coconutGo.Parameters, secretKey *SecretKey, publicAttributes []*coconutGo.Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {
 		// TODO: RETURN ERROR HERE!
 	}
@@ -363,8 +191,6 @@ func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribut
 	for i := 0; i < len(publicAttributes); i++ {
 		var tmp big.Int
 
-		// TODO REDUCE ORDER p?
-
 		tmp.Mul(&secretKey.ys[i], publicAttributes[i]) // (ai * yi)
 		K.Add(&K, &tmp)                                // K = x + (a0 * y0) + ...
 	}
@@ -381,19 +207,3 @@ func Sign(params *Parameters, secretKey *SecretKey, publicAttributes []*Attribut
 	}, nil
 
 }
-
-func Verify(params *Parameters, verificationKey *VerificationKey, publicAttributes []*Attribute, sig *Signature) bool {
-	if len(publicAttributes) > len(verificationKey.beta) {
-		return false
-	}
-
-	var kappa bls381.G2Jac
-	kappa.Set(verificationKey.Alpha()) // kappa = X
-	for i := 0; i < len(publicAttributes); i++ {
-		tmp := utils.G2ScalarMul(verificationKey.beta[i], publicAttributes[i]) // (ai * Yi)
-		kappa.AddAssign(&tmp)                                                  // kappa = X + (a1 * Y1) + ...
-	}
-
-	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
-}
-

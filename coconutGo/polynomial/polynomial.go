@@ -18,7 +18,7 @@ package polynomial
 // dependencies ...
 
 import (
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"math/big"
 )
 
@@ -28,7 +28,7 @@ type Polynomial struct {
 
 // for polynomial of degree n, we generate n+1 values
 // (for example for degree 1, like y = x + 2, we need [2,1])
-func NewRandomPolynomial(params *Parameters, degree int) (Polynomial, error) {
+func NewRandomPolynomial(params *coconutGo.Parameters, degree int) (Polynomial, error) {
 	coefficients, err := params.NRandomScalars(degree + 1)
 	if err != nil {
 		return Polynomial{}, err
@@ -116,11 +116,11 @@ func GenerateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
 // Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
 func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big.Int) (*big.Int, error) {
 	if len(points) == 0 || len(values) == 0 {
-		return nil, ErrInterpolationEmpty
+		return nil, coconutGo.ErrInterpolationEmpty
 	}
 
 	if len(points) != len(values) {
-		return nil, ErrInterpolationIncomplete
+		return nil, coconutGo.ErrInterpolationIncomplete
 	}
 
 	coefficients := GenerateLagrangianCoefficientsAtOrigin(points)

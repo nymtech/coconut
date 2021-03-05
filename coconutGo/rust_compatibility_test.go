@@ -1,9 +1,9 @@
-package CoconutGo
+package coconutGo
 
 import (
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/stretchr/testify/assert"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 	"testing"
 )
@@ -61,7 +61,7 @@ func TestScalarSerialization(t *testing.T) {
 
 func TestG1Hash(t *testing.T) {
 	input := []byte{1, 2, 3}
-	expectedBytes := []byte{1, 2, 3}
+	expectedBytes := [48]byte{167, 116, 154, 132, 171, 11, 168, 246, 2, 48, 63, 183, 112, 250, 29, 9, 53, 168, 21, 147, 197, 245, 208, 230, 149, 99, 171, 184, 252, 137, 47, 178, 99, 222, 124, 159, 80, 170, 84, 57, 170, 35, 98, 222, 174, 29, 243, 233}
 
 	hashRes := utils.HashToG1(input)
 	assert.Equal(t, expectedBytes, hashRes.Bytes())

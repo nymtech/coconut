@@ -14,7 +14,7 @@
 
 package elgamal
 
-import "gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+import "gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/

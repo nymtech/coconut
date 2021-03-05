@@ -3,9 +3,9 @@ package coconut
 import (
 	"crypto/sha256"
 	"github.com/consensys/gurvy/bls381"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 )
 
@@ -65,13 +65,13 @@ type ProofCmCs struct {
 
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func constructProofCmCs(
-	params *CoconutGo.Parameters,
+	params *coconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	ephemeralKeys []*elgamal.EphemeralKey,
 	commitment *bls381.G1Jac,
 	blindingFactor *big.Int,
-	privateAttributes []*CoconutGo.Attribute,
-	publicAttributes []*CoconutGo.Attribute,
+	privateAttributes []*coconutGo.Attribute,
+	publicAttributes []*coconutGo.Attribute,
 ) (ProofCmCs, error) {
 	// note: this is only called from `prepare_blind_sign` that already checks
 	// whether private attributes are non-empty and whether we don't have too many
@@ -154,7 +154,7 @@ func constructProofCmCs(
 
 // Verify verifies non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func (proof *ProofCmCs) verify(
-	params *CoconutGo.Parameters,
+	params *coconutGo.Parameters,
 	publicKey *elgamal.PublicKey,
 	commitment *bls381.G1Jac,
 	attributesCiphertexts []*elgamal.Ciphertext,
@@ -233,10 +233,10 @@ type ProofKappaNu struct {
 
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func constructProofKappaNu(
-	params *CoconutGo.Parameters,
+	params *coconutGo.Parameters,
 	verificationKey *VerificationKey,
 	signature *Signature,
-	privateAttributes []*CoconutGo.Attribute,
+	privateAttributes []*coconutGo.Attribute,
 	blindingFactor *big.Int,
 ) (ProofKappaNu, error) {
 	// create witnesses
@@ -292,7 +292,7 @@ func constructProofKappaNu(
 
 // Verify verifies non-interactive zero-knowledge proof of correctness of kappa and nu.
 func (proof *ProofKappaNu) verify(
-	params *CoconutGo.Parameters,
+	params *coconutGo.Parameters,
 	verificationKey *VerificationKey,
 	signature *Signature,
 	kappa *bls381.G2Jac,

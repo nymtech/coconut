@@ -1,4 +1,4 @@
-module gitlab.nymte.ch/nym/coconut/CoconutGo
+module gitlab.nymte.ch/nym/coconut/coconutGo
 
 go 1.15
 

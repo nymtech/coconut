@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package CoconutGo
+package coconutGo
 
 // this can't go into the `scheme` directory because Go is extremely stupid about cyclic dependencies
 // because you either import entire module or nothing at all...
@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fr"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 )
 

@@ -16,8 +16,8 @@ package elgamal
 
 import (
 	"github.com/consensys/gurvy/bls381"
-	coconut "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 )
 
@@ -65,7 +65,7 @@ func (publicKey *PublicKey) Gamma() *bls381.G1Jac {
 	return &publicKey.gamma
 }
 
-func (publicKey *PublicKey) Encrypt(params *coconut.Parameters, h *bls381.G1Jac, msg *big.Int) (Ciphertext, EphemeralKey, error) {
+func (publicKey *PublicKey) Encrypt(params *coconutGo.Parameters, h *bls381.G1Jac, msg *big.Int) (Ciphertext, EphemeralKey, error) {
 	k, err := params.RandomScalar()
 	if err != nil {
 		return Ciphertext{}, EphemeralKey{}, err
@@ -102,7 +102,7 @@ func (keypair *KeyPair) PublicKey() *PublicKey {
 	return &keypair.publicKey
 }
 
-func Keygen(params *coconut.Parameters) (*KeyPair, error) {
+func Keygen(params *coconutGo.Parameters) (*KeyPair, error) {
 	d, err := params.RandomScalar()
 	if err != nil {
 		return nil, err

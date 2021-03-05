@@ -26,3 +26,17 @@ pub type Attribute = Scalar;
 // reason for sha3 384 is for the 48 bytes output and it's a good enough solution
 // for the temporary use it has
 pub(crate) type G1HashDigest = Sha3_384;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::hash_g1;
+    use group::Curve;
+
+    #[test]
+    fn foo() {
+        let b = vec![1, 2, 3];
+        let b2 = hash_g1(&b);
+        println!("{:?}", b2.to_affine().to_compressed());
+    }
+}

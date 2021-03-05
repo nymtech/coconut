@@ -3,9 +3,9 @@ package coconut
 import (
 	"github.com/consensys/gurvy/bls381"
 	"github.com/stretchr/testify/assert"
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/elgamal"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
 	"testing"
 )
@@ -16,127 +16,9 @@ func unwrapError(err error) {
 	}
 }
 
-func TestVerificationOnTwoPublicAttributes(t *testing.T) {
-	params := Setup(2)
-
-	attributes, err := params.NRandomScalars(2)
-	unwrapError(err)
-
-	keypair1, err := Keygen(params)
-	unwrapError(err)
-
-	keypair2, err := Keygen(params)
-	unwrapError(err)
-
-	sig1, err := Sign(params, &keypair1.secretKey, attributes)
-	unwrapError(err)
-
-	sig2, err := Sign(params, &keypair2.secretKey, attributes)
-	unwrapError(err)
-
-	assert.True(t, Verify(params, &keypair1.verificationKey, attributes, &sig1))
-	assert.False(t, Verify(params, &keypair2.verificationKey, attributes, &sig1))
-	assert.False(t, Verify(params, &keypair1.verificationKey, attributes, &sig2))
-}
-
-func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
-	params := Setup(4)
-
-	publicAttributes, err := params.NRandomScalars(2)
-	unwrapError(err)
-
-	privateAttributes, err := params.NRandomScalars(2)
-	unwrapError(err)
-
-	elgamalKeypair, err := elgamal.Keygen(params)
-	unwrapError(err)
-
-	keypair1, err := Keygen(params)
-	unwrapError(err)
-
-	keypair2, err := Keygen(params)
-	unwrapError(err)
-
-	lambda, err := PrepareBlindSign(params, elgamalKeypair.PublicKey(), privateAttributes, publicAttributes)
-	unwrapError(err)
-
-	sig1B, err := BlindSign(params, &keypair1.secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
-	unwrapError(err)
-	sig1 := sig1B.Unblind(elgamalKeypair.PrivateKey())
-
-	sig2B, err := BlindSign(params, &keypair2.secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
-	unwrapError(err)
-	sig2 := sig2B.Unblind(elgamalKeypair.PrivateKey())
-
-	theta1, err := ProveCredential(params, &keypair1.verificationKey, &sig1, privateAttributes)
-	unwrapError(err)
-
-	theta2, err := ProveCredential(params, &keypair2.verificationKey, &sig2, privateAttributes)
-	unwrapError(err)
-
-	assert.True(t, VerifyCredential(params, &keypair1.verificationKey, &theta1, publicAttributes))
-	assert.True(t, VerifyCredential(params, &keypair2.verificationKey, &theta2, publicAttributes))
-	assert.False(t, VerifyCredential(params, &keypair1.verificationKey, &theta2, publicAttributes))
-}
-
-func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing.T) {
-	params := Setup(4)
-
-	publicAttributes, err := params.NRandomScalars(2)
-	unwrapError(err)
-
-	privateAttributes, err := params.NRandomScalars(2)
-	unwrapError(err)
-
-	elgamalKeypair, err := elgamal.Keygen(params)
-	unwrapError(err)
-
-	keypairs, err := TTPKeygen(params, 2, 3)
-	unwrapError(err)
-
-	lambda, err := PrepareBlindSign(params, elgamalKeypair.PublicKey(), privateAttributes, publicAttributes)
-	unwrapError(err)
-
-	sigs := make([]*Signature, 3)
-	for i := 0; i < 3; i++ {
-		blindedSig, err := BlindSign(params, &keypairs[i].secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
-		unwrapError(err)
-		sig := blindedSig.Unblind(elgamalKeypair.PrivateKey())
-		sigs[i] = &sig
-	}
-
-	verificationKeys := make([]*VerificationKey, 3)
-	for i := 0; i < 3; i++ {
-		verificationKeys[i] = &keypairs[i].verificationKey
-	}
-
-	aggrVk, err := AggregateVerificationKeys(verificationKeys[:2], []uint64{1, 2})
-	unwrapError(err)
-
-	aggrSig, err := AggregateSignatures(sigs[:2], []uint64{1, 2})
-	unwrapError(err)
-
-	theta, err := ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
-	unwrapError(err)
-
-	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
-
-	// taking different subset of keys and credentials
-	aggrVk, err = AggregateVerificationKeys(verificationKeys[1:], []uint64{2, 3})
-	unwrapError(err)
-
-	aggrSig, err = AggregateSignatures(sigs[1:], []uint64{2, 3})
-	unwrapError(err)
-
-	theta, err = ProveCredential(params, &aggrVk, &aggrSig, privateAttributes)
-	unwrapError(err)
-
-	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
-}
-
 func BenchmarkDoublePairing(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params := Setup(1)
+	params := coconutGo.Setup(1)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()
@@ -172,7 +54,7 @@ var pairCheckGlobal bool
 
 func BenchmarkMiller(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params := Setup(1)
+	params := coconutGo.Setup(1)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()
@@ -206,7 +88,7 @@ func BenchmarkMiller(b *testing.B) {
 
 // make sure credential created in rust on public attributes verifies in go
 func TestRustSignatureOnPublic(t *testing.T) {
-	params := Setup(2)
+	params := coconutGo.Setup(2)
 
 	xBytes := []byte{188, 179, 7, 116, 227, 238, 248, 132, 112, 18, 3, 169, 6, 179, 97, 202, 90, 175, 245, 181, 102, 111, 238, 21, 91, 248, 205, 117, 13, 244, 239, 30}
 	yBytes1 := []byte{59, 59, 50, 96, 127, 192, 126, 148, 208, 89, 47, 81, 175, 184, 175, 163, 255, 93, 145, 66, 37, 38, 137, 233, 16, 101, 223, 25, 196, 150, 12, 6}
@@ -224,7 +106,7 @@ func TestRustSignatureOnPublic(t *testing.T) {
 	secretKey.ys[0] = utils.ScalarFromLittleEndian(yBytes1)
 	secretKey.ys[1] = utils.ScalarFromLittleEndian(yBytes2)
 
-	attributes := make([]*Attribute, 2)
+	attributes := make([]*coconutGo.Attribute, 2)
 	attributes1 := utils.ScalarFromLittleEndian(attributeBytes1)
 	attributes2 := utils.ScalarFromLittleEndian(attributeBytes2)
 	attributes[0] = &attributes1
@@ -242,7 +124,7 @@ func TestRustSignatureOnPublic(t *testing.T) {
 
 // make sure credential created in rust on public and private attributes verifies in go
 func TestRustSignatureMixed(t *testing.T) {
-	params := Setup(4)
+	params := coconutGo.Setup(4)
 
 	xBytes := []byte{129, 231, 41, 23, 186, 112, 18, 104, 123, 84, 242, 148, 216, 18, 199, 189, 42, 37, 13, 126, 147, 99, 135, 160, 236, 66, 112, 76, 127, 149, 6, 75}
 	yBytes1 := []byte{117, 166, 140, 142, 151, 152, 141, 165, 250, 154, 146, 238, 124, 59, 136, 40, 192, 23, 252, 105, 221, 250, 246, 162, 209, 135, 172, 92, 52, 53, 249, 10}
@@ -273,13 +155,13 @@ func TestRustSignatureMixed(t *testing.T) {
 	secretKey.ys[2] = utils.ScalarFromLittleEndian(yBytes3)
 	secretKey.ys[3] = utils.ScalarFromLittleEndian(yBytes4)
 
-	attributesPublic := make([]*Attribute, 2)
+	attributesPublic := make([]*coconutGo.Attribute, 2)
 	attributesPub1 := utils.ScalarFromLittleEndian(attributePubBytes1)
 	attributesPub2 := utils.ScalarFromLittleEndian(attributePubBytes2)
 	attributesPublic[0] = &attributesPub1
 	attributesPublic[1] = &attributesPub2
 
-	attributesPrivate := make([]*Attribute, 2)
+	attributesPrivate := make([]*coconutGo.Attribute, 2)
 	attributesPriv1 := utils.ScalarFromLittleEndian(attributePrivBytes1)
 	attributesPriv2 := utils.ScalarFromLittleEndian(attributePrivBytes2)
 	attributesPrivate[0] = &attributesPriv1

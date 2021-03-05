@@ -15,15 +15,15 @@
 package elgamal
 
 import (
-	. "gitlab.nymte.ch/nym/coconut/CoconutGo"
-	"gitlab.nymte.ch/nym/coconut/CoconutGo/utils"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestElGamalKeygen(t *testing.T) {
-	params := Setup(1)
+	params := coconutGo.Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -37,7 +37,7 @@ func TestElGamalKeygen(t *testing.T) {
 }
 
 func TestElGamalEncryption(t *testing.T) {
-	params := Setup(1)
+	params := coconutGo.Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -71,7 +71,7 @@ func TestElGamalEncryption(t *testing.T) {
 }
 
 func TestElGamalDecryption(t *testing.T) {
-	params := Setup(1)
+	params := coconutGo.Setup(1)
 
 	keypair, err := Keygen(params)
 	if err != nil {
