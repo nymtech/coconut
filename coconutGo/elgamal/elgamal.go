@@ -33,13 +33,13 @@ func CiphertextFromRaw(c1 bls381.G1Jac, c2 bls381.G1Jac) Ciphertext {
 }
 
 // C1 returns first group element of the ElGamal ciphertext.
-func (c *Ciphertext) C1() *bls381.G1Jac {
-	return &c.c1
+func (ciphertext *Ciphertext) C1() *bls381.G1Jac {
+	return &ciphertext.c1
 }
 
 // C2 returns second group element of the ElGamal ciphertext.
-func (c *Ciphertext) C2() *bls381.G1Jac {
-	return &c.c2
+func (ciphertext *Ciphertext) C2() *bls381.G1Jac {
+	return &ciphertext.c2
 }
 
 type PrivateKey struct {

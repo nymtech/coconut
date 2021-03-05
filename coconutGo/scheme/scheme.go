@@ -1,15 +1,16 @@
-// TODO: move/rename the file because its not idiomatic go
-
-// TODOs:
-/*
-	- move params to other file because go is really bitchy about cyclic imports
-	- change SVDW map to increment and check for rust compatibility
-	- figure out which places should use Affine points rather than Jacobian
-	- tests
-	- move files around to more nicely deal with the cycles. having `coconutGo.Parameters` and `coconut.VerificationKey` uses in the same file looks disgusting
-	- make comments notation consistent, i.e. either stick to g * r and g + h or g ^ r and g * h
-
-*/
+// Copyright 2021 Nym Technologies SA
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package coconut
 
