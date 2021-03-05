@@ -27,6 +27,8 @@ use std::convert::TryInto;
 
 // TODO NAMING: double check this one
 // Lambda
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct BlindSignRequest {
     // cm
     commitment: G1Projective,
@@ -57,13 +59,13 @@ impl BlindSignRequest {
 
         let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
 
-        bytes.copy_from_slice(&cm_bytes);
-        bytes.copy_from_slice(&c_len.to_le_bytes());
+        bytes.extend_from_slice(&cm_bytes);
+        bytes.extend_from_slice(&c_len.to_le_bytes());
         for c in &self.attributes_ciphertexts {
-            bytes.copy_from_slice(&c.to_bytes());
+            bytes.extend_from_slice(&c.to_bytes());
         }
 
-        bytes.copy_from_slice(&proof_bytes);
+        bytes.extend_from_slice(&proof_bytes);
 
         bytes
     }
@@ -263,4 +265,45 @@ pub fn sign<R: RngCore + CryptoRng>(
 
     let sig2 = h * exponent;
     Ok(Signature(h, sig2))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_core::OsRng;
+
+    #[test]
+    fn blind_sign_request_bytes_roundtrip() {
+        let rng = OsRng;
+
+        let mut params = Parameters::new(rng, 1).unwrap();
+        let public_attributes = params.n_random_scalars(0);
+        let private_attributes = params.n_random_scalars(1);
+        let elgamal_keypair = elgamal::keygen(&mut params);
+
+        let lambda = prepare_blind_sign(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &private_attributes,
+            &public_attributes,
+        )
+        .unwrap();
+
+        let bytes = lambda.to_bytes();
+        assert_eq!(BlindSignRequest::from_bytes(&bytes).unwrap(), lambda);
+
+        let mut params = Parameters::new(rng, 4).unwrap();
+        let public_attributes = params.n_random_scalars(2);
+        let private_attributes = params.n_random_scalars(2);
+        let lambda = prepare_blind_sign(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &private_attributes,
+            &public_attributes,
+        )
+        .unwrap();
+
+        let bytes = lambda.to_bytes();
+        assert_eq!(BlindSignRequest::from_bytes(&bytes).unwrap(), lambda);
+    }
 }

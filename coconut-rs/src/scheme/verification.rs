@@ -27,6 +27,8 @@ use std::convert::TryInto;
 
 // TODO NAMING: this whole thing
 // Theta
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Theta {
     // kappa
     kappa: G2Projective,
@@ -60,10 +62,10 @@ impl Theta {
         let proof_bytes = self.pi_v.to_bytes();
 
         let mut bytes = Vec::with_capacity(240 + proof_bytes.len());
-        bytes.copy_from_slice(&kappa_bytes);
-        bytes.copy_from_slice(&nu_bytes);
-        bytes.copy_from_slice(&credential_bytes);
-        bytes.copy_from_slice(&proof_bytes);
+        bytes.extend_from_slice(&kappa_bytes);
+        bytes.extend_from_slice(&nu_bytes);
+        bytes.extend_from_slice(&credential_bytes);
+        bytes.extend_from_slice(&proof_bytes);
 
         bytes
     }
@@ -223,4 +225,53 @@ pub fn verify<R: RngCore + CryptoRng>(
         &sig.1.to_affine(),
         params.prepared_miller_g2(),
     ) && !bool::from(sig.0.is_identity())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scheme::keygen::keygen;
+    use crate::scheme::setup::setup;
+    use rand_core::OsRng;
+
+    #[test]
+    fn blind_sign_request_bytes_roundtrip() {
+        let rng = OsRng;
+
+        let mut params = setup(rng, 1).unwrap();
+
+        let keypair = keygen(&mut params);
+        let r = params.random_scalar();
+        let s = params.random_scalar();
+
+        let signature = Signature(params.gen1() * r, params.gen1() * s);
+        let private_attributes = params.n_random_scalars(1);
+
+        let theta = prove_credential(
+            &mut params,
+            &keypair.verification_key,
+            &signature,
+            &private_attributes,
+        )
+        .unwrap();
+
+        let bytes = theta.to_bytes();
+        assert_eq!(Theta::from_bytes(&bytes).unwrap(), theta);
+
+        let mut params = setup(rng, 4).unwrap();
+
+        let keypair = keygen(&mut params);
+        let private_attributes = params.n_random_scalars(2);
+
+        let theta = prove_credential(
+            &mut params,
+            &keypair.verification_key,
+            &signature,
+            &private_attributes,
+        )
+        .unwrap();
+
+        let bytes = theta.to_bytes();
+        assert_eq!(Theta::from_bytes(&bytes).unwrap(), theta);
+    }
 }

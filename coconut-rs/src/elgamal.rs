@@ -29,6 +29,8 @@ use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 pub type EphemeralKey = Scalar;
 
 /// Two G1 points representing ElGamal ciphertext
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Ciphertext(pub(crate) G1Projective, pub(crate) G1Projective);
 
 impl Ciphertext {
@@ -64,6 +66,8 @@ impl Ciphertext {
 }
 
 /// PrivateKey used in the ElGamal encryption scheme to recover the plaintext
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PrivateKey(Scalar);
 
 impl PrivateKey {
@@ -94,6 +98,8 @@ impl PrivateKey {
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
 /// PublicKey used in the ElGamal encryption scheme to produce the ciphertext
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct PublicKey(G1Projective);
 
 impl PublicKey {
@@ -338,9 +344,6 @@ impl<'de> Deserialize<'de> for PublicKey {
 
 #[cfg(test)]
 mod tests {
-    use group::Group;
-    use rand_core::OsRng;
-
     use super::*;
 
     #[test]
@@ -394,6 +397,47 @@ mod tests {
             expected, dec,
             "after ElGamal decryption, original h^m should be obtained"
         );
+    }
+
+    #[test]
+    fn private_key_bytes_roundtrip() {
+        let mut params = Parameters::default();
+        let private_key = PrivateKey(params.random_scalar());
+        let bytes = private_key.to_bytes();
+
+        // also make sure it is equivalent to the internal scalar's bytes
+        assert_eq!(private_key.0.to_bytes(), bytes);
+        assert_eq!(private_key, PrivateKey::from_bytes(&bytes).unwrap())
+    }
+
+    #[test]
+    fn public_key_bytes_roundtrip() {
+        let mut params = Parameters::default();
+        let r = params.random_scalar();
+        let public_key = PublicKey(params.gen1() * r);
+        let bytes = public_key.to_bytes();
+
+        // also make sure it is equivalent to the internal g1 compressed bytes
+        assert_eq!(public_key.0.to_affine().to_compressed(), bytes);
+        assert_eq!(public_key, PublicKey::from_bytes(&bytes).unwrap())
+    }
+
+    #[test]
+    fn ciphertext_key_bytes_roundtrip() {
+        let mut params = Parameters::default();
+        let r = params.random_scalar();
+        let s = params.random_scalar();
+        let ciphertext = Ciphertext(params.gen1() * r, params.gen1() * s);
+        let bytes = ciphertext.to_bytes();
+
+        // also make sure it is equivalent to the internal g1 compressed bytes concatenated
+        let expected_bytes = [
+            ciphertext.0.to_affine().to_compressed(),
+            ciphertext.1.to_affine().to_compressed(),
+        ]
+        .concat();
+        assert_eq!(expected_bytes, bytes);
+        assert_eq!(ciphertext, Ciphertext::from_bytes(&bytes).unwrap())
     }
 
     #[test]

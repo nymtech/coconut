@@ -84,6 +84,8 @@ impl Signature {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
 impl BlindedSignature {
@@ -321,5 +323,46 @@ mod tests {
             &theta,
             &public_attributes,
         ));
+    }
+
+    #[test]
+    fn signature_bytes_roundtrip() {
+        let mut params = Parameters::default();
+        let r = params.random_scalar();
+        let s = params.random_scalar();
+        let signature = Signature(params.gen1() * r, params.gen1() * s);
+        let bytes = signature.to_bytes();
+
+        // also make sure it is equivalent to the internal g1 compressed bytes concatenated
+        let expected_bytes = [
+            signature.0.to_affine().to_compressed(),
+            signature.1.to_affine().to_compressed(),
+        ]
+        .concat();
+        assert_eq!(expected_bytes, bytes);
+        assert_eq!(signature, Signature::from_bytes(&bytes).unwrap())
+    }
+
+    #[test]
+    fn blinded_signature_bytes_roundtrip() {
+        let mut params = Parameters::default();
+        let r = params.random_scalar();
+        let s = params.random_scalar();
+        let t = params.random_scalar();
+        let blinded_sig = BlindedSignature(
+            params.gen1() * t,
+            Ciphertext(params.gen1() * r, params.gen1() * s),
+        );
+        let bytes = blinded_sig.to_bytes();
+
+        // also make sure it is equivalent to the internal g1 compressed bytes concatenated
+        let expected_bytes = [
+            blinded_sig.0.to_affine().to_compressed(),
+            blinded_sig.1 .0.to_affine().to_compressed(),
+            blinded_sig.1 .1.to_affine().to_compressed(),
+        ]
+        .concat();
+        assert_eq!(expected_bytes, bytes);
+        assert_eq!(blinded_sig, BlindedSignature::from_bytes(&bytes).unwrap())
     }
 }

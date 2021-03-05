@@ -32,6 +32,8 @@ use std::convert::TryInto;
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
 
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ProofCmCs {
     challenge: Scalar,
     // rr
@@ -323,6 +325,8 @@ impl ProofCmCs {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ProofKappaNu {
     // c
     challenge: Scalar,
@@ -487,11 +491,11 @@ impl ProofKappaNu {
         if bytes[40..].len() != (rm_len + 1) as usize * 32 {
             return Err(Error::new(
                 ErrorKind::Deserialization,
-                "tried to deserialize proof of kappa and ny with insufficient number of bytes provided",
+                "tried to deserialize proof of kappa and nu with insufficient number of bytes provided",
             ));
         }
 
-        let rm_end = 72 + rm_len as usize * 32;
+        let rm_end = 40 + rm_len as usize * 32;
         let response_attributes = try_deserialize_scalar_vec(rm_len, &bytes[40..rm_end], || {
             "failed to deserialize attributes response"
         })?;
@@ -505,5 +509,111 @@ impl ProofKappaNu {
             response_attributes,
             response_blinder,
         })
+    }
+}
+
+// proof builder:
+// - commitment
+// - challenge
+// - responses
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scheme::keygen::keygen;
+    use crate::scheme::setup::setup;
+    use group::Group;
+    use rand_core::OsRng;
+
+    #[test]
+    fn proof_cm_cs_bytes_roundtrip() {
+        let mut rng = OsRng;
+        let mut rng2 = OsRng;
+        let mut params = setup(&mut rng, 4).unwrap();
+
+        let elgamal_keypair = elgamal::keygen(&mut params);
+        let private_attributes = params.n_random_scalars(1);
+        let public_attributes = params.n_random_scalars(0);
+
+        // we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+        let cm = G1Projective::random(&mut rng2);
+        let r = params.random_scalar();
+
+        let ephemeral_keys = params.n_random_scalars(1);
+
+        // 0 public 1 private
+        let pi_s = ProofCmCs::construct(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &ephemeral_keys,
+            &cm,
+            &r,
+            &private_attributes,
+            &public_attributes,
+        );
+
+        let bytes = pi_s.to_bytes();
+        assert_eq!(ProofCmCs::from_bytes(&bytes).unwrap(), pi_s);
+
+        // 2 public 2 private
+        let private_attributes = params.n_random_scalars(2);
+        let public_attributes = params.n_random_scalars(2);
+        let ephemeral_keys = params.n_random_scalars(2);
+
+        let pi_s = ProofCmCs::construct(
+            &mut params,
+            elgamal_keypair.public_key(),
+            &ephemeral_keys,
+            &cm,
+            &r,
+            &private_attributes,
+            &public_attributes,
+        );
+
+        let bytes = pi_s.to_bytes();
+        assert_eq!(ProofCmCs::from_bytes(&bytes).unwrap(), pi_s);
+    }
+
+    #[test]
+    fn proof_kappa_nu_bytes_roundtrip() {
+        let mut rng = OsRng;
+        let mut params = setup(&mut rng, 1).unwrap();
+
+        let keypair = keygen(&mut params);
+        let r = params.random_scalar();
+        let s = params.random_scalar();
+
+        // we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+        let signature = Signature(params.gen1() * r, params.gen1() * s);
+        let private_attributes = params.n_random_scalars(1);
+        let r = params.random_scalar();
+
+        // 0 public 1 private
+        let pi_v = ProofKappaNu::construct(
+            &mut params,
+            &keypair.verification_key,
+            &signature,
+            &private_attributes,
+            &r,
+        );
+
+        let bytes = pi_v.to_bytes();
+        assert_eq!(ProofKappaNu::from_bytes(&bytes).unwrap(), pi_v);
+
+        // 2 public 2 private
+        let mut params = setup(&mut rng, 4).unwrap();
+        let keypair = keygen(&mut params);
+        let private_attributes = params.n_random_scalars(2);
+
+        let pi_v = ProofKappaNu::construct(
+            &mut params,
+            &keypair.verification_key,
+            &signature,
+            &private_attributes,
+            &r,
+        );
+
+        let bytes = pi_v.to_bytes();
+        assert_eq!(ProofKappaNu::from_bytes(&bytes).unwrap(), pi_v);
     }
 }

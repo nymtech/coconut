@@ -36,6 +36,7 @@ use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 // use crate::utils::ScalarDef;
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecretKey {
     // #[cfg_attr(feature = "serde", serde(with = "ScalarSerdeHelper"))]
@@ -144,16 +145,16 @@ impl VerificationKey {
         }
 
         let alpha = try_deserialize_g2_projective(&alpha_bytes, || {
-            "failed to deserialize verification key G2 point"
+            "failed to deserialize verification key G2 point (alpha)"
         })?;
 
         let mut beta = Vec::with_capacity(actual_beta_len);
         for i in 0..actual_beta_len {
-            let start = 40 + i * 96;
+            let start = 104 + i * 96;
             let end = start + 96;
             let beta_i_bytes = bytes[start..end].try_into().unwrap();
             let beta_i = try_deserialize_g2_projective(&beta_i_bytes, || {
-                "failed to deserialize verification key G2 point"
+                "failed to deserialize verification key G2 point (beta)"
             })?;
 
             beta.push(beta_i)
@@ -452,4 +453,51 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
         .collect();
 
     Ok(keypairs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scheme::setup::setup;
+    use rand_core::OsRng;
+
+    #[test]
+    fn secret_key_bytes_roundtrip() {
+        let mut rng1 = OsRng;
+        let mut rng2 = OsRng;
+        let mut params1 = setup(&mut rng1, 1).unwrap();
+        let mut params5 = setup(&mut rng2, 5).unwrap();
+
+        let keypair1 = keygen(&mut params1);
+        let keypair5 = keygen(&mut params5);
+
+        let bytes1 = keypair1.secret_key.to_bytes();
+        let bytes5 = keypair5.secret_key.to_bytes();
+
+        assert_eq!(SecretKey::from_bytes(&bytes1).unwrap(), keypair1.secret_key);
+        assert_eq!(SecretKey::from_bytes(&bytes5).unwrap(), keypair5.secret_key);
+    }
+
+    #[test]
+    fn verification_key_bytes_roundtrip() {
+        let mut rng1 = OsRng;
+        let mut rng2 = OsRng;
+        let mut params1 = setup(&mut rng1, 1).unwrap();
+        let mut params5 = setup(&mut rng2, 5).unwrap();
+
+        let keypair1 = keygen(&mut params1);
+        let keypair5 = keygen(&mut params5);
+
+        let bytes1 = keypair1.verification_key.to_bytes();
+        let bytes5 = keypair5.verification_key.to_bytes();
+
+        assert_eq!(
+            VerificationKey::from_bytes(&bytes1).unwrap(),
+            keypair1.verification_key
+        );
+        assert_eq!(
+            VerificationKey::from_bytes(&bytes5).unwrap(),
+            keypair5.verification_key
+        );
+    }
 }
