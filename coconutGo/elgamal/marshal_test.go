@@ -12,17 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bls12_381::Scalar;
-use sha3::Sha3_384;
+package elgamal
 
-pub mod elgamal;
-pub mod error;
-pub mod proofs;
-pub mod scheme;
-pub mod utils;
-
-pub type Attribute = Scalar;
-
-// reason for sha3 384 is for the 48 bytes output and it's a good enough solution
-// for the temporary use it has
-pub(crate) type G1HashDigest = Sha3_384;
+// TODO

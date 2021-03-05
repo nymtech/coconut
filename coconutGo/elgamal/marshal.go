@@ -14,7 +14,10 @@
 
 package elgamal
 
-import "gitlab.nymte.ch/nym/coconut/coconutGo/utils"
+import (
+	"errors"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
+)
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
@@ -47,5 +50,36 @@ func (publicKey *PublicKey) UnmarshalBinary(data []byte) error {
 	}
 
 	publicKey.gamma = gamma
+	return nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (ciphertext *Ciphertext) MarshalBinary() (data []byte, err error) {
+	c1Bytes := utils.G1JacobianToByteSlice(ciphertext.C1())
+	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())
+
+	return append(c1Bytes, c2Bytes...), nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (ciphertext *Ciphertext) UnmarshalBinary(data []byte) error {
+	if len(data) != 96 {
+		return errors.New("tried to deserialize elgamal ciphertext with bytes of invalid length")
+	}
+
+	c1, err := utils.G1JacobianFromBytes(data[:48])
+	if err != nil {
+		return err
+	}
+
+	c2, err := utils.G1JacobianFromBytes(data[48:])
+	if err != nil {
+		return err
+	}
+
+	ciphertext.c1 = c1
+	ciphertext.c2 = c2
 	return nil
 }
