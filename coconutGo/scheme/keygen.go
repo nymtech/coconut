@@ -15,6 +15,8 @@
 package coconut
 
 import (
+	"encoding/binary"
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fr"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
@@ -36,6 +38,37 @@ func (sk *SecretKey) X() *big.Int {
 
 func (sk *SecretKey) Ys() *[]big.Int {
 	return &sk.ys
+}
+
+// x || ys.len() || ys
+func (sk *SecretKey) Bytes() []byte {
+	xBytes := utils.ScalarToLittleEndian(sk.X())
+	ysLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(ysLenBytes, uint64(len(sk.ys)))
+	b := append(xBytes[:], ysLenBytes...)
+
+	for _, y := range sk.ys {
+		yBytes := utils.ScalarToLittleEndian(&y)
+		b = append(b, yBytes[:]...)
+	}
+
+	return b
+}
+
+func SecretKeyFromBytes(b []byte) (SecretKey, error) {
+	if len(b) < 32*2+8 || (len(b)-8)%32 != 0 {
+		return SecretKey{}, errors.New("tried to deserialize secret key with bytes of invalid length")
+	}
+
+	x := utils.ScalarFromLittleEndian(b[:32])
+	yLen := binary.LittleEndian.Uint64(b[32:40])
+
+	ys, err := utils.DeserializeScalarVec(yLen, b[40:])
+	if err != nil {
+		return SecretKey{}, err
+	}
+
+	return SecretKey{x: x, ys: ys}, nil
 }
 
 // Derive verification key using this secret key.
@@ -69,6 +102,46 @@ func (vk *VerificationKey) Alpha() *bls381.G2Jac {
 // Beta returns appropriate part of the the verification key
 func (vk *VerificationKey) Beta() []*bls381.G2Jac {
 	return vk.beta
+}
+
+func (vk *VerificationKey) Bytes() []byte {
+	alphaBytes := utils.G2JacobianToByteSlice(vk.Alpha())
+	betaLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(betaLenBytes, uint64(len(vk.beta)))
+	b := append(alphaBytes[:], betaLenBytes...)
+
+	for _, betaI := range vk.beta {
+		b = append(b, utils.G2JacobianToByteSlice(betaI)...)
+	}
+
+	return b
+}
+
+func VerificationKeyFromBytes(b []byte) (VerificationKey, error) {
+	if len(b) < 96*2+8 || (len(b)-8)%96 != 0 {
+		return VerificationKey{}, errors.New("tried to deserialize verification key with bytes of invalid length")
+	}
+	alpha, err := utils.G2JacobianFromBytes(b[:96])
+	if err != nil {
+		return VerificationKey{}, err
+	}
+
+	betaLen := binary.LittleEndian.Uint64(b[96:104])
+	actualBetaLen := (len(b) - 104) / 96
+	if actualBetaLen != int(betaLen) {
+		return VerificationKey{}, errors.New("tried to deserialize verification key with inconsistent beta len")
+	}
+
+	beta := make([]*bls381.G2Jac, actualBetaLen)
+	for i := 0; i < actualBetaLen; i++ {
+		betaI, err := utils.G2JacobianFromBytes(b[104+(i*96) : 104+((i+1)*96)])
+		if err != nil {
+			return VerificationKey{}, err
+		}
+		beta[i] = &betaI
+	}
+
+	return VerificationKey{alpha: alpha, beta: beta}, nil
 }
 
 func (vk *VerificationKey) Equal(other *VerificationKey) bool {

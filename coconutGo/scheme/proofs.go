@@ -16,6 +16,8 @@ package coconut
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
@@ -75,6 +77,64 @@ type ProofCmCs struct {
 	responseKeys []big.Int
 	// rm
 	responseAttributes []big.Int
+}
+
+// challenge || rr || rk.len() || rk || rm.len() || rm
+func (proof *ProofCmCs) Bytes() []byte {
+	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
+	rrBytes := utils.ScalarToLittleEndian(&proof.responseRandom)
+
+	keysLenBytes := make([]byte, 8)
+	attributesLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(keysLenBytes, uint64(len(proof.responseKeys)))
+	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
+
+	b := append(challengeBytes[:], rrBytes[:]...)
+	b = append(b, keysLenBytes...)
+	for _, rk := range proof.responseKeys {
+		rkBytes := utils.ScalarToLittleEndian(&rk)
+		b = append(b, rkBytes[:]...)
+	}
+	b = append(b, attributesLenBytes...)
+	for _, rm := range proof.responseAttributes {
+		rmBytes := utils.ScalarToLittleEndian(&rm)
+		b = append(b, rmBytes[:]...)
+	}
+	return b
+}
+
+func ProofCmCsFromBytes(b []byte) (ProofCmCs, error) {
+	// at the very minimum there must be a single attribute being proven
+	if len(b) < 32*4+16 || (len(b)-16)%32 != 0 {
+		return ProofCmCs{}, errors.New("tried to deserialize proof of ciphertexts and commitment with bytes of invalid length")
+	}
+
+	challenge := utils.ScalarFromLittleEndian(b[:32])
+	responseRandom := utils.ScalarFromLittleEndian(b[32:64])
+
+	rkLen := binary.LittleEndian.Uint64(b[64:72])
+	if len(b[72:]) < int(rkLen)*32+8 {
+		return ProofCmCs{}, errors.New("tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided")
+	}
+
+	rkEnd := 72 * int(rkLen) * 32
+	responseKeys, err := utils.DeserializeScalarVec(rkLen, b[72:rkLen])
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+
+	rmLen := binary.LittleEndian.Uint64(b[rkLen : rkEnd+8])
+	responseAttributes, err := utils.DeserializeScalarVec(rmLen, b[rkLen+8:])
+	if err != nil {
+		return ProofCmCs{}, err
+	}
+
+	return ProofCmCs{
+		challenge:          challenge,
+		responseRandom:     responseRandom,
+		responseKeys:       responseKeys,
+		responseAttributes: responseAttributes,
+	}, nil
 }
 
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
@@ -244,6 +304,52 @@ type ProofKappaNu struct {
 	// rt
 	responseBlinder big.Int
 }
+
+// challenge || rm.len() || rm || rt
+func (proof *ProofKappaNu) Bytes() []byte {
+	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
+
+	attributesLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
+
+	b := challengeBytes[:]
+	b = append(b, attributesLenBytes...)
+	for _, rm := range proof.responseAttributes {
+		rmBytes := utils.ScalarToLittleEndian(&rm)
+		b = append(b, rmBytes[:]...)
+	}
+
+	rtBytes := utils.ScalarToLittleEndian(&proof.responseBlinder)
+	b = append(challengeBytes[:], rtBytes[:]...)
+	return b
+}
+
+func ProofKappaNuFromBytes(b []byte) (ProofKappaNu, error) {
+	// at the very minimum there must be a single attribute being proven
+	if len(b) < 32*3+8 || (len(b)-8)%32 != 0 {
+		return ProofKappaNu{}, errors.New("tried to deserialize proof of kappa and nu with bytes of invalid length")
+	}
+
+	challenge := utils.ScalarFromLittleEndian(b[:32])
+	rmLen := binary.LittleEndian.Uint64(b[32:40])
+	if len(b[40:]) != int(rmLen+1)*32 {
+		return ProofKappaNu{}, errors.New("tried to deserialize proof of kappa and nu with insufficient number of bytes provided")
+	}
+
+	rmEnd := 40 + int(rmLen)*32
+	responseAttributes, err := utils.DeserializeScalarVec(rmLen, b[40:rmEnd])
+	if err != nil {
+		return ProofKappaNu{}, nil
+	}
+	responseBlinder := utils.ScalarFromLittleEndian(b[rmEnd:])
+
+	return ProofKappaNu{
+		challenge:          challenge,
+		responseAttributes: responseAttributes,
+		responseBlinder:    responseBlinder,
+	}, nil
+}
+
 
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func constructProofKappaNu(

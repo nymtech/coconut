@@ -15,6 +15,8 @@
 package coconut
 
 import (
+	"encoding/binary"
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
@@ -34,6 +36,67 @@ type BlindSignRequest struct {
 
 func (blindSignRequest *BlindSignRequest) verifyProof(params *coconutGo.Parameters, pubKey *elgamal.PublicKey) bool {
 	return blindSignRequest.piS.verify(params, pubKey, &blindSignRequest.commitment, blindSignRequest.attributesCiphertexts)
+}
+
+// cm || c.len() || c || pi_s
+// TODO: subject to change once serde implementation in place in rust's version and whether
+// it's 1:1 compatible with bincode (maybe len(pi_s) is needed?)
+func (blindSignRequest *BlindSignRequest) Bytes() []byte {
+	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
+
+	cLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(cLenBytes, uint64(len(blindSignRequest.attributesCiphertexts)))
+
+	proofBytes := blindSignRequest.piS.Bytes()
+
+	b := append(cmBytes, cLenBytes...)
+	for _, c := range blindSignRequest.attributesCiphertexts {
+		cBytes := c.Bytes()
+		b = append(b, cBytes[:]...)
+	}
+	b = append(b, proofBytes...)
+
+	return b
+}
+
+func BlindSignRequestFromBytes(b []byte) (BlindSignRequest, error) {
+	if len(b) < 48+8+96 {
+		return BlindSignRequest{}, errors.New("tried to deserialize blind sign request with insufficient number of bytes")
+	}
+
+	commitment, err := utils.G1JacobianFromBytes(b[:48])
+	if err != nil {
+		return BlindSignRequest{}, err
+	}
+
+	cLen := binary.LittleEndian.Uint64(b[48:56])
+	if len(b[56:]) < int(cLen)*96 {
+		return BlindSignRequest{}, errors.New("tried to deserialize blind sign request with insufficient number of bytes")
+	}
+
+	attributesCiphertexts := make([]*elgamal.Ciphertext, cLen)
+	for i := 0; i < int(cLen); i++ {
+		start := 56 + i*96
+		end := start + 96
+		var cBytes [2 * bls381.SizeOfG1AffineCompressed]byte
+		copy(cBytes[:], b[start:end])
+		ciphertext, err := elgamal.CiphertextFromBytes(cBytes)
+		if err != nil {
+			return BlindSignRequest{}, err
+		}
+		attributesCiphertexts[i] = &ciphertext
+	}
+
+	piS, err := ProofCmCsFromBytes(b[56+int(cLen)*96:])
+	if err != nil {
+		return BlindSignRequest{}, err
+	}
+
+	return BlindSignRequest{
+		commitment:            commitment,
+		attributesCiphertexts: attributesCiphertexts,
+		piS:                   piS,
+	}, nil
 }
 
 func PrepareBlindSign(

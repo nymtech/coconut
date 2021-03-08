@@ -15,6 +15,7 @@
 package coconut
 
 import (
+	"errors"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
@@ -35,6 +36,58 @@ type Theta struct {
 
 func (theta *Theta) verifyProof(params *coconutGo.Parameters, verificationKey *VerificationKey) bool {
 	return theta.piV.verify(params, verificationKey, &theta.credential, &theta.kappa, &theta.nu)
+}
+
+// kappa || nu || credential || pi_v
+// TODO: subject to change once serde implementation in place in rust's version and whether
+// it's 1:1 compatible with bincode (maybe len(pi_v) is needed?)
+func (theta *Theta) Bytes() []byte {
+	kappaBytes := utils.G2JacobianToByteSlice(&theta.kappa)
+	nuBytes := utils.G1JacobianToByteSlice(&theta.nu)
+	credentialBytes := theta.credential.Bytes()
+	proofBytes := theta.piV.Bytes()
+
+	b := append(kappaBytes, nuBytes...)
+	b = append(b, credentialBytes[:]...)
+	b = append(b, proofBytes...)
+
+	return b
+}
+
+func ThetaFromBytes(b []byte) (Theta, error) {
+	if len(b) < 240 {
+		return Theta{}, errors.New("tried to deserialize theta with insufficient number of bytes")
+	}
+
+	kappa, err := utils.G2JacobianFromBytes(b[:96])
+	if err != nil {
+		return Theta{}, err
+	}
+
+	nu, err := utils.G1JacobianFromBytes(b[96:144])
+	if err != nil {
+		return Theta{}, err
+	}
+
+	var credentialBytes [2 * bls381.SizeOfG1AffineCompressed]byte
+	copy(credentialBytes[:], b[144:240])
+
+	credential, err := SignatureFromBytes(credentialBytes)
+	if err != nil {
+		return Theta{}, err
+	}
+
+	piV, err := ProofKappaNuFromBytes(b[240:])
+	if err != nil {
+		return Theta{}, err
+	}
+
+	return Theta{
+		kappa:      kappa,
+		nu:         nu,
+		credential: credential,
+		piV:        piV,
+	},nil
 }
 
 func ProveCredential(

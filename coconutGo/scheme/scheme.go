@@ -30,6 +30,33 @@ func (sig *Signature) Equal(other *Signature) bool {
 	return utils.G1JacobianEqual(&sig.sig1, &other.sig1) && utils.G1JacobianEqual(&sig.sig2, &other.sig2)
 }
 
+func (sig *Signature) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte {
+	sig1Bytes := utils.G1JacobianToByteSlice(&sig.sig1)
+	sig2Bytes := utils.G1JacobianToByteSlice(&sig.sig2)
+
+	var b [2 * bls381.SizeOfG1AffineCompressed]byte
+	copy(b[bls381.SizeOfG1AffineCompressed:], sig1Bytes)
+	copy(b[:bls381.SizeOfG1AffineCompressed], sig2Bytes)
+
+	return b
+}
+
+func SignatureFromBytes(b [2 * bls381.SizeOfG1AffineCompressed]byte) (Signature, error) {
+	sig1, err := utils.G1JacobianFromBytes(b[:bls381.SizeOfG1AffineCompressed])
+	if err != nil {
+		return Signature{}, err
+	}
+	sig2, err := utils.G1JacobianFromBytes(b[bls381.SizeOfG1AffineCompressed:])
+	if err != nil {
+		return Signature{}, err
+	}
+
+	return Signature{
+		sig1: sig1,
+		sig2: sig2,
+	}, nil
+}
+
 type PartialSignature = Signature
 
 type SignerIndex = uint64
@@ -78,3 +105,33 @@ func (blindedSig *BlindedSignature) Unblind(privateKey *elgamal.PrivateKey) Sign
 	}
 }
 
+func (blindedSig *BlindedSignature) Bytes() [3 * bls381.SizeOfG1AffineCompressed]byte {
+	hBytes := utils.G1JacobianToByteSlice(&blindedSig.sig1)
+	cTildeBytes := blindedSig.sig2.Bytes()
+
+	var b [3 * bls381.SizeOfG1AffineCompressed]byte
+	copy(b[bls381.SizeOfG1AffineCompressed:], hBytes)
+	copy(b[:bls381.SizeOfG1AffineCompressed], cTildeBytes[:])
+
+	return b
+}
+
+func BlindedSignatureFromBytes(b [3 * bls381.SizeOfG1AffineCompressed]byte) (BlindedSignature, error) {
+	h, err := utils.G1JacobianFromBytes(b[:bls381.SizeOfG1AffineCompressed])
+	if err != nil {
+		return BlindedSignature{}, err
+	}
+
+	var cTildeBytes [2*bls381.SizeOfG1AffineCompressed]byte
+	copy(cTildeBytes[:], b[bls381.SizeOfG1AffineCompressed:])
+
+	cTilde, err := elgamal.CiphertextFromBytes(cTildeBytes)
+	if err != nil {
+		return BlindedSignature{}, err
+	}
+
+	return BlindedSignature{
+		sig1: h,
+		sig2: cTilde,
+	}, nil
+}

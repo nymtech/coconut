@@ -15,10 +15,7 @@
 package coconut
 
 import (
-	"encoding/binary"
 	"errors"
-	"github.com/consensys/gurvy/bls381"
-	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 )
 
@@ -86,39 +83,22 @@ func (blindedSig *BlindedSignature) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-// x || ys.len() || ys
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (sk *SecretKey) MarshalBinary() ([]byte, error) {
-	xBytes := utils.ScalarToLittleEndian(sk.X())
-	ysLenBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(ysLenBytes, uint64(len(sk.ys)))
-	b := append(xBytes[:], ysLenBytes...)
-
-	for _, y := range sk.ys {
-		yBytes := utils.ScalarToLittleEndian(&y)
-		b = append(b, yBytes[:]...)
-	}
-
-	return b, nil
+	return sk.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (sk *SecretKey) UnmarshalBinary(data []byte) error {
-	if len(data) < 32*2+8 || (len(data)-8)%32 != 0 {
-		return errors.New("tried to deserialize secret key with bytes of invalid length")
-	}
-
-	sk.x = utils.ScalarFromLittleEndian(data[:32])
-	yLen := binary.LittleEndian.Uint64(data[32:40])
-
-	ys, err := utils.DeserializeScalarVec(yLen, data[40:])
+	key, err := SecretKeyFromBytes(data)
 	if err != nil {
 		return err
 	}
 
-	sk.ys = ys
+	sk.x = key.x
+	sk.ys = key.ys
 
 	return nil
 }
@@ -127,156 +107,61 @@ func (sk *SecretKey) UnmarshalBinary(data []byte) error {
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (vk *VerificationKey) MarshalBinary() ([]byte, error) {
-	alphaBytes := utils.G2JacobianToByteSlice(vk.Alpha())
-	betaLenBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(betaLenBytes, uint64(len(vk.beta)))
-	b := append(alphaBytes[:], betaLenBytes...)
-
-	for _, betaI := range vk.beta {
-		b = append(b, utils.G2JacobianToByteSlice(betaI)...)
-	}
-
-	return b, nil
+	return vk.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (vk *VerificationKey) UnmarshalBinary(data []byte) error {
-	if len(data) < 96*2+8 || (len(data)-8)%96 != 0 {
-		return errors.New("tried to deserialize verification key with bytes of invalid length")
-	}
-	alpha, err := utils.G2JacobianFromBytes(data[:96])
+	key, err := VerificationKeyFromBytes(data)
 	if err != nil {
 		return err
 	}
 
-	betaLen := binary.LittleEndian.Uint64(data[96:104])
-	actualBetaLen := (len(data) - 104) / 96
-	if actualBetaLen != int(betaLen) {
-		return errors.New("tried to deserialize verification key with inconsistent beta len")
-	}
-
-	beta := make([]*bls381.G2Jac, actualBetaLen)
-	for i := 0; i < actualBetaLen; i++ {
-		betaI, err := utils.G2JacobianFromBytes(data[104+(i*96) : 104+((i+1)*96)])
-		if err != nil {
-			return err
-		}
-		beta[i] = &betaI
-	}
-
-	vk.alpha = alpha
-	vk.beta = beta
+	vk.alpha = key.alpha
+	vk.beta = key.beta
 	return nil
 }
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-// challenge || rr || rk.len() || rk || rm.len() || rm
 func (proof *ProofCmCs) MarshalBinary() ([]byte, error) {
-	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
-	rrBytes := utils.ScalarToLittleEndian(&proof.responseRandom)
-
-	keysLenBytes := make([]byte, 8)
-	attributesLenBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(keysLenBytes, uint64(len(proof.responseKeys)))
-	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
-
-	b := append(challengeBytes[:], rrBytes[:]...)
-	b = append(b, keysLenBytes...)
-	for _, rk := range proof.responseKeys {
-		rkBytes := utils.ScalarToLittleEndian(&rk)
-		b = append(b, rkBytes[:]...)
-	}
-	b = append(b, attributesLenBytes...)
-	for _, rm := range proof.responseAttributes {
-		rmBytes := utils.ScalarToLittleEndian(&rm)
-		b = append(b, rmBytes[:]...)
-	}
-	return b, nil
+	return proof.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (proof *ProofCmCs) UnmarshalBinary(data []byte) error {
-	// at the very minimum there must be a single attribute being proven
-	if len(data) < 32*4+16 || (len(data)-16)%32 != 0 {
-		return errors.New("tried to deserialize proof of ciphertexts and commitment with bytes of invalid length")
-	}
-
-	challenge := utils.ScalarFromLittleEndian(data[:32])
-	responseRandom := utils.ScalarFromLittleEndian(data[32:64])
-
-	rkLen := binary.LittleEndian.Uint64(data[64:72])
-	if len(data[72:]) < int(rkLen)*32+8 {
-		return errors.New("tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided")
-	}
-
-	rkEnd := 72 * int(rkLen) * 32
-	responseKeys, err := utils.DeserializeScalarVec(rkLen, data[72:rkLen])
+	proofCmCs, err := ProofCmCsFromBytes(data)
 	if err != nil {
 		return err
 	}
 
-	rmLen := binary.LittleEndian.Uint64(data[rkLen : rkEnd+8])
-	responseAttributes, err := utils.DeserializeScalarVec(rmLen, data[rkLen+8:])
-	if err != nil {
-		return err
-	}
-
-	proof.challenge = challenge
-	proof.responseRandom = responseRandom
-	proof.responseKeys = responseKeys
-	proof.responseAttributes = responseAttributes
+	proof.challenge = proofCmCs.challenge
+	proof.responseRandom = proofCmCs.responseRandom
+	proof.responseKeys = proofCmCs.responseKeys
+	proof.responseAttributes = proofCmCs.responseAttributes
 
 	return nil
 }
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-// challenge || rm.len() || rm || rt
 func (proof *ProofKappaNu) MarshalBinary() ([]byte, error) {
-	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
-
-	attributesLenBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
-
-	b := challengeBytes[:]
-	b = append(b, attributesLenBytes...)
-	for _, rm := range proof.responseAttributes {
-		rmBytes := utils.ScalarToLittleEndian(&rm)
-		b = append(b, rmBytes[:]...)
-	}
-
-	rtBytes := utils.ScalarToLittleEndian(&proof.responseBlinder)
-	b = append(challengeBytes[:], rtBytes[:]...)
-	return b, nil
+	return proof.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (proof *ProofKappaNu) UnmarshalBinary(data []byte) error {
-	// at the very minimum there must be a single attribute being proven
-	if len(data) < 32*3+8 || (len(data)-8)%32 != 0 {
-		return errors.New("tried to deserialize proof of kappa and nu with bytes of invalid length")
-	}
-
-	challenge := utils.ScalarFromLittleEndian(data[:32])
-	rmLen := binary.LittleEndian.Uint64(data[32:40])
-	if len(data[40:]) != int(rmLen+1)*32 {
-		return errors.New("tried to deserialize proof of kappa and nu with insufficient number of bytes provided")
-	}
-
-	rmEnd := 40 + int(rmLen)*32
-	responseAttributes, err := utils.DeserializeScalarVec(rmLen, data[40:rmEnd])
+	proofKappaNu, err := ProofKappaNuFromBytes(data)
 	if err != nil {
-		return nil
+		return err
 	}
-	responseBlinder := utils.ScalarFromLittleEndian(data[rmEnd:])
 
-	proof.challenge = challenge
-	proof.responseAttributes = responseAttributes
-	proof.responseBlinder = responseBlinder
+	proof.challenge = proofKappaNu.challenge
+	proof.responseAttributes = proofKappaNu.responseAttributes
+	proof.responseBlinder = proofKappaNu.responseBlinder
 
 	return nil
 }
@@ -287,66 +172,19 @@ func (proof *ProofKappaNu) UnmarshalBinary(data []byte) error {
 // TODO: subject to change once serde implementation in place in rust's version and whether
 // it's 1:1 compatible with bincode (maybe len(pi_s) is needed?)
 func (blindSignRequest *BlindSignRequest) MarshalBinary() ([]byte, error) {
-	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
-
-	cLenBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(cLenBytes, uint64(len(blindSignRequest.attributesCiphertexts)))
-
-	proofBytes, err := blindSignRequest.piS.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	b := append(cmBytes, cLenBytes...)
-	for _, c := range blindSignRequest.attributesCiphertexts {
-		cBytes, err := c.MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-		b = append(b, cBytes...)
-	}
-
-	b = append(b, proofBytes...)
-
-	return b, nil
+	return blindSignRequest.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (blindSignRequest *BlindSignRequest) UnmarshalBinary(data []byte) error {
-	if len(data) < 48+8+96 {
-		return errors.New("tried to deserialize blind sign request with insufficient number of bytes")
-	}
-
-	commitment, err := utils.G1JacobianFromBytes(data[:48])
+	bsr, err := BlindSignRequestFromBytes(data)
 	if err != nil {
 		return err
 	}
-
-	cLen := binary.LittleEndian.Uint64(data[48:56])
-	if len(data[56:]) < int(cLen)*96 {
-		return errors.New("tried to deserialize blind sign request with insufficient number of bytes")
-	}
-
-	attributesCiphertexts := make([]*elgamal.Ciphertext, cLen)
-	for i := 0; i < int(cLen); i++ {
-		start := 56 + i*96
-		end := start + 96
-		var ciphertext elgamal.Ciphertext
-		if err := ciphertext.UnmarshalBinary(data[start:end]); err != nil {
-			return err
-		}
-		attributesCiphertexts[i] = &ciphertext
-	}
-
-	var piS ProofCmCs
-	if err := piS.UnmarshalBinary(data[56+int(cLen)*96:]); err != nil {
-		return err
-	}
-
-	blindSignRequest.commitment = commitment
-	blindSignRequest.attributesCiphertexts = attributesCiphertexts
-	blindSignRequest.piS = piS
+	blindSignRequest.commitment = bsr.commitment
+	blindSignRequest.attributesCiphertexts = bsr.attributesCiphertexts
+	blindSignRequest.piS = bsr.piS
 
 	return nil
 }
@@ -357,55 +195,21 @@ func (blindSignRequest *BlindSignRequest) UnmarshalBinary(data []byte) error {
 // TODO: subject to change once serde implementation in place in rust's version and whether
 // it's 1:1 compatible with bincode (maybe len(pi_v) is needed?)
 func (theta *Theta) MarshalBinary() ([]byte, error) {
-	kappaBytes := utils.G2JacobianToByteSlice(&theta.kappa)
-	nuBytes := utils.G1JacobianToByteSlice(&theta.nu)
-	credentialBytes, err := theta.credential.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	proofBytes, err := theta.piV.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	b := append(kappaBytes, nuBytes...)
-	b = append(b, credentialBytes...)
-	b = append(b, proofBytes...)
-
-	return b, nil
+	return theta.Bytes(), nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (theta *Theta) UnmarshalBinary(data []byte) error {
-	if len(data) < 240 {
-		return errors.New("tried to deserialize theta with insufficient number of bytes")
-	}
-
-	kappa, err := utils.G2JacobianFromBytes(data[:96])
+	t, err := ThetaFromBytes(data)
 	if err != nil {
 		return err
 	}
 
-	nu, err := utils.G1JacobianFromBytes(data[96:144])
-	if err != nil {
-		return err
-	}
-
-	var credential Signature
-	if err := credential.UnmarshalBinary(data[144:240]); err != nil {
-		return err
-	}
-
-	var piV ProofKappaNu
-	if err := piV.UnmarshalBinary(data[240:]); err != nil {
-		return err
-	}
-
-	theta.kappa = kappa
-	theta.nu = nu
-	theta.credential = credential
-	theta.piV = piV
+	theta.kappa = t.kappa
+	theta.nu = t.nu
+	theta.credential = t.credential
+	theta.piV = t.piV
 
 	return nil
 }
