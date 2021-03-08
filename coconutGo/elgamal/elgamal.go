@@ -16,6 +16,7 @@ package elgamal
 
 import (
 	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fr"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"math/big"
@@ -42,6 +43,33 @@ func (ciphertext *Ciphertext) C2() *bls381.G1Jac {
 	return &ciphertext.c2
 }
 
+func (ciphertext *Ciphertext) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte {
+	c1Bytes := utils.G1JacobianToByteSlice(ciphertext.C1())
+	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())
+
+	var b [2 * bls381.SizeOfG1AffineCompressed]byte
+	copy(b[bls381.SizeOfG1AffineCompressed:], c1Bytes)
+	copy(b[:bls381.SizeOfG1AffineCompressed], c2Bytes)
+
+	return b
+}
+
+func CiphertextFromBytes(b [2 * bls381.SizeOfG1AffineCompressed]byte) (Ciphertext, error) {
+	c1, err := utils.G1JacobianFromBytes(b[:bls381.SizeOfG1AffineCompressed])
+	if err != nil {
+		return Ciphertext{}, err
+	}
+	c2, err := utils.G1JacobianFromBytes(b[bls381.SizeOfG1AffineCompressed:])
+	if err != nil {
+		return Ciphertext{}, err
+	}
+
+	return Ciphertext{
+		c1: c1,
+		c2: c2,
+	}, nil
+}
+
 type PrivateKey struct {
 	d big.Int
 }
@@ -55,6 +83,16 @@ func (privateKey *PrivateKey) Decrypt(ciphertext *Ciphertext) bls381.G1Jac {
 
 	// (gamma^k * h^m) / (g1^{d * k})   |   note: gamma = g1^d
 	return utils.G1Sub(c2, &tmp)
+}
+
+func (privateKey *PrivateKey) Bytes() [fr.Limbs * 8]byte {
+	return utils.ScalarToLittleEndian(&privateKey.d)
+}
+
+func PrivateKeyFromBytes(b [fr.Limbs * 8]byte) (PrivateKey, error) {
+	return PrivateKey{
+		d: utils.ScalarFromLittleEndian(b[:]),
+	}, nil
 }
 
 type PublicKey struct {
@@ -87,6 +125,23 @@ func (publicKey *PublicKey) Encrypt(params *coconutGo.Parameters, h *bls381.G1Ja
 		c1: c1,
 		c2: c2,
 	}, k, nil
+}
+
+func (publicKey *PublicKey) Bytes() [bls381.SizeOfG1AffineCompressed]byte {
+	var b [bls381.SizeOfG1AffineCompressed]byte
+	copy(b[:], utils.G1JacobianToByteSlice(&publicKey.gamma))
+	return b
+}
+
+func PublicKeyFromBytes(b [bls381.SizeOfG1AffineCompressed]byte) (PublicKey, error) {
+	gamma, err := utils.G1JacobianFromBytes(b[:])
+	if err != nil {
+		return PublicKey{}, err
+	}
+
+	return PublicKey{
+		gamma: gamma,
+	}, nil
 }
 
 type KeyPair struct {

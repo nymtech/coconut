@@ -99,3 +99,29 @@ func TestElGamalDecryption(t *testing.T) {
 
 	assert.Equal(t, utils.ToG1Affine(&expected), utils.ToG1Affine(&decrypted), "after ElGamal decryption, original h^m should be obtained")
 }
+
+/*
+   #[test]
+   fn private_key_bytes_roundtrip() {
+       let mut params = Parameters::default();
+       let private_key = PrivateKey(params.random_scalar());
+       let bytes = private_key.to_bytes();
+
+       // also make sure it is equivalent to the internal scalar's bytes
+       assert_eq!(private_key.0.to_bytes(), bytes);
+       assert_eq!(private_key, PrivateKey::from_bytes(&bytes).unwrap())
+   }
+
+   #[test]
+   fn public_key_bytes_roundtrip() {
+       let mut params = Parameters::default();
+       let r = params.random_scalar();
+       let public_key = PublicKey(params.gen1() * r);
+       let bytes = public_key.to_bytes();
+
+       // also make sure it is equivalent to the internal g1 compressed bytes
+       assert_eq!(public_key.0.to_affine().to_compressed(), bytes);
+       assert_eq!(public_key, PublicKey::from_bytes(&bytes).unwrap())
+   }
+
+ */

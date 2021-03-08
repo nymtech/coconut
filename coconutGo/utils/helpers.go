@@ -181,15 +181,15 @@ func ScalarFromBytesWide(bytes [64]byte) big.Int {
 	return resBI
 }
 
-func ScalarToLittleEndian(scalar *big.Int) [32]byte {
+func ScalarToLittleEndian(scalar *big.Int) [fr.Limbs * 8]byte {
 	var frScalar fr.Element
 	// ensure correct order and width
 	frScalar.SetBigInt(scalar)
 	scalarBytes := frScalar.Bytes()
 
-	var out [32]byte
-	for i := 0; i < 32; i++ {
-		out[31-i] = scalarBytes[i]
+	var out [fr.Limbs * 8]byte
+	for i := 0; i < fr.Limbs * 8; i++ {
+		out[fr.Limbs * 8 - 1 - i] = scalarBytes[i]
 	}
 
 	return out
@@ -198,7 +198,6 @@ func ScalarToLittleEndian(scalar *big.Int) [32]byte {
 // TODO: this is not checking for correct scalar...
 func ScalarFromLittleEndian(bytes []byte) big.Int {
 	var s big.Int
-	// TODO: or do I need to reverse per octet?
 
 	s.SetBytes(ReverseBytes(bytes))
 	return s
@@ -216,6 +215,40 @@ func DeserializeScalarVec(expectedLen uint64, bytes []byte) ([]big.Int, error) {
 	}
 
 	return out, nil
+}
+
+func ToG1Affine(jac *bls381.G1Jac) bls381.G1Affine {
+	var res bls381.G1Affine
+	res.FromJacobian(jac)
+	return res
+}
+
+func ToG1Jacobian(aff *bls381.G1Affine) bls381.G1Jac {
+	var res bls381.G1Jac
+	res.FromAffine(aff)
+	return res
+}
+
+func ToG2Affine(jac *bls381.G2Jac) bls381.G2Affine {
+	var res bls381.G2Affine
+	res.FromJacobian(jac)
+	return res
+}
+
+func G1AffineToByteSlice(p *bls381.G1Affine) []byte {
+	pBytes := p.Bytes()
+	return pBytes[:]
+}
+
+func G1JacobianToByteSlice(p *bls381.G1Jac) []byte {
+	pAff := ToG1Affine(p)
+	return G1AffineToByteSlice(&pAff)
+}
+
+func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
+	pAff := ToG2Affine(p)
+	pAffBytes := pAff.Bytes()
+	return pAffBytes[:]
 }
 
 func G1JacobianFromBytes(bytes []byte) (bls381.G1Jac, error) {

@@ -40,45 +40,11 @@ func G1Add(a *bls381.G1Jac, b *bls381.G1Jac) bls381.G1Jac {
 	return res
 }
 
-func ToG1Affine(jac *bls381.G1Jac) bls381.G1Affine {
-	var res bls381.G1Affine
-	res.FromJacobian(jac)
-	return res
-}
-
-func ToG1Jacobian(aff *bls381.G1Affine) bls381.G1Jac {
-	var res bls381.G1Jac
-	res.FromAffine(aff)
-	return res
-}
-
 // Takes a Scalar and a G1 element by reference and multiplies them together while allocating space for the result
 func G2ScalarMul(g2 *bls381.G2Jac, scalar *big.Int) bls381.G2Jac {
 	var res bls381.G2Jac
 	res.ScalarMultiplication(g2, scalar)
 	return res
-}
-
-func ToG2Affine(jac *bls381.G2Jac) bls381.G2Affine {
-	var res bls381.G2Affine
-	res.FromJacobian(jac)
-	return res
-}
-
-func G1AffineToByteSlice(p *bls381.G1Affine) []byte {
-	pBytes := p.Bytes()
-	return pBytes[:]
-}
-
-func G1JacobianToByteSlice(p *bls381.G1Jac) []byte {
-	pAff := ToG1Affine(p)
-	return G1AffineToByteSlice(&pAff)
-}
-
-func G2JacobianToByteSlice(p *bls381.G2Jac) []byte {
-	pAff := ToG2Affine(p)
-	pAffBytes := pAff.Bytes()
-	return pAffBytes[:]
 }
 
 // those two should not be used in performance critical parts of code (JS: they are only used in tests)

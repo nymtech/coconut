@@ -16,70 +16,91 @@ package elgamal
 
 import (
 	"errors"
-	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
+	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fr"
 )
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (privateKey *PrivateKey) MarshalBinary() ([]byte, error) {
-	b := utils.ScalarToLittleEndian(&privateKey.d)
+	b := privateKey.Bytes()
 	return b[:], nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (privateKey *PrivateKey) UnmarshalBinary(data []byte) error {
-	privateKey.d = utils.ScalarFromLittleEndian(data)
+	if len(data) != fr.Limbs * 8 {
+		return errors.New("tried to deserialize elgamal private key with bytes of invalid length")
+	}
 
+	var b [fr.Limbs * 8]byte
+	copy(b[:], data)
+
+	key, err := PrivateKeyFromBytes(b)
+	if err != nil {
+		return err
+	}
+
+	// ideally I would have just pointed the entire privateKey here, but due to interface
+	// restriction (and Go's) I couldn't do that.
+	privateKey.d = key.d
 	return nil
 }
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (publicKey *PublicKey) MarshalBinary() ([]byte, error) {
-	b := utils.G1JacobianToByteSlice(&publicKey.gamma)
-	return b, nil
+	b := publicKey.Bytes()
+	return b[:], nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (publicKey *PublicKey) UnmarshalBinary(data []byte) error {
-	gamma, err := utils.G1JacobianFromBytes(data)
+	if len(data) != bls381.SizeOfG1AffineCompressed {
+		return errors.New("tried to deserialize elgamal public key with bytes of invalid length")
+	}
+
+	var b [bls381.SizeOfG1AffineCompressed]byte
+	copy(b[:], data)
+
+	key, err := PublicKeyFromBytes(b)
 	if err != nil {
 		return err
 	}
 
-	publicKey.gamma = gamma
+	// ideally I would have just pointed the entire publicKey here, but due to interface
+	// restriction (and Go's) I couldn't do that.
+	publicKey.gamma = key.gamma
 	return nil
 }
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (ciphertext *Ciphertext) MarshalBinary() (data []byte, err error) {
-	c1Bytes := utils.G1JacobianToByteSlice(ciphertext.C1())
-	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())
-
-	return append(c1Bytes, c2Bytes...), nil
+	b := ciphertext.Bytes()
+	return b[:], nil
 }
 
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (ciphertext *Ciphertext) UnmarshalBinary(data []byte) error {
-	if len(data) != 96 {
+	if len(data) != 2 * bls381.SizeOfG1AffineCompressed {
 		return errors.New("tried to deserialize elgamal ciphertext with bytes of invalid length")
 	}
 
-	c1, err := utils.G1JacobianFromBytes(data[:48])
+	var b [2 * bls381.SizeOfG1AffineCompressed]byte
+	copy(b[:], data)
+
+	c, err := CiphertextFromBytes(b)
 	if err != nil {
 		return err
 	}
 
-	c2, err := utils.G1JacobianFromBytes(data[48:])
-	if err != nil {
-		return err
-	}
-
-	ciphertext.c1 = c1
-	ciphertext.c2 = c2
+	// ideally I would have just pointed the entire ciphertext here, but due to interface
+	// restriction (and Go's) I couldn't do that.
+	ciphertext.c1 = c.c1
+	ciphertext.c2 = c.c2
 	return nil
 }
