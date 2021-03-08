@@ -22,7 +22,8 @@ import (
 )
 
 func TestVerificationOnTwoPublicAttributes(t *testing.T) {
-	params := coconutGo.Setup(2)
+	params, err := coconutGo.Setup(2)
+	unwrapError(err)
 
 	attributes, err := params.NRandomScalars(2)
 	unwrapError(err)
@@ -45,7 +46,8 @@ func TestVerificationOnTwoPublicAttributes(t *testing.T) {
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
-	params := coconutGo.Setup(4)
+	params, err := coconutGo.Setup(4)
+	unwrapError(err)
 
 	publicAttributes, err := params.NRandomScalars(2)
 	unwrapError(err)
@@ -85,7 +87,8 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing.T) {
-	params := coconutGo.Setup(4)
+	params, err := coconutGo.Setup(4)
+	unwrapError(err)
 
 	publicAttributes, err := params.NRandomScalars(2)
 	unwrapError(err)

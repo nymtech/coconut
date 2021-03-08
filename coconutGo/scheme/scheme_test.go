@@ -32,7 +32,8 @@ func unwrapError(err error) {
 
 func BenchmarkDoublePairing(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	unwrapError(err)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()
@@ -68,7 +69,8 @@ var pairCheckGlobal bool
 
 func BenchmarkMiller(b *testing.B) {
 	g1jac, g2jac, _, _ := bls381.Generators()
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	unwrapError(err)
 
 	r, _ := params.RandomScalar()
 	s, _ := params.RandomScalar()
@@ -101,7 +103,8 @@ func BenchmarkMiller(b *testing.B) {
 
 // make sure credential created in rust on public attributes verifies in go
 func TestRustSignatureOnPublic(t *testing.T) {
-	params := coconutGo.Setup(2)
+	params, err := coconutGo.Setup(2)
+	unwrapError(err)
 
 	xBytes := []byte{188, 179, 7, 116, 227, 238, 248, 132, 112, 18, 3, 169, 6, 179, 97, 202, 90, 175, 245, 181, 102, 111, 238, 21, 91, 248, 205, 117, 13, 244, 239, 30}
 	yBytes1 := []byte{59, 59, 50, 96, 127, 192, 126, 148, 208, 89, 47, 81, 175, 184, 175, 163, 255, 93, 145, 66, 37, 38, 137, 233, 16, 101, 223, 25, 196, 150, 12, 6}
@@ -137,7 +140,8 @@ func TestRustSignatureOnPublic(t *testing.T) {
 
 // make sure credential created in rust on public and private attributes verifies in go
 func TestRustSignatureMixed(t *testing.T) {
-	params := coconutGo.Setup(4)
+	params, err := coconutGo.Setup(4)
+	unwrapError(err)
 
 	xBytes := []byte{129, 231, 41, 23, 186, 112, 18, 104, 123, 84, 242, 148, 216, 18, 199, 189, 42, 37, 13, 126, 147, 99, 135, 160, 236, 66, 112, 76, 127, 149, 6, 75}
 	yBytes1 := []byte{117, 166, 140, 142, 151, 152, 141, 165, 250, 154, 146, 238, 124, 59, 136, 40, 192, 23, 252, 105, 221, 250, 246, 162, 209, 135, 172, 92, 52, 53, 249, 10}

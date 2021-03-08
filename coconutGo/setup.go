@@ -18,6 +18,7 @@ package coconutGo
 // because you either import entire module or nothing at all...
 
 import (
+	"errors"
 	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"github.com/consensys/gurvy/bls381/fr"
@@ -35,7 +36,10 @@ type Parameters struct {
 }
 
 // TODO: change back to error because of possible numAttributes == 0...
-func Setup(numAttributes uint32) *Parameters {
+func Setup(numAttributes uint32) (*Parameters, error) {
+	if numAttributes == 0 {
+		return nil, errors.New("tried to setup the scheme for 0 attributes")
+	}
 	g1jac, g2jac, g1aff, g2aff := bls381.Generators()
 
 	hs := make([]*bls381.G1Affine, numAttributes)
@@ -50,7 +54,7 @@ func Setup(numAttributes uint32) *Parameters {
 		g2aff: g2aff,
 		g1jac: g1jac,
 		g2jac: g2jac,
-	}
+	}, nil
 }
 
 func (params *Parameters) Gen1() *bls381.G1Jac {

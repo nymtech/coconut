@@ -23,7 +23,10 @@ import (
 )
 
 func TestElGamalKeygen(t *testing.T) {
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	if err != nil {
+		panic(err)
+	}
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -37,7 +40,10 @@ func TestElGamalKeygen(t *testing.T) {
 }
 
 func TestElGamalEncryption(t *testing.T) {
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	if err != nil {
+		panic(err)
+	}
 
 	keypair, err := Keygen(params)
 	if err != nil {
@@ -71,7 +77,10 @@ func TestElGamalEncryption(t *testing.T) {
 }
 
 func TestElGamalDecryption(t *testing.T) {
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	if err != nil {
+		panic(err)
+	}
 
 	keypair, err := Keygen(params)
 	if err != nil {

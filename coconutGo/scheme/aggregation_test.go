@@ -24,7 +24,8 @@ import (
 
 // just helpers
 func randomSignature() *Signature {
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	unwrapError(err)
 
 	r, err := params.RandomScalar()
 	unwrapError(err)
@@ -41,7 +42,8 @@ func randomSignature() *Signature {
 }
 
 func randomVerificationKey(size int) *VerificationKey {
-	params := coconutGo.Setup(1)
+	params, err := coconutGo.Setup(1)
+	unwrapError(err)
 
 	r, err := params.RandomScalar()
 	unwrapError(err)
@@ -64,7 +66,8 @@ func randomVerificationKey(size int) *VerificationKey {
 }
 
 func TestKeyAggregationOfAnyKeySubset(t *testing.T) {
-	params := coconutGo.Setup(4)
+	params, err := coconutGo.Setup(4)
+	unwrapError(err)
 
 	keypairs, err := TTPKeygen(params, 3, 5)
 	unwrapError(err)
@@ -130,7 +133,8 @@ func TestKeyAggregationOfDifferentKeySizes(t *testing.T) {
 }
 
 func SignatureAggregationForAnySignatureSubset(t *testing.T) {
-	params := coconutGo.Setup(2)
+	params, err := coconutGo.Setup(2)
+	unwrapError(err)
 
 	attributes, err := params.NRandomScalars(2)
 	unwrapError(err)
