@@ -188,8 +188,8 @@ func ScalarToLittleEndian(scalar *big.Int) [fr.Limbs * 8]byte {
 	scalarBytes := frScalar.Bytes()
 
 	var out [fr.Limbs * 8]byte
-	for i := 0; i < fr.Limbs * 8; i++ {
-		out[fr.Limbs * 8 - 1 - i] = scalarBytes[i]
+	for i := 0; i < fr.Limbs*8; i++ {
+		out[fr.Limbs*8-1-i] = scalarBytes[i]
 	}
 
 	return out

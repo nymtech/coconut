@@ -30,7 +30,7 @@ func (privateKey *PrivateKey) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (privateKey *PrivateKey) UnmarshalBinary(data []byte) error {
-	if len(data) != fr.Limbs * 8 {
+	if len(data) != fr.Limbs*8 {
 		return errors.New("tried to deserialize elgamal private key with bytes of invalid length")
 	}
 
@@ -86,7 +86,7 @@ func (ciphertext *Ciphertext) MarshalBinary() (data []byte, err error) {
 // UnmarshalBinary is an implementation of a method on the
 // BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
 func (ciphertext *Ciphertext) UnmarshalBinary(data []byte) error {
-	if len(data) != 2 * bls381.SizeOfG1AffineCompressed {
+	if len(data) != 2*bls381.SizeOfG1AffineCompressed {
 		return errors.New("tried to deserialize elgamal ciphertext with bytes of invalid length")
 	}
 

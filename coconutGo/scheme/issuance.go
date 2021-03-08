@@ -232,7 +232,6 @@ func BlindSign(
 	}, nil
 }
 
-
 func Sign(params *coconutGo.Parameters, secretKey *SecretKey, publicAttributes []*coconutGo.Attribute) (Signature, error) {
 	if len(publicAttributes) > len(*secretKey.Ys()) {
 		// TODO: RETURN ERROR HERE!

@@ -124,4 +124,4 @@ func TestElGamalDecryption(t *testing.T) {
        assert_eq!(public_key, PublicKey::from_bytes(&bytes).unwrap())
    }
 
- */
+*/

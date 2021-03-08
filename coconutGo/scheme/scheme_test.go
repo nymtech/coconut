@@ -99,7 +99,6 @@ func BenchmarkMiller(b *testing.B) {
 	}
 }
 
-
 // make sure credential created in rust on public attributes verifies in go
 func TestRustSignatureOnPublic(t *testing.T) {
 	params := coconutGo.Setup(2)
@@ -113,7 +112,7 @@ func TestRustSignatureOnPublic(t *testing.T) {
 	sig2Bytes := []byte{183, 255, 211, 2, 92, 75, 233, 106, 154, 58, 68, 42, 114, 239, 202, 123, 8, 234, 25, 4, 134, 9, 60, 209, 182, 112, 153, 11, 67, 108, 153, 202, 1, 195, 253, 237, 71, 221, 116, 185, 238, 71, 14, 148, 12, 93, 92, 9}
 
 	secretKey := SecretKey{
-		ys : make([]big.Int, 2),
+		ys: make([]big.Int, 2),
 	}
 
 	secretKey.x = utils.ScalarFromLittleEndian(xBytes)
@@ -160,7 +159,7 @@ func TestRustSignatureMixed(t *testing.T) {
 	sig2Bytes := []byte{165, 83, 211, 181, 221, 90, 196, 20, 152, 172, 54, 166, 242, 66, 157, 137, 188, 203, 127, 166, 158, 149, 39, 9, 153, 21, 234, 196, 140, 138, 148, 62, 216, 131, 247, 37, 51, 181, 110, 234, 79, 8, 200, 61, 173, 223, 221, 9}
 
 	secretKey := SecretKey{
-		ys : make([]big.Int, 4),
+		ys: make([]big.Int, 4),
 	}
 
 	secretKey.x = utils.ScalarFromLittleEndian(xBytes)

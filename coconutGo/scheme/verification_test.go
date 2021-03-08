@@ -138,4 +138,3 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 
 	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
 }
-

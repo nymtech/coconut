@@ -350,7 +350,6 @@ func ProofKappaNuFromBytes(b []byte) (ProofKappaNu, error) {
 	}, nil
 }
 
-
 // constructProofCmCs non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
 func constructProofKappaNu(
 	params *coconutGo.Parameters,

@@ -122,7 +122,7 @@ func BlindedSignatureFromBytes(b [3 * bls381.SizeOfG1AffineCompressed]byte) (Bli
 		return BlindedSignature{}, err
 	}
 
-	var cTildeBytes [2*bls381.SizeOfG1AffineCompressed]byte
+	var cTildeBytes [2 * bls381.SizeOfG1AffineCompressed]byte
 	copy(cTildeBytes[:], b[bls381.SizeOfG1AffineCompressed:])
 
 	cTilde, err := elgamal.CiphertextFromBytes(cTildeBytes)

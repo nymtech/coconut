@@ -56,7 +56,6 @@ func G2JacobianEqual(p1, p2 *bls381.G2Jac) bool {
 	return ToG2Affine(p1) == ToG2Affine(p2)
 }
 
-
 func SumScalars(scalars []*big.Int) big.Int {
 	res := big.NewInt(0)
 	for _, scalar := range scalars {

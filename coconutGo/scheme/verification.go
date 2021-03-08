@@ -87,7 +87,7 @@ func ThetaFromBytes(b []byte) (Theta, error) {
 		nu:         nu,
 		credential: credential,
 		piV:        piV,
-	},nil
+	}, nil
 }
 
 func ProveCredential(
@@ -189,7 +189,6 @@ func VerifyCredential(
 	return checkBillinearPairing(&theta.credential.sig1, utils.ToG2Affine(&kappa), &r, *params.Gen2Affine()) && !theta.credential.sig1.Z.IsZero()
 }
 
-
 func Verify(params *coconutGo.Parameters, verificationKey *VerificationKey, publicAttributes []*coconutGo.Attribute, sig *Signature) bool {
 	if len(publicAttributes) > len(verificationKey.beta) {
 		return false
@@ -204,4 +203,3 @@ func Verify(params *coconutGo.Parameters, verificationKey *VerificationKey, publ
 
 	return checkBillinearPairing(&sig.sig1, utils.ToG2Affine(&kappa), &sig.sig2, *params.Gen2Affine()) && !sig.sig1.Z.IsZero()
 }
-
