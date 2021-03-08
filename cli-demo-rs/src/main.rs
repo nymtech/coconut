@@ -1,10 +1,8 @@
+use coconut_rs::scheme::issuance::{blind_sign, prepare_blind_sign};
 use coconut_rs::scheme::keygen::KeyPair;
 use coconut_rs::scheme::setup::Parameters;
-use coconut_rs::scheme::signature::{
-    blind_sign, prepare_blind_sign, prove_credential, verify_credential, BlindedSignature,
-    Signature, SignatureShare,
-};
-use coconut_rs::scheme::VerificationKey;
+use coconut_rs::scheme::verification::{prove_credential, verify_credential};
+use coconut_rs::scheme::{BlindedSignature, Signature, SignatureShare, VerificationKey};
 use coconut_rs::{elgamal, Attribute};
 use digest::Digest;
 use group::GroupEncoding;
@@ -122,41 +120,29 @@ impl App {
 
 fn format_authority(key: &VerificationKey) -> String {
     // just format alpha, that's more than enough
-    let alpha = key.tmp_get_alpha();
-    let bytes = alpha.to_bytes();
-    let bytes_ref = bytes.as_ref();
+    let bytes = key.to_bytes();
     // use only first few bytes to not take entire terminal
-    format!("{} ...", base64::encode(&bytes_ref[..32]))
+    format!("{} ...", base64::encode(&bytes[..32]))
 }
 
 fn format_signature(sig: &Signature) -> String {
-    let s1bytes = sig.0.to_bytes();
-    let s2bytes = sig.1.to_bytes();
-
-    let s1bytes_ref = s1bytes.as_ref();
-    let s2bytes_ref = s2bytes.as_ref();
+    let sbytes = sig.to_bytes();
 
     format!(
-        "({} ... , {} ...)",
-        base64::encode(&s1bytes_ref[..16]),
-        base64::encode(&s2bytes_ref[..16]),
+        "({} ..., {} ...)",
+        base64::encode(&sbytes[..16]),
+        base64::encode(&sbytes[48..48 + 16]),
     )
 }
 
 fn format_blinded_signature(sig: &BlindedSignature) -> String {
-    let s1bytes = sig.0.to_bytes();
-    let s21bytes = sig.1 .0.to_bytes();
-    let s22bytes = sig.1 .1.to_bytes();
-
-    let s1bytes_ref = s1bytes.as_ref();
-    let s21bytes_ref = s21bytes.as_ref();
-    let s22bytes_ref = s22bytes.as_ref();
+    let sbytes = sig.to_bytes();
 
     format!(
         "({} ..., ({} ... , {} ...)",
-        base64::encode(&s1bytes_ref[..16]),
-        base64::encode(&s21bytes_ref[..16]),
-        base64::encode(&s22bytes_ref[..16])
+        base64::encode(&sbytes[..16]),
+        base64::encode(&sbytes[48..48 + 16]),
+        base64::encode(&sbytes[96..96 + 16])
     )
 }
 
@@ -286,7 +272,7 @@ fn main() {
     println!("\nWelcome to the Nym Credential Library Demo.\n\n\
     This generates demo outputs a number of identity attributes attributes (claims) and has a set of authorities sign them using the Coconut signature scheme.\n\n\
     At each step, you may have options. Press ENTER to go to the next stage.  \n\n\
-    1)  First, you will be prompted for the number of attributes. You need to enter the total number of attributes. \n\n\
+    1) First, you will be prompted for the number of attributes. You need to enter the total number of attributes. \n\n\
     Then you will be asked to enter the values of 2) public attributes and then 3) private attributes (proofs of claims). \
     These values of these attributes can be any number or string, and so can be W3C DIDs like \"did:example:12345abcde.\" \n\n\
     4) Then you will be asked for a number of authorities that are authorized to verify your claims.\n\n\

@@ -83,7 +83,6 @@ dependencies = [
  "ff",
  "group",
  "itertools",
- "rand_chacha",
  "rand_core",
  "sha2",
  "sha3",
