@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/consensys/gurvy/bls381"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 )
 
@@ -277,6 +278,76 @@ func (proof *ProofKappaNu) UnmarshalBinary(data []byte) error {
 	proof.challenge = challenge
 	proof.responseAttributes = responseAttributes
 	proof.responseBlinder = responseBlinder
+
+	return nil
+}
+
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
+// cm || c.len() || c || pi_s
+// TODO: subject to change once serde implementation in place in rust's version and whether
+// it's 1:1 compatible with bincode (maybe len(pi_s) is needed?)
+func (blindSignRequest *BlindSignRequest) MarshalBinary() ([]byte, error) {
+	cmBytes := utils.G1JacobianToByteSlice(&blindSignRequest.commitment)
+
+	cLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(cLenBytes, uint64(len(blindSignRequest.attributesCiphertexts)))
+
+	proofBytes, err := blindSignRequest.piS.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	b := append(cmBytes, cLenBytes...)
+	for _, c := range blindSignRequest.attributesCiphertexts {
+		cBytes, err := c.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		b = append(b, cBytes...)
+	}
+
+	b = append(b, proofBytes...)
+
+	return b,nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (blindSignRequest *BlindSignRequest) UnmarshalBinary(data []byte) error {
+	if len(data) < 48 + 8 + 96 {
+		return errors.New("tried to deserialize blind sign request with insufficient number of bytes")
+	}
+
+	commitment, err := utils.G1JacobianFromBytes(data[:48])
+	if err != nil {
+		return err
+	}
+
+	cLen := binary.LittleEndian.Uint64(data[48:56])
+	if len(data[56:]) < int(cLen) * 96 {
+		return errors.New("tried to deserialize blind sign request with insufficient number of bytes")
+	}
+
+	attributesCiphertexts := make([]*elgamal.Ciphertext, cLen)
+	for i := 0; i < int(cLen); i++ {
+		start := 56 + i * 96
+		end := start + 96
+		var ciphertext elgamal.Ciphertext
+		if err := ciphertext.UnmarshalBinary(data[start:end]); err != nil {
+			return err
+		}
+		attributesCiphertexts[i] = &ciphertext
+	}
+
+	var piS ProofCmCs
+	if err := piS.UnmarshalBinary(data[56 + int(cLen) * 96:]); err != nil {
+		return err
+	}
+
+	blindSignRequest.commitment = commitment
+	blindSignRequest.attributesCiphertexts = attributesCiphertexts
+	blindSignRequest.piS = piS
 
 	return nil
 }
