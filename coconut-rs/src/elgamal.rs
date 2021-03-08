@@ -423,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn ciphertext_key_bytes_roundtrip() {
+    fn ciphertext_bytes_roundtrip() {
         let mut params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
