@@ -23,7 +23,7 @@ import (
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (sig *Signature) MarshalBinary() (data []byte, err error) {
+func (sig *Signature) MarshalBinary() ([]byte, error) {
 	sig1Bytes := utils.G1JacobianToByteSlice(&sig.sig1)
 	sig2Bytes := utils.G1JacobianToByteSlice(&sig.sig2)
 
@@ -54,7 +54,7 @@ func (sig *Signature) UnmarshalBinary(data []byte) error {
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (blindedSig *BlindedSignature) MarshalBinary() (data []byte, err error) {
+func (blindedSig *BlindedSignature) MarshalBinary() ([]byte, error) {
 	hBytes := utils.G1JacobianToByteSlice(&blindedSig.sig1)
 	cTildeBytes, err := blindedSig.sig2.MarshalBinary()
 	if err != nil {
@@ -89,7 +89,7 @@ func (blindedSig *BlindedSignature) UnmarshalBinary(data []byte) error {
 // x || ys.len() || ys
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (sk *SecretKey) MarshalBinary() (data []byte, err error) {
+func (sk *SecretKey) MarshalBinary() ([]byte, error) {
 	xBytes := utils.ScalarToLittleEndian(sk.X())
 	ysLenBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(ysLenBytes, uint64(len(sk.ys)))
@@ -126,7 +126,7 @@ func (sk *SecretKey) UnmarshalBinary(data []byte) error {
 // alpha || beta.len() || beta
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-func (vk *VerificationKey) MarshalBinary() (data []byte, err error) {
+func (vk *VerificationKey) MarshalBinary() ([]byte, error) {
 	alphaBytes := utils.G2JacobianToByteSlice(vk.Alpha())
 	betaLenBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(betaLenBytes, uint64(len(vk.beta)))
@@ -167,5 +167,67 @@ func (vk *VerificationKey) UnmarshalBinary(data []byte) error {
 
 	vk.alpha = alpha
 	vk.beta = beta
+	return nil
+}
+
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
+// challenge || rr || rk.len() || rk || rm.len() || rm
+func (proof *ProofCmCs) MarshalBinary() ([]byte, error) {
+	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
+	rrBytes := utils.ScalarToLittleEndian(&proof.responseRandom)
+
+	keysLenBytes := make([]byte, 8)
+	attributesLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(keysLenBytes, uint64(len(proof.responseKeys)))
+	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
+
+	b := append(challengeBytes[:], rrBytes[:]...)
+	b = append(b, keysLenBytes...)
+	for _, rk := range proof.responseKeys {
+		rkBytes := utils.ScalarToLittleEndian(&rk)
+		b = append(b, rkBytes[:]...)
+	}
+	b = append(b, attributesLenBytes...)
+	for _, rm := range proof.responseAttributes {
+		rmBytes := utils.ScalarToLittleEndian(&rm)
+		b = append(b, rmBytes[:]...)
+	}
+	return b, nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (proof *ProofCmCs) UnmarshalBinary(data []byte) error {
+	// at the very minimum there must be a single attribute being proven
+	if len(data) < 32 * 4 + 16 || (len(data) - 16) % 32 != 0  {
+		return errors.New("tried to deserialize proof of ciphertexts and commitment with bytes of invalid length")
+	}
+
+	challenge := utils.ScalarFromLittleEndian(data[:32])
+	responseRandom := utils.ScalarFromLittleEndian(data[32:64])
+
+	rkLen := binary.LittleEndian.Uint64(data[64:72])
+	if len(data[72:]) < int(rkLen) * 32 + 8 {
+		return errors.New("tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided")
+	}
+
+	rkEnd := 72 * int(rkLen) * 32
+	responseKeys, err := utils.DeserializeScalarVec(rkLen, data[72:rkLen])
+	if err != nil {
+		return err
+	}
+
+	rmLen := binary.LittleEndian.Uint64(data[rkLen:rkEnd+8])
+	responseAttributes, err := utils.DeserializeScalarVec(rmLen, data[rkLen+8:])
+	if err != nil {
+		return err
+	}
+
+	proof.challenge = challenge
+	proof.responseRandom = responseRandom
+	proof.responseKeys = responseKeys
+	proof.responseAttributes = responseAttributes
+
 	return nil
 }
