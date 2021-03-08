@@ -231,3 +231,52 @@ func (proof *ProofCmCs) UnmarshalBinary(data []byte) error {
 
 	return nil
 }
+
+// MarshalBinary is an implementation of a method on the
+// BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
+// challenge || rm.len() || rm || rt
+func (proof *ProofKappaNu) MarshalBinary() ([]byte, error) {
+	challengeBytes := utils.ScalarToLittleEndian(&proof.challenge)
+
+	attributesLenBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(attributesLenBytes, uint64(len(proof.responseAttributes)))
+
+	b := challengeBytes[:]
+	b = append(b, attributesLenBytes...)
+	for _, rm := range proof.responseAttributes {
+		rmBytes := utils.ScalarToLittleEndian(&rm)
+		b = append(b, rmBytes[:]...)
+	}
+
+	rtBytes := utils.ScalarToLittleEndian(&proof.responseBlinder)
+	b = append(challengeBytes[:], rtBytes[:]...)
+	return b, nil
+}
+
+// UnmarshalBinary is an implementation of a method on the
+// BinaryUnmarshaler interface defined in https://golang.org/pkg/encoding/
+func (proof *ProofKappaNu) UnmarshalBinary(data []byte) error {
+	// at the very minimum there must be a single attribute being proven
+	if len(data) <  32 * 3 + 8  || (len(data) - 8) % 32 != 0  {
+		return errors.New("tried to deserialize proof of kappa and nu with bytes of invalid length")
+	}
+
+	challenge := utils.ScalarFromLittleEndian(data[:32])
+	rmLen := binary.LittleEndian.Uint64(data[32:40])
+	if len(data[40:]) != int(rmLen + 1) * 32 {
+		return errors.New("tried to deserialize proof of kappa and nu with insufficient number of bytes provided")
+	}
+
+	rmEnd := 40 + int(rmLen) * 32
+	responseAttributes, err := utils.DeserializeScalarVec(rmLen, data[40:rmEnd])
+	if err != nil {
+		return nil
+	}
+	responseBlinder := utils.ScalarFromLittleEndian(data[rmEnd:])
+
+	proof.challenge = challenge
+	proof.responseAttributes = responseAttributes
+	proof.responseBlinder = responseBlinder
+
+	return nil
+}
