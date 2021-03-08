@@ -103,7 +103,6 @@ func (sk *SecretKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-// alpha || beta.len() || beta
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
 func (vk *VerificationKey) MarshalBinary() ([]byte, error) {
@@ -168,9 +167,6 @@ func (proof *ProofKappaNu) UnmarshalBinary(data []byte) error {
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-// cm || c.len() || c || pi_s
-// TODO: subject to change once serde implementation in place in rust's version and whether
-// it's 1:1 compatible with bincode (maybe len(pi_s) is needed?)
 func (blindSignRequest *BlindSignRequest) MarshalBinary() ([]byte, error) {
 	return blindSignRequest.Bytes(), nil
 }
@@ -191,9 +187,6 @@ func (blindSignRequest *BlindSignRequest) UnmarshalBinary(data []byte) error {
 
 // MarshalBinary is an implementation of a method on the
 // BinaryMarshaler interface defined in https://golang.org/pkg/encoding/
-// kappa || nu || credential || pi_v
-// TODO: subject to change once serde implementation in place in rust's version and whether
-// it's 1:1 compatible with bincode (maybe len(pi_v) is needed?)
 func (theta *Theta) MarshalBinary() ([]byte, error) {
 	return theta.Bytes(), nil
 }

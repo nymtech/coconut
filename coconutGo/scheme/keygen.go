@@ -104,6 +104,7 @@ func (vk *VerificationKey) Beta() []*bls381.G2Jac {
 	return vk.beta
 }
 
+// alpha || beta.len() || beta
 func (vk *VerificationKey) Bytes() []byte {
 	alphaBytes := utils.G2JacobianToByteSlice(vk.Alpha())
 	betaLenBytes := make([]byte, 8)
