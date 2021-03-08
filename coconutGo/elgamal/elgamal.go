@@ -48,8 +48,8 @@ func (ciphertext *Ciphertext) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte 
 	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())
 
 	var b [2 * bls381.SizeOfG1AffineCompressed]byte
-	copy(b[bls381.SizeOfG1AffineCompressed:], c1Bytes)
-	copy(b[:bls381.SizeOfG1AffineCompressed], c2Bytes)
+	copy(b[:bls381.SizeOfG1AffineCompressed], c1Bytes)
+	copy(b[bls381.SizeOfG1AffineCompressed:], c2Bytes)
 
 	return b
 }
