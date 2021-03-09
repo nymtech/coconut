@@ -529,7 +529,7 @@ mod tests {
     fn proof_cm_cs_bytes_roundtrip() {
         let mut rng = OsRng;
         let mut rng2 = OsRng;
-        let mut params = setup(&mut rng, 4).unwrap();
+        let mut params = setup(&mut rng, 1).unwrap();
 
         let elgamal_keypair = elgamal::keygen(&mut params);
         let private_attributes = params.n_random_scalars(1);

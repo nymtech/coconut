@@ -235,7 +235,7 @@ mod tests {
     use rand_core::OsRng;
 
     #[test]
-    fn blind_sign_request_bytes_roundtrip() {
+    fn theta_bytes_roundtrip() {
         let rng = OsRng;
 
         let mut params = setup(rng, 1).unwrap();
