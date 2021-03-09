@@ -393,8 +393,8 @@ fn main() {
     // println!("Verifying the credential!");
     // println!("Provide your original attributes");
     //
-    // let public_attributes = get_public_attributes();
-    // let private_attributes = get_private_attributes();
+    // let (public_attributes, entered_public) = get_public_attributes(0, attributes);
+    // let (private_attributes, _) = get_private_attributes(entered_public, attributes);
     //
     // let verification_result = app.blind_verify(
     //     &public_attributes,
