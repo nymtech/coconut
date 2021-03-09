@@ -195,12 +195,18 @@ func ScalarToLittleEndian(scalar *big.Int) [fr.Limbs * 8]byte {
 	return out
 }
 
-// TODO: this is not checking for correct scalar...
 func ScalarFromLittleEndian(bytes []byte) big.Int {
-	var s big.Int
-
+	// the intermediate conversion ensures correct order of the scalar
+	var s fr.Element
 	s.SetBytes(ReverseBytes(bytes))
-	return s
+
+	// I'm extremely confused by this. Rust implementation is explicitly
+	// converting to Montgomery form, yet if the same is done in Go,
+	// the bytes are not compatible and Regular form is required instead
+	var sBig big.Int
+	s.ToBigIntRegular(&sBig)
+
+	return sBig
 }
 
 func DeserializeScalarVec(expectedLen uint64, bytes []byte) ([]big.Int, error) {

@@ -100,6 +100,7 @@ func (proof *ProofCmCs) Bytes() []byte {
 		rmBytes := utils.ScalarToLittleEndian(&rm)
 		b = append(b, rmBytes[:]...)
 	}
+
 	return b
 }
 
@@ -117,14 +118,14 @@ func ProofCmCsFromBytes(b []byte) (ProofCmCs, error) {
 		return ProofCmCs{}, errors.New("tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided")
 	}
 
-	rkEnd := 72 * int(rkLen) * 32
-	responseKeys, err := utils.DeserializeScalarVec(rkLen, b[72:rkLen])
+	rkEnd := 72 + int(rkLen) * 32
+	responseKeys, err := utils.DeserializeScalarVec(rkLen, b[72:rkEnd])
 	if err != nil {
 		return ProofCmCs{}, err
 	}
 
-	rmLen := binary.LittleEndian.Uint64(b[rkLen : rkEnd+8])
-	responseAttributes, err := utils.DeserializeScalarVec(rmLen, b[rkLen+8:])
+	rmLen := binary.LittleEndian.Uint64(b[rkEnd : rkEnd+8])
+	responseAttributes, err := utils.DeserializeScalarVec(rmLen, b[rkEnd+8:])
 	if err != nil {
 		return ProofCmCs{}, err
 	}
@@ -320,7 +321,7 @@ func (proof *ProofKappaNu) Bytes() []byte {
 	}
 
 	rtBytes := utils.ScalarToLittleEndian(&proof.responseBlinder)
-	b = append(challengeBytes[:], rtBytes[:]...)
+	b = append(b, rtBytes[:]...)
 	return b
 }
 
@@ -339,7 +340,7 @@ func ProofKappaNuFromBytes(b []byte) (ProofKappaNu, error) {
 	rmEnd := 40 + int(rmLen)*32
 	responseAttributes, err := utils.DeserializeScalarVec(rmLen, b[40:rmEnd])
 	if err != nil {
-		return ProofKappaNu{}, nil
+		return ProofKappaNu{}, err
 	}
 	responseBlinder := utils.ScalarFromLittleEndian(b[rmEnd:])
 

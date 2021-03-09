@@ -17,9 +17,34 @@ package coconut
 import (
 	"github.com/consensys/gurvy/bls381/fr"
 	"github.com/stretchr/testify/assert"
+	"gitlab.nymte.ch/nym/coconut/coconutGo"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"testing"
 )
+
+// this is only a test function used to compare literal proof values as
+// during normal procedure this would be implicit
+func (proof *ProofCmCs) reduceModOrder() {
+	mod := fr.Modulus()
+	proof.challenge.Mod(&proof.challenge, mod)
+	proof.responseRandom.Mod(&proof.responseRandom, mod)
+	for i := range proof.responseKeys {
+		proof.responseKeys[i].Mod(&proof.responseKeys[i], mod)
+	}
+	for i := range proof.responseAttributes {
+		proof.responseAttributes[i].Mod(&proof.responseAttributes[i], mod)
+	}
+}
+
+func (proof *ProofKappaNu) reduceModOrder() {
+	mod := fr.Modulus()
+	proof.challenge.Mod(&proof.challenge, mod)
+	proof.responseBlinder.Mod(&proof.responseBlinder, mod)
+	for i := range proof.responseAttributes {
+		proof.responseAttributes[i].Mod(&proof.responseAttributes[i], mod)
+	}
+}
 
 func TestConstructChallengeCompatibility(t *testing.T) {
 	d1 := []byte{1, 2, 3, 4, 5}
@@ -46,4 +71,181 @@ func TestConstructChallengeCompatibility(t *testing.T) {
 
 	assert.Equal(t, expectedBytes, utils.ReverseBytes(frScalarBytes[:]))
 	assert.Equal(t, expectedLimbs, frScalar)
+}
+
+func TestProofCmCsBytesRoundtrip(t *testing.T) {
+	// 0 public 1 private
+	params, err := coconutGo.Setup(1)
+	assert.Nil(t, err)
+
+	publicAttributes, err := params.NRandomScalars(0)
+	assert.Nil(t, err)
+
+	privateAttributes, err := params.NRandomScalars(1)
+	assert.Nil(t, err)
+
+	elgamalKeypair, err := elgamal.Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	randomScalar, err := params.RandomScalar()
+	assert.Nil(t, err)
+	cm := utils.G1ScalarMul(params.Gen1(), &randomScalar)
+
+	r, err := params.RandomScalar()
+	assert.Nil(t, err)
+
+	ephemeralKeys, err := params.NRandomScalars(1)
+	assert.Nil(t, err)
+
+	piS, err := constructProofCmCs(
+		params,
+		elgamalKeypair.PublicKey(),
+		ephemeralKeys,
+		&cm,
+		&r,
+		privateAttributes,
+		publicAttributes,
+	)
+	assert.Nil(t, err)
+
+	bytes := piS.Bytes()
+
+	recovered, err := ProofCmCsFromBytes(bytes)
+	assert.Nil(t, err)
+
+	piS.reduceModOrder()
+	recovered.reduceModOrder()
+	assert.Equal(t, piS, recovered)
+
+	// 2 public 2 private
+	params, err = coconutGo.Setup(4)
+	assert.Nil(t, err)
+
+	publicAttributes, err = params.NRandomScalars(2)
+	assert.Nil(t, err)
+
+	privateAttributes, err = params.NRandomScalars(2)
+	assert.Nil(t, err)
+
+	elgamalKeypair, err = elgamal.Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	randomScalar, err = params.RandomScalar()
+	assert.Nil(t, err)
+	cm = utils.G1ScalarMul(params.Gen1(), &randomScalar)
+
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	ephemeralKeys, err = params.NRandomScalars(2)
+	assert.Nil(t, err)
+
+	piS, err = constructProofCmCs(
+		params,
+		elgamalKeypair.PublicKey(),
+		ephemeralKeys,
+		&cm,
+		&r,
+		privateAttributes,
+		publicAttributes,
+	)
+	assert.Nil(t, err)
+
+	bytes = piS.Bytes()
+
+	recovered, err = ProofCmCsFromBytes(bytes)
+	assert.Nil(t, err)
+
+	piS.reduceModOrder()
+	recovered.reduceModOrder()
+	assert.Equal(t, piS, recovered)
+
+}
+
+func TestProofKappaNuBytesRoundtrip(t *testing.T) {
+	// 0 public 1 private
+	params, err := coconutGo.Setup(1)
+	assert.Nil(t, err)
+
+	keypair, err := Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	r, err := params.RandomScalar()
+	assert.Nil(t, err)
+	s, err := params.RandomScalar()
+	assert.Nil(t, err)
+
+	sig := Signature{
+		sig1: utils.G1ScalarMul(params.Gen1(), &r),
+		sig2: utils.G1ScalarMul(params.Gen1(), &s),
+	}
+
+	privateAttributes, err := params.NRandomScalars(1)
+	assert.Nil(t, err)
+
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	piV, err := constructProofKappaNu(
+		params,
+		&keypair.verificationKey,
+		&sig,
+		privateAttributes,
+		&r,
+	)
+	assert.Nil(t, err)
+
+	bytes := piV.Bytes()
+
+	recovered, err := ProofKappaNuFromBytes(bytes)
+	assert.Nil(t, err)
+
+	piV.reduceModOrder()
+	recovered.reduceModOrder()
+	assert.Equal(t, piV, recovered)
+
+	// 2 public 2 private
+	params, err = coconutGo.Setup(4)
+	assert.Nil(t, err)
+
+	keypair, err = Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+	s, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	sig = Signature{
+		sig1: utils.G1ScalarMul(params.Gen1(), &r),
+		sig2: utils.G1ScalarMul(params.Gen1(), &s),
+	}
+
+	privateAttributes, err = params.NRandomScalars(2)
+	assert.Nil(t, err)
+
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	piV, err = constructProofKappaNu(
+		params,
+		&keypair.verificationKey,
+		&sig,
+		privateAttributes,
+		&r,
+	)
+	assert.Nil(t, err)
+
+	bytes = piV.Bytes()
+
+	recovered, err = ProofKappaNuFromBytes(bytes)
+	assert.Nil(t, err)
+
+	piV.reduceModOrder()
+	recovered.reduceModOrder()
+	assert.Equal(t, piV, recovered)
 }

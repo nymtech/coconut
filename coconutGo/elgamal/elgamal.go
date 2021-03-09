@@ -43,6 +43,10 @@ func (ciphertext *Ciphertext) C2() *bls381.G1Jac {
 	return &ciphertext.c2
 }
 
+func (ciphertext *Ciphertext) Equal(other *Ciphertext) bool {
+	return ciphertext.c1.Equal(&other.c1) && ciphertext.c2.Equal(&other.c2)
+}
+
 func (ciphertext *Ciphertext) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte {
 	c1Bytes := utils.G1JacobianToByteSlice(ciphertext.C1())
 	c2Bytes := utils.G1JacobianToByteSlice(ciphertext.C2())

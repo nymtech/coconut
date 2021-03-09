@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/elgamal"
+	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 	"testing"
 )
 
@@ -140,4 +141,84 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 	unwrapError(err)
 
 	assert.True(t, VerifyCredential(params, &aggrVk, &theta, publicAttributes))
+}
+
+func TestThetaBytesRoundtrip(t *testing.T) {
+	// 0 public 1 private
+	params, err := coconutGo.Setup(1)
+	assert.Nil(t, err)
+
+	keypair, err := Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	r, err := params.RandomScalar()
+	assert.Nil(t, err)
+	s, err := params.RandomScalar()
+	assert.Nil(t, err)
+
+	sig := Signature{
+		sig1: utils.G1ScalarMul(params.Gen1(), &r),
+		sig2: utils.G1ScalarMul(params.Gen1(), &s),
+	}
+
+	privateAttributes, err := params.NRandomScalars(1)
+	assert.Nil(t, err)
+
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	theta, err := ProveCredential(params, &keypair.verificationKey, &sig, privateAttributes)
+	assert.Nil(t, err)
+
+	bytes := theta.Bytes()
+
+	recovered, err := ThetaFromBytes(bytes)
+	assert.Nil(t, err)
+
+	theta.piV.reduceModOrder()
+	recovered.piV.reduceModOrder()
+	assert.True(t, theta.kappa.Equal(&recovered.kappa))
+	assert.True(t, theta.nu.Equal(&recovered.nu))
+	assert.True(t, theta.credential.Equal(&recovered.credential))
+	assert.Equal(t, theta.piV, recovered.piV)
+
+	// 2 public 2 private
+	params, err = coconutGo.Setup(4)
+	assert.Nil(t, err)
+
+	keypair, err = Keygen(params)
+	assert.Nil(t, err)
+
+	// we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+	s, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	sig = Signature{
+		sig1: utils.G1ScalarMul(params.Gen1(), &r),
+		sig2: utils.G1ScalarMul(params.Gen1(), &s),
+	}
+
+	privateAttributes, err = params.NRandomScalars(2)
+	assert.Nil(t, err)
+
+	r, err = params.RandomScalar()
+	assert.Nil(t, err)
+
+	theta, err = ProveCredential(params, &keypair.verificationKey, &sig, privateAttributes)
+	assert.Nil(t, err)
+
+	bytes = theta.Bytes()
+
+	recovered, err = ThetaFromBytes(bytes)
+	assert.Nil(t, err)
+
+	theta.piV.reduceModOrder()
+	recovered.piV.reduceModOrder()
+	assert.True(t, theta.kappa.Equal(&recovered.kappa))
+	assert.True(t, theta.nu.Equal(&recovered.nu))
+	assert.True(t, theta.credential.Equal(&recovered.credential))
+	assert.Equal(t, theta.piV, recovered.piV)
 }

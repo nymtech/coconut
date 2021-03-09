@@ -150,12 +150,12 @@ func (vk *VerificationKey) Equal(other *VerificationKey) bool {
 		return false
 	}
 
-	if !utils.G2JacobianEqual(&vk.alpha, &other.alpha) {
+	if !vk.alpha.Equal(&other.alpha) {
 		return false
 	}
 
 	for i := 0; i < len(vk.beta); i++ {
-		if !utils.G2JacobianEqual(vk.beta[i], other.beta[i]) {
+		if !vk.beta[i].Equal(other.beta[i]) {
 			return false
 		}
 	}

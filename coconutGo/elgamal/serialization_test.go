@@ -50,7 +50,7 @@ func TestPublicKeyBytesRoundtrip(t *testing.T) {
 	recovered, err := PublicKeyFromBytes(bytes)
 	assert.Nil(t, err)
 
-	assert.True(t, utils.G1JacobianEqual(&keypair.publicKey.gamma, &recovered.gamma))
+	assert.True(t, keypair.publicKey.gamma.Equal(&recovered.gamma))
 }
 
 func TestCiphertextKeyBytesRoundtrip(t *testing.T) {
@@ -74,6 +74,6 @@ func TestCiphertextKeyBytesRoundtrip(t *testing.T) {
 	recovered, err := CiphertextFromBytes(bytes)
 	assert.Nil(t, err)
 
-	assert.True(t, utils.G1JacobianEqual(&ciphertext.c1, &recovered.c1))
-	assert.True(t, utils.G1JacobianEqual(&ciphertext.c2, &recovered.c2))
+	assert.True(t, ciphertext.c1.Equal(&recovered.c1))
+	assert.True(t, ciphertext.c2.Equal(&recovered.c2))
 }

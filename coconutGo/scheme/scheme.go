@@ -27,7 +27,7 @@ type Signature struct {
 }
 
 func (sig *Signature) Equal(other *Signature) bool {
-	return utils.G1JacobianEqual(&sig.sig1, &other.sig1) && utils.G1JacobianEqual(&sig.sig2, &other.sig2)
+	return sig.sig1.Equal(&other.sig1) && sig.sig2.Equal(&other.sig2)
 }
 
 func (sig *Signature) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte {
@@ -35,8 +35,8 @@ func (sig *Signature) Bytes() [2 * bls381.SizeOfG1AffineCompressed]byte {
 	sig2Bytes := utils.G1JacobianToByteSlice(&sig.sig2)
 
 	var b [2 * bls381.SizeOfG1AffineCompressed]byte
-	copy(b[bls381.SizeOfG1AffineCompressed:], sig1Bytes)
-	copy(b[:bls381.SizeOfG1AffineCompressed], sig2Bytes)
+	copy(b[:bls381.SizeOfG1AffineCompressed], sig1Bytes)
+	copy(b[bls381.SizeOfG1AffineCompressed:], sig2Bytes)
 
 	return b
 }

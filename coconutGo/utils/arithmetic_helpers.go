@@ -47,15 +47,6 @@ func G2ScalarMul(g2 *bls381.G2Jac, scalar *big.Int) bls381.G2Jac {
 	return res
 }
 
-// those two should not be used in performance critical parts of code (JS: they are only used in tests)
-func G1JacobianEqual(p1, p2 *bls381.G1Jac) bool {
-	return ToG1Affine(p1) == ToG1Affine(p2)
-}
-
-func G2JacobianEqual(p1, p2 *bls381.G2Jac) bool {
-	return ToG2Affine(p1) == ToG2Affine(p2)
-}
-
 func SumScalars(scalars []*big.Int) big.Int {
 	res := big.NewInt(0)
 	for _, scalar := range scalars {
