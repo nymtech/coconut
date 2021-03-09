@@ -74,7 +74,7 @@ func TestKeyAggregationOfAnyKeySubset(t *testing.T) {
 
 	verificationKeys := make([]*VerificationKey, 5)
 	for i := 0; i < 5; i++ {
-		verificationKeys[i] = &keypairs[i].verificationKey
+		verificationKeys[i] = &keypairs[i].VerificationKey
 	}
 
 	aggrVk1, err := AggregateVerificationKeys(verificationKeys[:3], []SignerIndex{1, 2, 3})
@@ -99,7 +99,7 @@ func TestKeyAggregationOfAnyKeySubset(t *testing.T) {
 	unwrapError(err)
 	assert.False(t, aggrVk1.Equal(&aggrNotEnough))
 
-	// taking wrong index
+	// taking wrong Index
 	aggrBad, err := AggregateVerificationKeys(verificationKeys[2:], []SignerIndex{42, 123, 100})
 	unwrapError(err)
 	assert.False(t, aggrVk1.Equal(&aggrBad))
@@ -144,14 +144,14 @@ func SignatureAggregationForAnySignatureSubset(t *testing.T) {
 
 	sigs := make([]*Signature, 5)
 	for i := 0; i < 5; i++ {
-		sig, err := Sign(params, &keypairs[i].secretKey, attributes)
+		sig, err := Sign(params, &keypairs[i].SecretKey, attributes)
 		unwrapError(err)
 		sigs[i] = &sig
 	}
 
 	verificationKeys := make([]*VerificationKey, 5)
 	for i := 0; i < 5; i++ {
-		verificationKeys[i] = &keypairs[i].verificationKey
+		verificationKeys[i] = &keypairs[i].VerificationKey
 	}
 
 	aggrSig1, err := AggregateSignatures(sigs[:3], []SignerIndex{1, 2, 3})
@@ -182,7 +182,7 @@ func SignatureAggregationForAnySignatureSubset(t *testing.T) {
 	unwrapError(err)
 	assert.False(t, aggrSig1.Equal(&aggrNotEnough))
 
-	// taking wrong index
+	// taking wrong Index
 	aggrBad, err := AggregateSignatures(sigs[2:], []SignerIndex{42, 123, 100})
 	unwrapError(err)
 	assert.False(t, aggrSig1.Equal(&aggrBad))

@@ -21,7 +21,6 @@ import (
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
 )
 
-// TODO NAMING: this whole thing
 // Theta
 type Theta struct {
 	// kappa

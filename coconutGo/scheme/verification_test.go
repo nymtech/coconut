@@ -35,15 +35,15 @@ func TestVerificationOnTwoPublicAttributes(t *testing.T) {
 	keypair2, err := Keygen(params)
 	unwrapError(err)
 
-	sig1, err := Sign(params, &keypair1.secretKey, attributes)
+	sig1, err := Sign(params, &keypair1.SecretKey, attributes)
 	unwrapError(err)
 
-	sig2, err := Sign(params, &keypair2.secretKey, attributes)
+	sig2, err := Sign(params, &keypair2.SecretKey, attributes)
 	unwrapError(err)
 
-	assert.True(t, Verify(params, &keypair1.verificationKey, attributes, &sig1))
-	assert.False(t, Verify(params, &keypair2.verificationKey, attributes, &sig1))
-	assert.False(t, Verify(params, &keypair1.verificationKey, attributes, &sig2))
+	assert.True(t, Verify(params, &keypair1.VerificationKey, attributes, &sig1))
+	assert.False(t, Verify(params, &keypair2.VerificationKey, attributes, &sig1))
+	assert.False(t, Verify(params, &keypair1.VerificationKey, attributes, &sig2))
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
@@ -68,23 +68,23 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributes(t *testing.T) {
 	lambda, err := PrepareBlindSign(params, elgamalKeypair.PublicKey(), privateAttributes, publicAttributes)
 	unwrapError(err)
 
-	sig1B, err := BlindSign(params, &keypair1.secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
+	sig1B, err := BlindSign(params, &keypair1.SecretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
 	unwrapError(err)
 	sig1 := sig1B.Unblind(elgamalKeypair.PrivateKey())
 
-	sig2B, err := BlindSign(params, &keypair2.secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
+	sig2B, err := BlindSign(params, &keypair2.SecretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
 	unwrapError(err)
 	sig2 := sig2B.Unblind(elgamalKeypair.PrivateKey())
 
-	theta1, err := ProveCredential(params, &keypair1.verificationKey, &sig1, privateAttributes)
+	theta1, err := ProveCredential(params, &keypair1.VerificationKey, &sig1, privateAttributes)
 	unwrapError(err)
 
-	theta2, err := ProveCredential(params, &keypair2.verificationKey, &sig2, privateAttributes)
+	theta2, err := ProveCredential(params, &keypair2.VerificationKey, &sig2, privateAttributes)
 	unwrapError(err)
 
-	assert.True(t, VerifyCredential(params, &keypair1.verificationKey, &theta1, publicAttributes))
-	assert.True(t, VerifyCredential(params, &keypair2.verificationKey, &theta2, publicAttributes))
-	assert.False(t, VerifyCredential(params, &keypair1.verificationKey, &theta2, publicAttributes))
+	assert.True(t, VerifyCredential(params, &keypair1.VerificationKey, &theta1, publicAttributes))
+	assert.True(t, VerifyCredential(params, &keypair2.VerificationKey, &theta2, publicAttributes))
+	assert.False(t, VerifyCredential(params, &keypair1.VerificationKey, &theta2, publicAttributes))
 }
 
 func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing.T) {
@@ -108,7 +108,7 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 
 	sigs := make([]*Signature, 3)
 	for i := 0; i < 3; i++ {
-		blindedSig, err := BlindSign(params, &keypairs[i].secretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
+		blindedSig, err := BlindSign(params, &keypairs[i].SecretKey, elgamalKeypair.PublicKey(), &lambda, publicAttributes)
 		unwrapError(err)
 		sig := blindedSig.Unblind(elgamalKeypair.PrivateKey())
 		sigs[i] = &sig
@@ -116,7 +116,7 @@ func TestVerificationOnTwoPublicAndTwoPrivateAttributesFromTwoSigners(t *testing
 
 	verificationKeys := make([]*VerificationKey, 3)
 	for i := 0; i < 3; i++ {
-		verificationKeys[i] = &keypairs[i].verificationKey
+		verificationKeys[i] = &keypairs[i].VerificationKey
 	}
 
 	aggrVk, err := AggregateVerificationKeys(verificationKeys[:2], []uint64{1, 2})
@@ -168,7 +168,7 @@ func TestThetaBytesRoundtrip(t *testing.T) {
 	r, err = params.RandomScalar()
 	assert.Nil(t, err)
 
-	theta, err := ProveCredential(params, &keypair.verificationKey, &sig, privateAttributes)
+	theta, err := ProveCredential(params, &keypair.VerificationKey, &sig, privateAttributes)
 	assert.Nil(t, err)
 
 	bytes := theta.Bytes()
@@ -207,7 +207,7 @@ func TestThetaBytesRoundtrip(t *testing.T) {
 	r, err = params.RandomScalar()
 	assert.Nil(t, err)
 
-	theta, err = ProveCredential(params, &keypair.verificationKey, &sig, privateAttributes)
+	theta, err = ProveCredential(params, &keypair.VerificationKey, &sig, privateAttributes)
 	assert.Nil(t, err)
 
 	bytes = theta.Bytes()

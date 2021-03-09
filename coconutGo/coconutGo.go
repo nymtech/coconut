@@ -19,8 +19,7 @@ import (
 	"math/big"
 )
 
-// TODO: or fp.Element?
-
+// TODO: or should an Attribute be an fp.Element instead?
 type Attribute = big.Int
 
 var (

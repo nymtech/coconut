@@ -163,11 +163,11 @@ func (vk *VerificationKey) Equal(other *VerificationKey) bool {
 }
 
 type KeyPair struct {
-	secretKey       SecretKey
-	verificationKey VerificationKey
+	SecretKey       SecretKey
+	VerificationKey VerificationKey
 
-	// Optional index value specifying polynomial point used during threshold key generation.
-	index *SignerIndex
+	// Optional Index value specifying polynomial point used during threshold key generation.
+	Index *SignerIndex
 }
 
 // Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
@@ -193,8 +193,8 @@ func Keygen(params *coconutGo.Parameters) (KeyPair, error) {
 	}
 
 	return KeyPair{
-		secretKey:       secretKey,
-		verificationKey: secretKey.VerificationKey(params),
+		SecretKey:       secretKey,
+		VerificationKey: secretKey.VerificationKey(params),
 	}, nil
 }
 
@@ -255,9 +255,9 @@ func TTPKeygen(params *coconutGo.Parameters, threshold uint64, numAuthorities ui
 		verificationKey := secretKeys[i].VerificationKey(params)
 		index := uint64(i + 1)
 		keypairs[i] = KeyPair{
-			secretKey:       secretKeys[i],
-			verificationKey: verificationKey,
-			index:           &index,
+			SecretKey:       secretKeys[i],
+			VerificationKey: verificationKey,
+			Index:           &index,
 		}
 	}
 

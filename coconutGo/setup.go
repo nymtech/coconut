@@ -35,7 +35,6 @@ type Parameters struct {
 	g2jac bls381.G2Jac
 }
 
-// TODO: change back to error because of possible numAttributes == 0...
 func Setup(numAttributes uint32) (*Parameters, error) {
 	if numAttributes == 0 {
 		return nil, errors.New("tried to setup the scheme for 0 attributes")

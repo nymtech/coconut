@@ -59,7 +59,6 @@ func (poly *Polynomial) Evaluate(x *big.Int, modulus *big.Int) big.Int {
 
 			// tmp = coefficient[n] * x ^ n
 			tmp.Mul(poly.coefficients[i], &tmp)
-			// TODO: DOES THIS NEED TO BE REDUCED MOD MODULUS?
 
 			result.Add(&result, &tmp)
 		}

@@ -110,8 +110,8 @@ func (blindedSig *BlindedSignature) Bytes() [3 * bls381.SizeOfG1AffineCompressed
 	cTildeBytes := blindedSig.sig2.Bytes()
 
 	var b [3 * bls381.SizeOfG1AffineCompressed]byte
-	copy(b[bls381.SizeOfG1AffineCompressed:], hBytes)
-	copy(b[:bls381.SizeOfG1AffineCompressed], cTildeBytes[:])
+	copy(b[:bls381.SizeOfG1AffineCompressed], hBytes)
+	copy(b[bls381.SizeOfG1AffineCompressed:], cTildeBytes[:])
 
 	return b
 }

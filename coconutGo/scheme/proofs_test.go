@@ -191,7 +191,7 @@ func TestProofKappaNuBytesRoundtrip(t *testing.T) {
 
 	piV, err := constructProofKappaNu(
 		params,
-		&keypair.verificationKey,
+		&keypair.VerificationKey,
 		&sig,
 		privateAttributes,
 		&r,
@@ -233,7 +233,7 @@ func TestProofKappaNuBytesRoundtrip(t *testing.T) {
 
 	piV, err = constructProofKappaNu(
 		params,
-		&keypair.verificationKey,
+		&keypair.VerificationKey,
 		&sig,
 		privateAttributes,
 		&r,

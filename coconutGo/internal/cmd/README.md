@@ -1,0 +1,1 @@
+This directory consists of a set of tiny driver programs used for testing purposes to make sure the code is bitwise compatible with implementations in other languages.

@@ -54,7 +54,6 @@ func produceResponse(witness, challenge, secret *big.Int) big.Int {
 	tmp.Mul(challenge, secret)
 
 	var res big.Int
-	// TODO: DOES IT NEED TO BE REDUCED MOD ORDER?
 	res.Sub(witness, &tmp)
 
 	return res
