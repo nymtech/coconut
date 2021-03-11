@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/spf13/cobra"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	coconut "gitlab.nymte.ch/nym/coconut/coconutGo/scheme"
@@ -23,16 +24,15 @@ import (
 
 var (
 	verifyCmd = &cobra.Command{
-		Use:   "verify [--key aggregated-verification-key] [--theta credential-proof] [-a number-of-attributes]",
+		Use:   "verify [--key aggregated-verification-key] [--theta credential-proof] [--pub public-attributes] [-a number-of-attributes]",
 		Short: "Verifies the constructed coconut credential",
 		Run:   runVerifyCmd,
 	}
 	numberOfAttributesVerify  uint32
 	rawPublicAttributesVerify string
-	rawTheta        string
-	rawKeyVerify               string
+	rawTheta                  string
+	rawKeyVerify              string
 )
-
 
 func init() {
 	verifyCmd.PersistentFlags().Uint32VarP(&numberOfAttributesVerify, "attributes", "a", 1, "number of attributes allowed in credential")
@@ -79,10 +79,9 @@ func runVerifyCmd(cmd *cobra.Command, args []string) {
 	}
 
 	ok := coconut.VerifyCredential(params, &vk, &theta, publicAttributes)
-
 	if ok {
-		println("ok")
+		fmt.Printf("ok")
 	} else {
-		println("failure")
+		fmt.Printf("failure")
 	}
 }

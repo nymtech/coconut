@@ -16,7 +16,6 @@ package coconut
 
 import (
 	"errors"
-	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
@@ -153,7 +152,6 @@ func checkBillinearPairing(p *bls381.G1Jac, q bls381.G2Affine, r *bls381.G1Jac, 
 		return false
 	}
 
-	println(fmt.Sprintf("pair res: %v", pairCheck))
 	return pairCheck
 }
 

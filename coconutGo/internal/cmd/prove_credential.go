@@ -62,7 +62,7 @@ func runProveCmd(cmd *cobra.Command, args []string) {
 	sig := parseSignature(rawSignatureProve)
 	vk := parseSignerVerificationKey(rawKeyProve)
 
-	params, err := coconutGo.Setup(numberOfAttributesPrepare)
+	params, err := coconutGo.Setup(numberOfAttributesProve)
 	if err != nil {
 		panic(err)
 	}
@@ -73,5 +73,5 @@ func runProveCmd(cmd *cobra.Command, args []string) {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(theta.Bytes())
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

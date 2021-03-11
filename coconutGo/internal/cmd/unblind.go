@@ -68,5 +68,5 @@ func runUnblindCmd(cmd *cobra.Command, args []string) {
 
 	sigBytes := sig.Bytes()
 	encoded := base64.StdEncoding.EncodeToString(sigBytes[:])
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

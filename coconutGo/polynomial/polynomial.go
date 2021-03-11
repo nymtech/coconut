@@ -67,7 +67,7 @@ func (poly *Polynomial) Evaluate(x *big.Int, modulus *big.Int) big.Int {
 	}
 }
 
-func GenerateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
+func GenerateLagrangianCoefficientsAtOrigin(points []uint64, mod *big.Int) []*big.Int {
 	x := big.NewInt(0)
 
 	coefficients := make([]*big.Int, len(points))
@@ -97,12 +97,16 @@ func GenerateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
 
 				// denominator = (xs[i] - x[0]) * ... * (xs[i] - x[j]), j != i
 				denominator.Mul(denominator, &tmp2)
+
 			}
 		}
 		// TODO: would it be efficient to do it on fr.Element directly because it's more specific to the curve?
 		// TODO: BENCH
+		var denomInv big.Int
+		denomInv.ModInverse(denominator, mod)
+
 		var res big.Int
-		res.Div(numerator, denominator)
+		res.Mul(numerator, &denomInv)
 
 		coefficients[i] = &res
 	}
@@ -113,7 +117,7 @@ func GenerateLagrangianCoefficientsAtOrigin(points []uint64) []*big.Int {
 // no generics : (
 
 // Performs a Lagrange interpolation at the origin for a polynomial defined by `points` and `values`.
-func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big.Int) (*big.Int, error) {
+func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big.Int, mod *big.Int) (*big.Int, error) {
 	if len(points) == 0 || len(values) == 0 {
 		return nil, coconutGo.ErrInterpolationEmpty
 	}
@@ -122,7 +126,7 @@ func performBigIntLagrangianInterpolationAtOrigin(points []uint64, values []*big
 		return nil, coconutGo.ErrInterpolationIncomplete
 	}
 
-	coefficients := GenerateLagrangianCoefficientsAtOrigin(points)
+	coefficients := GenerateLagrangianCoefficientsAtOrigin(points, mod)
 
 	result := big.NewInt(0)
 	for i := 0; i < len(coefficients); i++ {

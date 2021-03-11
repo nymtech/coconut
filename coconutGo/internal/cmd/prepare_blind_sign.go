@@ -74,5 +74,5 @@ func runPrepareBlindSign(cmd *cobra.Command, args []string) {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(lambda.Bytes())
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

@@ -35,6 +35,9 @@ var (
 )
 
 func parseAttributes(raw string) []*coconutGo.Attribute {
+	if len(raw) == 0 {
+		return make([]*coconutGo.Attribute, 0)
+	}
 	sep := strings.Split(raw, " ")
 	attrs := make([]*coconutGo.Attribute, len(sep))
 

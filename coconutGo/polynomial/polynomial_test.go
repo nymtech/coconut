@@ -63,6 +63,9 @@ func TestPolynomialEvaluation(t *testing.T) {
 }
 
 func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
+	var expected fr.Element
+	var resultFr fr.Element
+
 	// x^2 + 3
 	// x, f(x):
 	// 1, 4,
@@ -71,12 +74,16 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 	points := []uint64{1, 2, 3}
 	values := []*big.Int{big.NewInt(4), big.NewInt(7), big.NewInt(12)}
 
-	result, err := performBigIntLagrangianInterpolationAtOrigin(points, values)
+	result, err := performBigIntLagrangianInterpolationAtOrigin(points, values, fr.Modulus())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, big.NewInt(3), result)
+	// the results are in the Fr field
+	expected.SetUint64(3)
+	resultFr.SetBigInt(result)
+
+	assert.True(t, expected.Equal(&resultFr))
 
 	// x^3 + 3x^2 - 5x + 11
 	// x, f(x):
@@ -92,12 +99,16 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 		big.NewInt(103),
 	}
 
-	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values)
+	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values, fr.Modulus())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, big.NewInt(11), result)
+	// the results are in the Fr field
+	expected.SetUint64(11)
+	resultFr.SetBigInt(result)
+
+	assert.True(t, expected.Equal(&resultFr))
 
 	// more points than it is required
 	// x^2 + x + 10
@@ -116,10 +127,14 @@ func TestLagrangianBigIntInterpolationAtOrigin(t *testing.T) {
 		big.NewInt(40),
 	}
 
-	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values)
+	result, err = performBigIntLagrangianInterpolationAtOrigin(points, values,  fr.Modulus())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, big.NewInt(10), result)
+	// the results are in the Fr field
+	expected.SetUint64(10)
+	resultFr.SetBigInt(result)
+
+	assert.True(t, expected.Equal(&resultFr))
 }

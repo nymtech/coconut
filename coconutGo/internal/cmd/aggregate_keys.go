@@ -49,12 +49,11 @@ func runAggregateKeys(cmd *cobra.Command, args []string) {
 	keys := parseSignersVerification(rawKeys)
 	indices := parseIndices(rawKeyIndices)
 
-
 	aggr, err := coconut.AggregateVerificationKeys(keys, indices)
 	if err != nil {
 		panic(err)
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(aggr.Bytes())
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

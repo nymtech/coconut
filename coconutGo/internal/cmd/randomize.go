@@ -55,5 +55,5 @@ func runRandomizeCmd(cmd *cobra.Command, args []string) {
 
 	sigBytes := sigPrime.Bytes()
 	encoded := base64.StdEncoding.EncodeToString(sigBytes[:])
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

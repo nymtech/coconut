@@ -31,7 +31,6 @@ var (
 	attributesSign                uint32
 	rawIssuerKey                  string
 	rawPublicAttributesBlindSign  string
-	rawPrivateAttributesBlindSign string
 	rawPublicKeyBlindSign         string
 	rawLambda                     string
 )
@@ -51,7 +50,7 @@ func parseLambda(raw string) coconut.BlindSignRequest {
 func init() {
 	blindSignCmd.PersistentFlags().Uint32VarP(&attributesSign, "attributes", "a", 1, "number of attributes allowed in credential")
 	blindSignCmd.PersistentFlags().StringVar(&rawPublicKeyBlindSign, "elgamal", "", "ElGamal public key")
-	blindSignCmd.PersistentFlags().StringVar(&rawPrivateAttributesBlindSign, "pub", "", "space separated public attributes to sign")
+	blindSignCmd.PersistentFlags().StringVar(&rawPublicAttributesBlindSign, "pub", "", "space separated public attributes to sign")
 	blindSignCmd.PersistentFlags().StringVar(&rawIssuerKey, "key", "", "secret key of this authority")
 	blindSignCmd.PersistentFlags().StringVar(&rawLambda, "req", "", "blind sign request")
 
@@ -92,5 +91,5 @@ func runBlindSign(cmd *cobra.Command, args []string) {
 
 	sigBytes := blindedSig.Bytes()
 	encoded := base64.StdEncoding.EncodeToString(sigBytes[:])
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }

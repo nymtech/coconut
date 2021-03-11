@@ -32,10 +32,10 @@ var (
 )
 
 func init() {
-	aggregateSigsCmd.PersistentFlags().StringVar(&rawSigs, "keys", "", "Chosen signatures to aggregate")
+	aggregateSigsCmd.PersistentFlags().StringVar(&rawSigs, "sigs", "", "Chosen signatures to aggregate")
 	aggregateSigsCmd.PersistentFlags().StringVar(&rawSigsInndices, "indices", "", "Indices associated with the signatures")
 
-	if err := aggregateSigsCmd.MarkPersistentFlagRequired("keys"); err != nil {
+	if err := aggregateSigsCmd.MarkPersistentFlagRequired("sigs"); err != nil {
 		panic(err)
 	}
 	if err := aggregateSigsCmd.MarkPersistentFlagRequired("indices"); err != nil {
@@ -49,7 +49,6 @@ func runAggregateSigs(cmd *cobra.Command, args []string) {
 	sigs := parseSignatures(rawSigs)
 	indices := parseIndices(rawSigsInndices)
 
-
 	aggr, err := coconut.AggregateSignatures(sigs, indices)
 	if err != nil {
 		panic(err)
@@ -57,5 +56,5 @@ func runAggregateSigs(cmd *cobra.Command, args []string) {
 
 	sigBytes := aggr.Bytes()
 	encoded := base64.StdEncoding.EncodeToString(sigBytes[:])
-	fmt.Printf("%v\n", encoded)
+	fmt.Printf("%v", encoded)
 }
