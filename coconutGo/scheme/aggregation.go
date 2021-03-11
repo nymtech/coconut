@@ -16,6 +16,7 @@ package coconut
 
 import (
 	"github.com/consensys/gurvy/bls381"
+	"github.com/consensys/gurvy/bls381/fr"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/polynomial"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
@@ -41,7 +42,7 @@ func performVerificationKeyLagrangianInterpolationAtOrigin(points []uint64, valu
 		return VerificationKey{}, coconutGo.ErrInterpolationIncomplete
 	}
 
-	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
+	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points, fr.Modulus())
 
 	result := VerificationKey{
 		alpha: bls381.G2Jac{},
@@ -137,7 +138,7 @@ func performSignatureLagrangianInterpolationAtOrigin(points []uint64, values []*
 		return Signature{}, coconutGo.ErrInterpolationIncomplete
 	}
 
-	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points)
+	coefficients := polynomial.GenerateLagrangianCoefficientsAtOrigin(points, fr.Modulus())
 
 	// set result to be the same as the first signature provided multiplied by the first coefficient
 	var sig1 bls381.G1Jac

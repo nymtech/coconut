@@ -16,6 +16,7 @@ package coconut
 
 import (
 	"errors"
+	"fmt"
 	"github.com/consensys/gurvy/bls381"
 	"gitlab.nymte.ch/nym/coconut/coconutGo"
 	"gitlab.nymte.ch/nym/coconut/coconutGo/utils"
@@ -152,6 +153,7 @@ func checkBillinearPairing(p *bls381.G1Jac, q bls381.G2Affine, r *bls381.G1Jac, 
 		return false
 	}
 
+	println(fmt.Sprintf("pair res: %v", pairCheck))
 	return pairCheck
 }
 
@@ -184,7 +186,6 @@ func VerifyCredential(
 	var r bls381.G1Jac
 	r.Set(&theta.credential.sig2)
 	r.AddAssign(&theta.nu)
-
 	return checkBillinearPairing(&theta.credential.sig1, utils.ToG2Affine(&kappa), &r, *params.Gen2Affine()) && !theta.credential.sig1.Z.IsZero()
 }
 

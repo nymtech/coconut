@@ -117,7 +117,7 @@ func ProofCmCsFromBytes(b []byte) (ProofCmCs, error) {
 		return ProofCmCs{}, errors.New("tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided")
 	}
 
-	rkEnd := 72 + int(rkLen) * 32
+	rkEnd := 72 + int(rkLen)*32
 	responseKeys, err := utils.DeserializeScalarVec(rkLen, b[72:rkEnd])
 	if err != nil {
 		return ProofCmCs{}, err
