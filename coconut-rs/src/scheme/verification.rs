@@ -155,7 +155,7 @@ pub fn prove_credential<R: RngCore + CryptoRng>(
 }
 
 /// Checks whether e(P, Q) * e(-R, S) == id
-fn check_billinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
+fn check_bilinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
     // checking e(P, Q) * e(-R, S) == id
     // is equivalent to checking e(P, Q) == e(R, S)
     // but requires only a single final exponentiation rather than two of them
@@ -197,7 +197,7 @@ pub fn verify_credential<R>(
         theta.kappa + signed_public_attributes
     };
 
-    check_billinear_pairing(
+    check_bilinear_pairing(
         &theta.credential.0.to_affine(),
         &G2Prepared::from(kappa.to_affine()),
         &(theta.credential.1 + theta.nu).to_affine(),
@@ -219,7 +219,7 @@ pub fn verify<R: RngCore + CryptoRng>(
             .sum::<G2Projective>())
     .to_affine();
 
-    check_billinear_pairing(
+    check_bilinear_pairing(
         &sig.0.to_affine(),
         &G2Prepared::from(kappa),
         &sig.1.to_affine(),
