@@ -53,14 +53,14 @@ pub enum ErrorKind {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorKind::Setup => write!(f, "encountered error during the setup"),
-            ErrorKind::Keygen => write!(f, "encountered error during the keygen"),
-            ErrorKind::Issuance => write!(f, "encountered error during the signature issuance"),
+            ErrorKind::Setup => write!(f, "encountered error during setup"),
+            ErrorKind::Keygen => write!(f, "encountered error during keygen"),
+            ErrorKind::Issuance => write!(f, "encountered error during signature issuance"),
             ErrorKind::Interpolation => {
-                write!(f, "encountered error during the lagrange interpolation")
+                write!(f, "encountered error during lagrange interpolation")
             }
-            ErrorKind::Aggregation => write!(f, "encountered error during the aggregation"),
-            ErrorKind::Verification => write!(f, "encountered error during the verification"),
+            ErrorKind::Aggregation => write!(f, "encountered error during aggregation"),
+            ErrorKind::Verification => write!(f, "encountered error during verification"),
             ErrorKind::Deserialization => write!(f, "encountered error during deserialization"),
         }
     }
