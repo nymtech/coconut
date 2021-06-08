@@ -21,7 +21,7 @@ use core::ops::Mul;
 use itertools::Itertools;
 
 pub(crate) trait Aggregatable: Sized {
-    fn aggregate(aggretable: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self>;
+    fn aggregate(aggregatable: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self>;
 
     fn check_unique_indices(indices: &[SignerIndex]) -> bool {
         // if aggregation is a threshold one, all indices should be unique
@@ -36,8 +36,8 @@ where
     for<'a> T: Sum<&'a T>,
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
-    fn aggregate(aggretable: &[T], indices: Option<&[u64]>) -> Result<T> {
-        if aggretable.is_empty() {
+    fn aggregate(aggregatable: &[T], indices: Option<&[u64]>) -> Result<T> {
+        if aggregatable.is_empty() {
             return Err(Error::new(
                 ErrorKind::Aggregation,
                 "tried to perform aggregation of an empty set of values",
@@ -51,10 +51,10 @@ where
                     "tried to perform aggregation on a set of non-unique indices",
                 ));
             }
-            perform_lagrangian_interpolation_at_origin(indices, aggretable)
+            perform_lagrangian_interpolation_at_origin(indices, aggregatable)
         } else {
             // non-threshold
-            Ok(aggretable.iter().sum())
+            Ok(aggregatable.iter().sum())
         }
     }
 }
@@ -98,10 +98,10 @@ pub fn aggregate_verification_keys(
 }
 
 pub fn aggregate_signatures(
-    sigs: &[PartialSignature],
+    signatures: &[PartialSignature],
     indices: Option<&[SignerIndex]>,
 ) -> Result<Signature> {
-    Aggregatable::aggregate(sigs, indices)
+    Aggregatable::aggregate(signatures, indices)
 }
 
 pub fn aggregate_signature_shares(shares: &[SignatureShare]) -> Result<Signature> {
