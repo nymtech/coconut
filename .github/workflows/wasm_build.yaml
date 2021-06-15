@@ -1,0 +1,27 @@
+name: WASM Build
+
+on: [push, pull_request]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          components: rustfmt, clippy
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path coconut-rs/Cargo.toml --target wasm32-unknown-unknown
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --manifest-path coconut-rs/Cargo.toml -- --check
