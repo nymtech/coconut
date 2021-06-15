@@ -27,3 +27,7 @@ default-features = false
 [dependencies.group]
 version = "0.10"
 default-features = false
+
+[target.'cfg(target_env = "wasm32-unknown-unknown")'.dependencies]
+getrandom = {version="*", features = ["js"]}
+

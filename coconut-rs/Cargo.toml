@@ -11,7 +11,7 @@ bls12_381 = "0.5.0"
 itertools = "0.10.0"
 digest = "0.9.0"
 rand = "0.8.3"
-
+getrandom = "*"
 #[dependencies.zeroize]
 #version = "1.2.0"
 #features = ["zeroize_derive"]
@@ -45,3 +45,6 @@ harness = false
 
 [features]
 default = []
+
+[target.'cfg(target_env = "wasm32-unknown-unknown")'.dependencies]
+getrandom = { version="*", features=["js"] }
