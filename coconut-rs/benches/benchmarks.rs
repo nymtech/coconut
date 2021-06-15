@@ -16,7 +16,6 @@ use bls12_381::{multi_miller_loop, G1Affine, G2Affine, G2Prepared, Scalar};
 use criterion::{criterion_group, criterion_main, Criterion};
 use ff::Field;
 use group::{Curve, Group};
-use rand_core::OsRng;
 use std::ops::Neg;
 
 fn double_pairing(g11: &G1Affine, g21: &G2Affine, g12: &G1Affine, g22: &G2Affine) {
@@ -62,7 +61,7 @@ fn multi_miller_pairing_with_semi_prepared(
 }
 
 fn bench_pairings(c: &mut Criterion) {
-    let mut rng = OsRng;
+    let mut rng = rand::thread_rng();
 
     let g1 = G1Affine::generator();
     let g2 = G2Affine::generator();

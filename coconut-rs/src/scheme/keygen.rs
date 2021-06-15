@@ -24,7 +24,6 @@ use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, Mul};
 use group::Curve;
-use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
 
 #[cfg(feature = "serde")]
@@ -46,10 +45,7 @@ pub struct SecretKey {
 
 impl SecretKey {
     /// Derive verification key using this secret key.
-    pub fn verification_key<R: RngCore + CryptoRng>(
-        &self,
-        params: &Parameters<R>,
-    ) -> VerificationKey {
+    pub fn verification_key(&self, params: &Parameters) -> VerificationKey {
         let g2 = params.gen2();
         VerificationKey {
             alpha: g2 * self.x,
@@ -377,7 +373,7 @@ pub struct KeyPair {
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
-pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
+pub fn keygen(params: &mut Parameters) -> KeyPair {
     let attributes = params.gen_hs().len();
 
     let x = params.random_scalar();
@@ -396,8 +392,8 @@ pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
 /// Generate a set of n Coconut keypairs [((x, y0, y1...), (g2^x, g2^y0, ...)), ...],
 /// such that they support threshold aggregation by `threshold` number of parties.
 /// It is expected that this procedure is executed by a Trusted Third Party.
-pub fn ttp_keygen<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
+pub fn ttp_keygen(
+    params: &mut Parameters,
     threshold: u64,
     num_authorities: u64,
 ) -> Result<Vec<KeyPair>> {
@@ -459,14 +455,11 @@ pub fn ttp_keygen<R: RngCore + CryptoRng>(
 mod tests {
     use super::*;
     use crate::scheme::setup::setup;
-    use rand_core::OsRng;
 
     #[test]
     fn secret_key_bytes_roundtrip() {
-        let mut rng1 = OsRng;
-        let mut rng2 = OsRng;
-        let mut params1 = setup(&mut rng1, 1).unwrap();
-        let mut params5 = setup(&mut rng2, 5).unwrap();
+        let mut params1 = setup(1).unwrap();
+        let mut params5 = setup(5).unwrap();
 
         let keypair1 = keygen(&mut params1);
         let keypair5 = keygen(&mut params5);
@@ -480,10 +473,8 @@ mod tests {
 
     #[test]
     fn verification_key_bytes_roundtrip() {
-        let mut rng1 = OsRng;
-        let mut rng2 = OsRng;
-        let mut params1 = setup(&mut rng1, 1).unwrap();
-        let mut params5 = setup(&mut rng2, 5).unwrap();
+        let mut params1 = setup(1).unwrap();
+        let mut params5 = setup(5).unwrap();
 
         let keypair1 = keygen(&mut params1);
         let keypair5 = keygen(&mut params5);

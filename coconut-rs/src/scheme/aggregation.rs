@@ -122,13 +122,10 @@ mod tests {
     use crate::scheme::verification::verify;
     use bls12_381::G1Projective;
     use group::Group;
-    use rand_core::OsRng;
 
     #[test]
     fn key_aggregation_works_for_any_subset_of_keys() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 2).unwrap();
+        let mut params = Parameters::new(2).unwrap();
         let keypairs = ttp_keygen(&mut params, 3, 5).unwrap();
 
         let vks = keypairs
@@ -189,9 +186,7 @@ mod tests {
 
     #[test]
     fn signature_aggregation_works_for_any_subset_of_signatures() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 2).unwrap();
+        let mut params = Parameters::new(2).unwrap();
         let attributes = params.n_random_scalars(2);
 
         let keypairs = ttp_keygen(&mut params, 3, 5).unwrap();
@@ -233,7 +228,7 @@ mod tests {
     }
 
     fn random_signature() -> Signature {
-        let mut rng = OsRng;
+        let mut rng = rand::thread_rng();
         Signature(
             G1Projective::random(&mut rng),
             G1Projective::random(&mut rng),

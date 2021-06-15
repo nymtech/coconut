@@ -1,13 +1,13 @@
 [package]
 name = "cli-demo-rs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jędrzej Stuczyński <jedrzej.stuczynski@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-coconut-rs = { path = "../coconut-rs"}
+coconut-rs = { path="../coconut-rs" }
 base64 = "0.13.0"
 read_input = "0.8.4"
 #crossterm = { version = "0.19"}
@@ -21,13 +21,13 @@ digest = "0.9.0"
 rand = "0.8.3"
 
 [dependencies.ff]
-version = "0.9"
+version = "0.10"
 default-features = false
 
 [dependencies.group]
-version = "0.9"
+version = "0.10"
 default-features = false
 
-[dependencies.rand_core]
-version = "0.6.1"
-features = ["getrandom"]
+[target.'cfg(target_env = "wasm32-unknown-unknown")'.dependencies]
+getrandom = {version="*", features = ["js"]}
+

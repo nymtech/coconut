@@ -24,7 +24,6 @@ use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use group::GroupEncoding;
 use itertools::izip;
-use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
 use std::borrow::Borrow;
 use std::convert::TryInto;
@@ -96,8 +95,8 @@ where
 
 impl ProofCmCs {
     /// Construct non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
-    pub(crate) fn construct<R: RngCore + CryptoRng>(
-        params: &mut Parameters<R>,
+    pub(crate) fn construct(
+        params: &mut Parameters,
         pub_key: &elgamal::PublicKey,
         ephemeral_keys: &[elgamal::EphemeralKey],
         commitment: &G1Projective,
@@ -186,9 +185,9 @@ impl ProofCmCs {
         }
     }
 
-    pub(crate) fn verify<R>(
+    pub(crate) fn verify(
         &self,
-        params: &Parameters<R>,
+        params: &Parameters,
         pub_key: &elgamal::PublicKey,
         commitment: &G1Projective,
         attributes_ciphertexts: &[elgamal::Ciphertext],
@@ -340,8 +339,8 @@ pub struct ProofKappaNu {
 }
 
 impl ProofKappaNu {
-    pub(crate) fn construct<R: RngCore + CryptoRng>(
-        params: &mut Parameters<R>,
+    pub(crate) fn construct(
+        params: &mut Parameters,
         verification_key: &VerificationKey,
         signature: &Signature,
         private_attributes: &[Attribute],
@@ -405,9 +404,9 @@ impl ProofKappaNu {
         self.response_attributes.len()
     }
 
-    pub(crate) fn verify<R>(
+    pub(crate) fn verify(
         &self,
-        params: &Parameters<R>,
+        params: &Parameters,
         verification_key: &VerificationKey,
         signature: &Signature,
         // TODO NAMING: kappa, nu...
@@ -523,20 +522,19 @@ mod tests {
     use crate::scheme::keygen::keygen;
     use crate::scheme::setup::setup;
     use group::Group;
-    use rand_core::OsRng;
+    use rand::thread_rng;
 
     #[test]
     fn proof_cm_cs_bytes_roundtrip() {
-        let mut rng = OsRng;
-        let mut rng2 = OsRng;
-        let mut params = setup(&mut rng, 1).unwrap();
+        let mut rng = thread_rng();
+        let mut params = setup(1).unwrap();
 
         let elgamal_keypair = elgamal::keygen(&mut params);
         let private_attributes = params.n_random_scalars(1);
         let public_attributes = params.n_random_scalars(0);
 
         // we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
-        let cm = G1Projective::random(&mut rng2);
+        let cm = G1Projective::random(&mut rng);
         let r = params.random_scalar();
 
         let ephemeral_keys = params.n_random_scalars(1);
@@ -576,8 +574,7 @@ mod tests {
 
     #[test]
     fn proof_kappa_nu_bytes_roundtrip() {
-        let mut rng = OsRng;
-        let mut params = setup(&mut rng, 1).unwrap();
+        let mut params = setup(1).unwrap();
 
         let keypair = keygen(&mut params);
         let r = params.random_scalar();
@@ -601,7 +598,7 @@ mod tests {
         assert_eq!(ProofKappaNu::from_bytes(&bytes).unwrap(), pi_v);
 
         // 2 public 2 private
-        let mut params = setup(&mut rng, 4).unwrap();
+        let mut params = setup(4).unwrap();
         let keypair = keygen(&mut params);
         let private_attributes = params.n_random_scalars(2);
 

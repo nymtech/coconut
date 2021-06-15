@@ -23,7 +23,6 @@ use crate::utils::try_deserialize_g1_projective;
 use bls12_381::G1Projective;
 use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
-use rand_core::{CryptoRng, RngCore};
 
 pub mod aggregation;
 pub mod issuance;
@@ -51,7 +50,7 @@ impl Signature {
         &self.1
     }
 
-    pub fn randomise<R: RngCore + CryptoRng>(&self, params: &mut Parameters<R>) -> Signature {
+    pub fn randomise(&self, params: &mut Parameters) -> Signature {
         let r = params.random_scalar();
         Signature(self.0 * r, self.1 * r)
     }
@@ -146,13 +145,10 @@ mod tests {
     use crate::scheme::issuance::{blind_sign, prepare_blind_sign, sign};
     use crate::scheme::keygen::{keygen, ttp_keygen};
     use crate::scheme::verification::{prove_credential, verify, verify_credential};
-    use rand_core::OsRng;
 
     #[test]
     fn verification_on_two_public_attributes() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 2).unwrap();
+        let mut params = Parameters::new(2).unwrap();
         let attributes = params.n_random_scalars(2);
 
         let keypair1 = keygen(&mut params);
@@ -184,9 +180,7 @@ mod tests {
 
     #[test]
     fn verification_on_two_public_and_two_private_attributes() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 4).unwrap();
+        let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
         let elgamal_keypair = elgamal::keygen(&mut params);
@@ -260,9 +254,7 @@ mod tests {
 
     #[test]
     fn verification_on_two_public_and_two_private_attributes_from_two_signers() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 4).unwrap();
+        let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
         let elgamal_keypair = elgamal::keygen(&mut params);
