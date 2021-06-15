@@ -5,7 +5,6 @@ use coconut_rs::scheme::verification::{prove_credential, verify_credential};
 use coconut_rs::scheme::{BlindedSignature, Signature, SignatureShare, VerificationKey};
 use coconut_rs::{elgamal, Attribute};
 use digest::Digest;
-use group::GroupEncoding;
 use rand::seq::SliceRandom;
 use rand_core::OsRng;
 use read_input::prelude::*;
@@ -15,18 +14,14 @@ use std::fmt::{Debug, Display, Formatter};
 use std::{fmt, process};
 
 struct App {
-    params: Parameters<OsRng>,
+    params: Parameters,
     authority_keys: Vec<KeyPair>,
     client_elgamal: elgamal::KeyPair,
     threshold: u64,
 }
 
 impl App {
-    pub fn new(
-        mut params: Parameters<OsRng>,
-        authority_keys: Vec<KeyPair>,
-        threshold: u64,
-    ) -> Self {
+    pub fn new(mut params: Parameters, authority_keys: Vec<KeyPair>, threshold: u64) -> Self {
         let client_elgamal = elgamal::keygen(&mut params);
         App {
             params,
@@ -86,6 +81,7 @@ impl App {
         credential.randomise(&mut self.params)
     }
 
+    #[allow(dead_code)]
     fn aggregate_keys(&self, indices: &[u64]) -> VerificationKey {
         let target_vks: Vec<_> = indices
             .iter()
@@ -100,6 +96,7 @@ impl App {
             .expect("failed to aggregate signatures")
     }
 
+    #[allow(dead_code)]
     fn blind_verify(
         &mut self,
         public: &[RawAttribute],
@@ -171,9 +168,9 @@ where
     Attribute::from_bytes_wide(&bytes)
 }
 
-impl Into<Attribute> for RawAttribute {
-    fn into(self) -> Attribute {
-        match self {
+impl From<RawAttribute> for Attribute {
+    fn from(raw_attribute: RawAttribute) -> Attribute {
+        match raw_attribute {
             RawAttribute::Text(raw) => hash_to_scalar(raw.as_bytes()),
             RawAttribute::Number(num) => Attribute::from(num),
         }
@@ -305,7 +302,7 @@ fn main() {
         "Generating keys for {} authorities (aggregation threshold of {}) ...",
         n, t
     );
-    let mut params = coconut_rs::scheme::setup::Parameters::new(OsRng, attributes).unwrap();
+    let mut params = coconut_rs::scheme::setup::Parameters::new(attributes).unwrap();
     let keys = coconut_rs::scheme::keygen::ttp_keygen(&mut params, t, n).unwrap();
     let mut app = App::new(params, keys, t);
 
@@ -345,7 +342,7 @@ fn main() {
     println!("Choosing {} random signatures to aggregate...", t);
     let sample: Vec<_> = indices
         .choose_multiple(&mut OsRng, t as usize)
-        .map(|v| *v)
+        .copied()
         .collect();
     println!("Chosen indices: {:?}", sample);
 
@@ -357,7 +354,7 @@ fn main() {
     );
 
     println!("Randomising the credential...\n");
-    let mut randomised = aggregated_sig.clone();
+    let mut randomised = aggregated_sig;
     loop {
         let r: String = input()
             .msg("Enter 'r' to randomise the credential again or just press enter to finish the procedure: ")

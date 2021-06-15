@@ -14,13 +14,13 @@
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::hash_g1;
+use crate::RNG;
 use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
 use group::Curve;
-use rand_core::{CryptoRng, RngCore};
 
 /// System-wide parameters used for the protocol
-pub struct Parameters<R> {
+pub struct Parameters {
     /// Generator of the G1 group
     g1: G1Affine,
 
@@ -32,13 +32,10 @@ pub struct Parameters<R> {
 
     /// Precomputed G2 generator used for the miller loop
     _g2_prepared_miller: G2Prepared,
-
-    /// Pseudorandom number generator instance
-    rng: R,
 }
 
-impl<R> Parameters<R> {
-    pub fn new(rng: R, num_attributes: u32) -> Result<Parameters<R>> {
+impl Parameters {
+    pub fn new(num_attributes: u32) -> Result<Parameters> {
         if num_attributes == 0 {
             return Err(Error::new(
                 ErrorKind::Setup,
@@ -55,7 +52,6 @@ impl<R> Parameters<R> {
             hs,
             g2: G2Affine::generator(),
             _g2_prepared_miller: G2Prepared::from(G2Affine::generator()),
-            rng,
         })
     }
 
@@ -75,36 +71,29 @@ impl<R> Parameters<R> {
         &self.hs
     }
 
-    pub(crate) fn random_scalar(&mut self) -> Scalar
-    where
-        R: RngCore + CryptoRng,
-    {
-        Scalar::random(&mut self.rng)
+    pub(crate) fn random_scalar(&mut self) -> Scalar {
+        Scalar::random(*RNG)
     }
 
-    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar>
-    where
-        R: RngCore + CryptoRng,
-    {
+    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar> {
         (0..n).map(|_| self.random_scalar()).collect()
     }
 }
 
-pub fn setup<R>(rng: R, num_attributes: u32) -> Result<Parameters<R>> {
-    Parameters::new(rng, num_attributes)
+pub fn setup(num_attributes: u32) -> Result<Parameters> {
+    Parameters::new(num_attributes)
 }
 
 // for ease of use in tests requiring params
 // TODO: not sure if this will have to go away when tests require some specific number of generators
 #[cfg(test)]
-impl Default for Parameters<rand_core::OsRng> {
+impl Default for Parameters {
     fn default() -> Self {
         Parameters {
             g1: G1Affine::generator(),
             hs: Vec::new(),
             g2: G2Affine::generator(),
             _g2_prepared_miller: G2Prepared::from(G2Affine::generator()),
-            rng: rand_core::OsRng,
         }
     }
 }

@@ -22,7 +22,6 @@ use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
-use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
 
 // TODO NAMING: double check this one
@@ -39,7 +38,7 @@ pub struct BlindSignRequest {
 }
 
 impl BlindSignRequest {
-    fn verify_proof<R>(&self, params: &Parameters<R>, pub_key: &elgamal::PublicKey) -> bool {
+    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
         self.pi_s.verify(
             params,
             pub_key,
@@ -110,8 +109,8 @@ impl BlindSignRequest {
 }
 
 /// Builds cryptographic material required for blind sign.
-pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
+pub fn prepare_blind_sign(
+    params: &mut Parameters,
     pub_key: &elgamal::PublicKey,
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
@@ -169,8 +168,8 @@ pub fn prepare_blind_sign<R: RngCore + CryptoRng>(
     })
 }
 
-pub fn blind_sign<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
+pub fn blind_sign(
+    params: &mut Parameters,
     secret_key: &SecretKey,
     pub_key: &elgamal::PublicKey,
     blind_sign_request: &BlindSignRequest,
@@ -233,8 +232,8 @@ pub fn blind_sign<R: RngCore + CryptoRng>(
 // They only exist to have a simpler and smaller code snippets to test
 // basic functionalities.
 /// Creates a Coconut Signature under a given secret key on a set of public attributes only.
-pub fn sign<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
+pub fn sign(
+    params: &mut Parameters,
     secret_key: &SecretKey,
     public_attributes: &[Attribute],
 ) -> Result<Signature> {
@@ -270,13 +269,10 @@ pub fn sign<R: RngCore + CryptoRng>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::OsRng;
 
     #[test]
     fn blind_sign_request_bytes_roundtrip() {
-        let rng = OsRng;
-
-        let mut params = Parameters::new(rng, 1).unwrap();
+        let mut params = Parameters::new(1).unwrap();
         let public_attributes = params.n_random_scalars(0);
         let private_attributes = params.n_random_scalars(1);
         let elgamal_keypair = elgamal::keygen(&mut params);
@@ -292,7 +288,7 @@ mod tests {
         let bytes = lambda.to_bytes();
         assert_eq!(BlindSignRequest::from_bytes(&bytes).unwrap(), lambda);
 
-        let mut params = Parameters::new(rng, 4).unwrap();
+        let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
         let lambda = prepare_blind_sign(

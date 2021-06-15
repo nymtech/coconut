@@ -23,7 +23,6 @@ use digest::generic_array;
 use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
 use ff::Field;
-use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
 
 pub struct Polynomial {
@@ -33,8 +32,8 @@ pub struct Polynomial {
 impl Polynomial {
     // for polynomial of degree n, we generate n+1 values
     // (for example for degree 1, like y = x + 2, we need [2,1])
-    pub(crate) fn new_random<R: RngCore + CryptoRng>(
-        params: &mut Parameters<R>,
+    pub(crate) fn new_random(
+        params: &mut Parameters,
         degree: u64,
     ) -> Self {
         Polynomial {
@@ -329,6 +328,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand_core::RngCore;
 
     #[test]
     fn polynomial_evaluation() {

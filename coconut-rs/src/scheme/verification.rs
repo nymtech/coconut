@@ -22,7 +22,6 @@ use crate::Attribute;
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
 use core::ops::Neg;
 use group::{Curve, Group};
-use rand_core::{CryptoRng, RngCore};
 use std::convert::TryInto;
 
 // TODO NAMING: this whole thing
@@ -41,7 +40,7 @@ pub struct Theta {
 }
 
 impl Theta {
-    fn verify_proof<R>(&self, params: &Parameters<R>, verification_key: &VerificationKey) -> bool {
+    fn verify_proof(&self, params: &Parameters, verification_key: &VerificationKey) -> bool {
         self.pi_v.verify(
             params,
             verification_key,
@@ -98,8 +97,8 @@ impl Theta {
     }
 }
 
-pub fn prove_credential<R: RngCore + CryptoRng>(
-    params: &mut Parameters<R>,
+pub fn prove_credential(
+    params: &mut Parameters,
     verification_key: &VerificationKey,
     signature: &Signature,
     private_attributes: &[Attribute],
@@ -166,8 +165,8 @@ fn check_bilinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prep
     multi_miller.final_exponentiation().is_identity().into()
 }
 
-pub fn verify_credential<R>(
-    params: &Parameters<R>,
+pub fn verify_credential(
+    params: &Parameters,
     verification_key: &VerificationKey,
     theta: &Theta,
     public_attributes: &[Attribute],
@@ -205,8 +204,8 @@ pub fn verify_credential<R>(
     ) && !bool::from(theta.credential.0.is_identity())
 }
 
-pub fn verify<R: RngCore + CryptoRng>(
-    params: &Parameters<R>,
+pub fn verify(
+    params: &Parameters,
     verification_key: &VerificationKey,
     public_attributes: &[Attribute],
     sig: &Signature,
@@ -232,13 +231,10 @@ mod tests {
     use super::*;
     use crate::scheme::keygen::keygen;
     use crate::scheme::setup::setup;
-    use rand_core::OsRng;
 
     #[test]
     fn theta_bytes_roundtrip() {
-        let rng = OsRng;
-
-        let mut params = setup(rng, 1).unwrap();
+        let mut params = setup(1).unwrap();
 
         let keypair = keygen(&mut params);
         let r = params.random_scalar();
@@ -258,7 +254,7 @@ mod tests {
         let bytes = theta.to_bytes();
         assert_eq!(Theta::from_bytes(&bytes).unwrap(), theta);
 
-        let mut params = setup(rng, 4).unwrap();
+        let mut params = setup(4).unwrap();
 
         let keypair = keygen(&mut params);
         let private_attributes = params.n_random_scalars(2);

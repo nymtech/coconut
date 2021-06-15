@@ -80,7 +80,7 @@ impl PrivateKey {
         c2 - c1 * self.0
     }
 
-    pub fn public_key<R: RngCore + CryptoRng>(&self, params: &Parameters<R>) -> PublicKey {
+    pub fn public_key<R: RngCore + CryptoRng>(&self, params: &Parameters) -> PublicKey {
         PublicKey(params.gen1() * self.0)
     }
 
@@ -107,9 +107,9 @@ impl PublicKey {
     /// where h is a point on the G1 curve using the given public key.
     /// The random k is returned alongside the encryption
     /// as it is required by the Coconut Scheme to create proofs of knowledge.
-    pub fn encrypt<R: RngCore + CryptoRng>(
+    pub fn encrypt(
         &self,
-        params: &mut Parameters<R>,
+        params: &mut Parameters,
         h: &G1Projective,
         msg: &Scalar,
     ) -> (Ciphertext, EphemeralKey) {
@@ -167,7 +167,7 @@ impl KeyPair {
 }
 
 /// Generate a fresh ElGamal keypair using the group generator specified by the provided [Parameters]
-pub fn keygen<R: RngCore + CryptoRng>(params: &mut Parameters<R>) -> KeyPair {
+pub fn keygen(params: &mut Parameters) -> KeyPair {
     let private_key = params.random_scalar();
     let gamma = params.gen1() * private_key;
 

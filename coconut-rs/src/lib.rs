@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use bls12_381::Scalar;
+use lazy_static::lazy_static;
+use rand_core::OsRng;
 use sha3::Sha3_384;
 
 pub mod elgamal;
@@ -26,3 +28,7 @@ pub type Attribute = Scalar;
 // reason for sha3 384 is for the 48 bytes output and it's a good enough solution
 // for the temporary use it has
 pub(crate) type G1HashDigest = Sha3_384;
+
+lazy_static! {
+    static ref RNG: OsRng = OsRng;
+}
