@@ -32,10 +32,7 @@ pub struct Polynomial {
 impl Polynomial {
     // for polynomial of degree n, we generate n+1 values
     // (for example for degree 1, like y = x + 2, we need [2,1])
-    pub(crate) fn new_random(
-        params: &mut Parameters,
-        degree: u64,
-    ) -> Self {
+    pub(crate) fn new_random(params: &mut Parameters, degree: u64) -> Self {
         Polynomial {
             coefficients: params.n_random_scalars((degree + 1) as usize),
         }
@@ -328,7 +325,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::RngCore;
+    use rand::RngCore;
 
     #[test]
     fn polynomial_evaluation() {
@@ -431,7 +428,7 @@ mod tests {
 
     #[test]
     fn hash_g1_sanity_check() {
-        let mut rng = rand_core::OsRng;
+        let mut rng = rand::thread_rng();
         let mut msg1 = [0u8; 1024];
         rng.fill_bytes(&mut msg1);
         let mut msg2 = [0u8; 1024];

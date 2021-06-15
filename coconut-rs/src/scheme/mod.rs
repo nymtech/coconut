@@ -148,7 +148,6 @@ mod tests {
 
     #[test]
     fn verification_on_two_public_attributes() {
-
         let mut params = Parameters::new(2).unwrap();
         let attributes = params.n_random_scalars(2);
 

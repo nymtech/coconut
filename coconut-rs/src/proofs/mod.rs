@@ -522,11 +522,11 @@ mod tests {
     use crate::scheme::keygen::keygen;
     use crate::scheme::setup::setup;
     use group::Group;
-    use rand_core::OsRng;
+    use rand::thread_rng;
 
     #[test]
     fn proof_cm_cs_bytes_roundtrip() {
-        let mut rng = OsRng;
+        let mut rng = thread_rng();
         let mut params = setup(1).unwrap();
 
         let elgamal_keypair = elgamal::keygen(&mut params);

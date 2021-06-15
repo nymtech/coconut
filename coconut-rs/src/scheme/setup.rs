@@ -14,10 +14,10 @@
 
 use crate::error::{Error, ErrorKind, Result};
 use crate::utils::hash_g1;
-use crate::RNG;
 use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
 use group::Curve;
+use rand::thread_rng;
 
 /// System-wide parameters used for the protocol
 pub struct Parameters {
@@ -72,7 +72,9 @@ impl Parameters {
     }
 
     pub(crate) fn random_scalar(&mut self) -> Scalar {
-        Scalar::random(*RNG)
+        // lazily-initialized thread-local random number generator, seeded by the system
+        let mut rng = thread_rng();
+        Scalar::random(&mut rng)
     }
 
     pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar> {

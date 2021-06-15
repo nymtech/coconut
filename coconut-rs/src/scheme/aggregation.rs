@@ -122,7 +122,6 @@ mod tests {
     use crate::scheme::verification::verify;
     use bls12_381::G1Projective;
     use group::Group;
-    use rand_core::OsRng;
 
     #[test]
     fn key_aggregation_works_for_any_subset_of_keys() {
@@ -229,7 +228,7 @@ mod tests {
     }
 
     fn random_signature() -> Signature {
-        let mut rng = OsRng;
+        let mut rng = rand::thread_rng();
         Signature(
             G1Projective::random(&mut rng),
             G1Projective::random(&mut rng),

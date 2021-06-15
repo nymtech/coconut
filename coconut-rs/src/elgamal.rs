@@ -18,7 +18,6 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
-use rand_core::{CryptoRng, RngCore};
 
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
@@ -80,7 +79,7 @@ impl PrivateKey {
         c2 - c1 * self.0
     }
 
-    pub fn public_key<R: RngCore + CryptoRng>(&self, params: &Parameters) -> PublicKey {
+    pub fn public_key(&self, params: &Parameters) -> PublicKey {
         PublicKey(params.gen1() * self.0)
     }
 

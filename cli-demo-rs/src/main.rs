@@ -6,7 +6,6 @@ use coconut_rs::scheme::{BlindedSignature, Signature, SignatureShare, Verificati
 use coconut_rs::{elgamal, Attribute};
 use digest::Digest;
 use rand::seq::SliceRandom;
-use rand_core::OsRng;
 use read_input::prelude::*;
 use sha2::digest::generic_array::typenum::Unsigned;
 use sha2::Sha256;
@@ -341,7 +340,7 @@ fn main() {
 
     println!("Choosing {} random signatures to aggregate...", t);
     let sample: Vec<_> = indices
-        .choose_multiple(&mut OsRng, t as usize)
+        .choose_multiple(&mut rand::thread_rng(), t as usize)
         .copied()
         .collect();
     println!("Chosen indices: {:?}", sample);
