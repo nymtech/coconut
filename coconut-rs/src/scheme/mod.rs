@@ -99,6 +99,28 @@ impl Signature {
 #[cfg_attr(test, derive(PartialEq))]
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
+impl TryFrom<&[u8]> for BlindedSignature {
+    type Error = Error;
+
+    fn try_from(bytes: &[u8]) -> Result<BlindedSignature> {
+        if bytes.len() != 144 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("BlindedSignature must be exactly 144 bytes, got {}", bytes.len()),
+            ));
+        }
+
+        let mut h_bytes = [0u8; 48];
+
+        h_bytes.copy_from_slice(&bytes[..48]);
+
+        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
+        let c_tilde = Ciphertext::try_from(&bytes[48..])?;
+
+        Ok(BlindedSignature(h, c_tilde))
+    }
+}
+
 impl BlindedSignature {
     pub fn unblind(self, private_key: &elgamal::PrivateKey) -> Signature {
         let sig2 = private_key.decrypt(&self.1);
@@ -110,19 +132,6 @@ impl BlindedSignature {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_bytes());
         bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8; 144]) -> Result<BlindedSignature> {
-        let mut h_bytes = [0u8; 48];
-        let mut c_tilde_bytes = [0u8; 96];
-
-        h_bytes.copy_from_slice(&bytes[..48]);
-        c_tilde_bytes.copy_from_slice(&bytes[48..]);
-
-        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
-        let c_tilde = Ciphertext::try_from(&bytes[48..])?;
-
-        Ok(BlindedSignature(h, c_tilde))
     }
 }
 
@@ -367,6 +376,6 @@ mod tests {
         ]
         .concat();
         assert_eq!(expected_bytes, bytes);
-        assert_eq!(blinded_sig, BlindedSignature::from_bytes(&bytes).unwrap())
+        assert_eq!(blinded_sig, BlindedSignature::try_from(&bytes[..]).unwrap())
     }
 }
