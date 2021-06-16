@@ -16,7 +16,7 @@
 
 use crate::elgamal;
 use crate::elgamal::Ciphertext;
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
 use crate::utils::try_deserialize_g1_projective;
@@ -42,6 +42,33 @@ pub type Credential = Signature;
 
 pub type PartialSignature = Signature;
 
+impl TryFrom<&[u8]> for Signature {
+    type Error = crate::error::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Signature> {
+        if bytes.len() != 96 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("Signature must be exactly 96 bytes, got {}", bytes.len()),
+            ));
+        }
+
+        let mut sig1_bytes = [0u8; 48];
+        let mut sig2_bytes = [0u8; 48];
+
+        sig1_bytes.copy_from_slice(&bytes[..48]);
+        sig2_bytes.copy_from_slice(&bytes[48..]);
+
+        let sig1 =
+            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
+
+        let sig2 =
+            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
+
+        Ok(Signature(sig1, sig2))
+    }
+}
+
 impl Signature {
     pub(crate) fn sig1(&self) -> &G1Projective {
         &self.0
@@ -65,22 +92,6 @@ impl Signature {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8; 96]) -> Result<Signature> {
-        let mut sig1_bytes = [0u8; 48];
-        let mut sig2_bytes = [0u8; 48];
-
-        sig1_bytes.copy_from_slice(&bytes[..48]);
-        sig2_bytes.copy_from_slice(&bytes[48..]);
-
-        let sig1 =
-            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
-
-        let sig2 =
-            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
-
-        Ok(Signature(sig1, sig2))
     }
 }
 
@@ -333,7 +344,7 @@ mod tests {
         ]
         .concat();
         assert_eq!(expected_bytes, bytes);
-        assert_eq!(signature, Signature::from_bytes(&bytes).unwrap())
+        assert_eq!(signature, Signature::try_from(&bytes[..]).unwrap())
     }
 
     #[test]

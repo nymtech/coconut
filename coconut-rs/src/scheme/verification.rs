@@ -57,8 +57,7 @@ impl TryFrom<&[u8]> for Theta {
         let nu_bytes = bytes[96..144].try_into().unwrap();
         let nu = try_deserialize_g1_projective(&nu_bytes, || "failed to deserialize kappa")?;
 
-        let credential_bytes = bytes[144..240].try_into().unwrap();
-        let credential = Signature::from_bytes(&credential_bytes)?;
+        let credential = Signature::try_from(&bytes[144..240])?;
 
         let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
 
