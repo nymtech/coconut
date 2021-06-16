@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::setup::Parameters;
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
+use std::convert::TryFrom;
 
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
@@ -31,6 +32,32 @@ pub type EphemeralKey = Scalar;
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Ciphertext(pub(crate) G1Projective, pub(crate) G1Projective);
+
+impl TryFrom<&[u8]> for Ciphertext {
+    type Error = crate::error::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Ciphertext> {
+        if bytes.len() != 96 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("Ciphertext must be exactly 96 bytes, got {}", bytes.len()),
+            ));
+        }
+
+        let mut c1_bytes = [0u8; 48];
+        let mut c2_bytes = [0u8; 48];
+
+        c1_bytes.copy_from_slice(&bytes[..48]);
+        c2_bytes.copy_from_slice(&bytes[48..]);
+
+        let c1 =
+            try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
+        let c2 =
+            try_deserialize_g1_projective(&c2_bytes, || "failed to deserialize compressed c2")?;
+
+        Ok(Ciphertext(c1, c2))
+    }
+}
 
 impl Ciphertext {
     pub(crate) fn c1(&self) -> &G1Projective {
@@ -46,21 +73,6 @@ impl Ciphertext {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8; 96]) -> Result<Ciphertext> {
-        let mut c1_bytes = [0u8; 48];
-        let mut c2_bytes = [0u8; 48];
-
-        c1_bytes.copy_from_slice(&bytes[..48]);
-        c2_bytes.copy_from_slice(&bytes[48..]);
-
-        let c1 =
-            try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
-        let c2 =
-            try_deserialize_g1_projective(&c2_bytes, || "failed to deserialize compressed c2")?;
-
-        Ok(Ciphertext(c1, c2))
     }
 }
 
@@ -436,7 +448,7 @@ mod tests {
         ]
         .concat();
         assert_eq!(expected_bytes, bytes);
-        assert_eq!(ciphertext, Ciphertext::from_bytes(&bytes).unwrap())
+        assert_eq!(ciphertext, Ciphertext::try_from(&bytes[..]).unwrap())
     }
 
     #[test]

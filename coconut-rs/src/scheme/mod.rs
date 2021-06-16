@@ -23,6 +23,7 @@ use crate::utils::try_deserialize_g1_projective;
 use bls12_381::G1Projective;
 use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
+use std::convert::TryFrom;
 
 pub mod aggregation;
 pub mod issuance;
@@ -108,7 +109,7 @@ impl BlindedSignature {
         c_tilde_bytes.copy_from_slice(&bytes[48..]);
 
         let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
-        let c_tilde = Ciphertext::from_bytes(&c_tilde_bytes)?;
+        let c_tilde = Ciphertext::try_from(&bytes[48..])?;
 
         Ok(BlindedSignature(h, c_tilde))
     }

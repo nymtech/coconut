@@ -66,8 +66,7 @@ impl TryFrom<&[u8]> for BlindSignRequest {
         for i in 0..c_len as usize {
             let start = 56 + i * 96;
             let end = start + 96;
-            let c_bytes = bytes[start..end].try_into().unwrap();
-            attributes_ciphertexts.push(Ciphertext::from_bytes(&c_bytes)?)
+            attributes_ciphertexts.push(Ciphertext::try_from(&bytes[start..end])?)
         }
 
         let pi_s = ProofCmCs::from_bytes(&bytes[56 + c_len as usize * 96..])?;
