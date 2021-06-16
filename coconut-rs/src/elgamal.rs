@@ -48,7 +48,6 @@ impl TryFrom<&[u8]> for Ciphertext {
         let c1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
         let c2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
-
         let c1 =
             try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
         let c2 =
