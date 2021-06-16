@@ -107,7 +107,7 @@ pub struct VerificationKey {
 }
 
 impl TryFrom<&[u8]> for VerificationKey {
-    type Error = crate::error::Error;
+    type Error = Error;
 
     fn try_from(bytes: &[u8]) -> Result<VerificationKey> {
         if bytes.len() < 96 * 2 + 8 || (bytes.len() - 8) % 96 != 0 {

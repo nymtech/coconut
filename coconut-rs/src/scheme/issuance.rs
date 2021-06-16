@@ -22,6 +22,7 @@ use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
+use std::convert::TryFrom;
 use std::convert::TryInto;
 
 // TODO NAMING: double check this one
@@ -37,39 +38,10 @@ pub struct BlindSignRequest {
     pi_s: ProofCmCs,
 }
 
-impl BlindSignRequest {
-    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
-        self.pi_s.verify(
-            params,
-            pub_key,
-            &self.commitment,
-            &self.attributes_ciphertexts,
-        )
-    }
+impl TryFrom<&[u8]> for BlindSignRequest {
+    type Error = Error;
 
-    // TODO: perhaps also include pi_s.len()?
-    // to be determined once we implement serde to make sure its 1:1 compatible
-    // with bincode
-    // cm || c.len() || c || pi_s
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let cm_bytes = self.commitment.to_affine().to_compressed();
-        let c_len = self.attributes_ciphertexts.len() as u64;
-        let proof_bytes = self.pi_s.to_bytes();
-
-        let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
-
-        bytes.extend_from_slice(&cm_bytes);
-        bytes.extend_from_slice(&c_len.to_le_bytes());
-        for c in &self.attributes_ciphertexts {
-            bytes.extend_from_slice(&c.to_bytes());
-        }
-
-        bytes.extend_from_slice(&proof_bytes);
-
-        bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<BlindSignRequest> {
+    fn try_from(bytes: &[u8]) -> Result<BlindSignRequest> {
         if bytes.len() < 48 + 8 + 96 {
             return Err(Error::new(
                 ErrorKind::Deserialization,
@@ -105,6 +77,39 @@ impl BlindSignRequest {
             attributes_ciphertexts,
             pi_s,
         })
+    }
+}
+
+impl BlindSignRequest {
+    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
+        self.pi_s.verify(
+            params,
+            pub_key,
+            &self.commitment,
+            &self.attributes_ciphertexts,
+        )
+    }
+
+    // TODO: perhaps also include pi_s.len()?
+    // to be determined once we implement serde to make sure its 1:1 compatible
+    // with bincode
+    // cm || c.len() || c || pi_s
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let cm_bytes = self.commitment.to_affine().to_compressed();
+        let c_len = self.attributes_ciphertexts.len() as u64;
+        let proof_bytes = self.pi_s.to_bytes();
+
+        let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
+
+        bytes.extend_from_slice(&cm_bytes);
+        bytes.extend_from_slice(&c_len.to_le_bytes());
+        for c in &self.attributes_ciphertexts {
+            bytes.extend_from_slice(&c.to_bytes());
+        }
+
+        bytes.extend_from_slice(&proof_bytes);
+
+        bytes
     }
 }
 
@@ -286,7 +291,10 @@ mod tests {
         .unwrap();
 
         let bytes = lambda.to_bytes();
-        assert_eq!(BlindSignRequest::from_bytes(&bytes).unwrap(), lambda);
+        assert_eq!(
+            BlindSignRequest::try_from(bytes.as_slice()).unwrap(),
+            lambda
+        );
 
         let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
@@ -300,6 +308,9 @@ mod tests {
         .unwrap();
 
         let bytes = lambda.to_bytes();
-        assert_eq!(BlindSignRequest::from_bytes(&bytes).unwrap(), lambda);
+        assert_eq!(
+            BlindSignRequest::try_from(bytes.as_slice()).unwrap(),
+            lambda
+        );
     }
 }
