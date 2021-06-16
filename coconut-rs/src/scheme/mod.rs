@@ -24,6 +24,7 @@ use bls12_381::G1Projective;
 use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
 use std::convert::TryFrom;
+use std::convert::TryInto;
 
 pub mod aggregation;
 pub mod issuance;
@@ -53,11 +54,8 @@ impl TryFrom<&[u8]> for Signature {
             ));
         }
 
-        let mut sig1_bytes = [0u8; 48];
-        let mut sig2_bytes = [0u8; 48];
-
-        sig1_bytes.copy_from_slice(&bytes[..48]);
-        sig2_bytes.copy_from_slice(&bytes[48..]);
+        let sig1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
+        let sig2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
         let sig1 =
             try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
@@ -106,13 +104,14 @@ impl TryFrom<&[u8]> for BlindedSignature {
         if bytes.len() != 144 {
             return Err(Error::new(
                 ErrorKind::Deserialization,
-                format!("BlindedSignature must be exactly 144 bytes, got {}", bytes.len()),
+                format!(
+                    "BlindedSignature must be exactly 144 bytes, got {}",
+                    bytes.len()
+                ),
             ));
         }
 
-        let mut h_bytes = [0u8; 48];
-
-        h_bytes.copy_from_slice(&bytes[..48]);
+        let h_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
 
         let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
         let c_tilde = Ciphertext::try_from(&bytes[48..])?;

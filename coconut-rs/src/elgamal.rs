@@ -19,6 +19,7 @@ use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
@@ -44,11 +45,9 @@ impl TryFrom<&[u8]> for Ciphertext {
             ));
         }
 
-        let mut c1_bytes = [0u8; 48];
-        let mut c2_bytes = [0u8; 48];
+        let c1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
+        let c2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
-        c1_bytes.copy_from_slice(&bytes[..48]);
-        c2_bytes.copy_from_slice(&bytes[48..]);
 
         let c1 =
             try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
