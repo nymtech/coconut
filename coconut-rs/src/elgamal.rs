@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn private_key_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let private_key = PrivateKey(params.random_scalar());
         let bytes = private_key.to_bytes();
 
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn public_key_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let public_key = PublicKey(params.gen1() * r);
         let bytes = public_key.to_bytes();
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn ciphertext_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
         let ciphertext = Ciphertext(params.gen1() * r, params.gen1() * s);

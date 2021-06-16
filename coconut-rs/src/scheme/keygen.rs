@@ -375,7 +375,7 @@ pub struct KeyPair {
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
-pub fn keygen(params: &mut Parameters) -> KeyPair {
+pub fn keygen(params: &Parameters) -> KeyPair {
     let attributes = params.gen_hs().len();
 
     let x = params.random_scalar();

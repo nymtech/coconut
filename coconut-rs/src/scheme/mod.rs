@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn signature_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
         let signature = Signature(params.gen1() * r, params.gen1() * s);
@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn blinded_signature_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
         let t = params.random_scalar();
