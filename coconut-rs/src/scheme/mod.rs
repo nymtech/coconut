@@ -16,13 +16,15 @@
 
 use crate::elgamal;
 use crate::elgamal::Ciphertext;
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
 use crate::utils::try_deserialize_g1_projective;
 use bls12_381::G1Projective;
 use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
+use std::convert::TryFrom;
+use std::convert::TryInto;
 
 pub mod aggregation;
 pub mod issuance;
@@ -40,6 +42,30 @@ pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
 pub type Credential = Signature;
 
 pub type PartialSignature = Signature;
+
+impl TryFrom<&[u8]> for Signature {
+    type Error = crate::error::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Signature> {
+        if bytes.len() != 96 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!("Signature must be exactly 96 bytes, got {}", bytes.len()),
+            ));
+        }
+
+        let sig1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
+        let sig2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
+
+        let sig1 =
+            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
+
+        let sig2 =
+            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
+
+        Ok(Signature(sig1, sig2))
+    }
+}
 
 impl Signature {
     pub(crate) fn sig1(&self) -> &G1Projective {
@@ -65,27 +91,34 @@ impl Signature {
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
     }
-
-    pub fn from_bytes(bytes: &[u8; 96]) -> Result<Signature> {
-        let mut sig1_bytes = [0u8; 48];
-        let mut sig2_bytes = [0u8; 48];
-
-        sig1_bytes.copy_from_slice(&bytes[..48]);
-        sig2_bytes.copy_from_slice(&bytes[48..]);
-
-        let sig1 =
-            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
-
-        let sig2 =
-            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
-
-        Ok(Signature(sig1, sig2))
-    }
 }
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
+
+impl TryFrom<&[u8]> for BlindedSignature {
+    type Error = Error;
+
+    fn try_from(bytes: &[u8]) -> Result<BlindedSignature> {
+        if bytes.len() != 144 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                format!(
+                    "BlindedSignature must be exactly 144 bytes, got {}",
+                    bytes.len()
+                ),
+            ));
+        }
+
+        let h_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
+
+        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
+        let c_tilde = Ciphertext::try_from(&bytes[48..])?;
+
+        Ok(BlindedSignature(h, c_tilde))
+    }
+}
 
 impl BlindedSignature {
     pub fn unblind(self, private_key: &elgamal::PrivateKey) -> Signature {
@@ -98,19 +131,6 @@ impl BlindedSignature {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_bytes());
         bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8; 144]) -> Result<BlindedSignature> {
-        let mut h_bytes = [0u8; 48];
-        let mut c_tilde_bytes = [0u8; 96];
-
-        h_bytes.copy_from_slice(&bytes[..48]);
-        c_tilde_bytes.copy_from_slice(&bytes[48..]);
-
-        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
-        let c_tilde = Ciphertext::from_bytes(&c_tilde_bytes)?;
-
-        Ok(BlindedSignature(h, c_tilde))
     }
 }
 
@@ -319,7 +339,7 @@ mod tests {
 
     #[test]
     fn signature_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
         let signature = Signature(params.gen1() * r, params.gen1() * s);
@@ -332,12 +352,12 @@ mod tests {
         ]
         .concat();
         assert_eq!(expected_bytes, bytes);
-        assert_eq!(signature, Signature::from_bytes(&bytes).unwrap())
+        assert_eq!(signature, Signature::try_from(&bytes[..]).unwrap())
     }
 
     #[test]
     fn blinded_signature_bytes_roundtrip() {
-        let mut params = Parameters::default();
+        let params = Parameters::default();
         let r = params.random_scalar();
         let s = params.random_scalar();
         let t = params.random_scalar();
@@ -355,6 +375,6 @@ mod tests {
         ]
         .concat();
         assert_eq!(expected_bytes, bytes);
-        assert_eq!(blinded_sig, BlindedSignature::from_bytes(&bytes).unwrap())
+        assert_eq!(blinded_sig, BlindedSignature::try_from(&bytes[..]).unwrap())
     }
 }

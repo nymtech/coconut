@@ -24,6 +24,7 @@ use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, Mul};
 use group::Curve;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 
 #[cfg(feature = "serde")]
@@ -105,21 +106,10 @@ pub struct VerificationKey {
     pub(crate) beta: Vec<G2Projective>,
 }
 
-impl VerificationKey {
-    // alpha || beta.len() || beta
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let beta_len = self.beta.len() as u64;
-        let mut bytes = Vec::with_capacity(8 + (beta_len + 1) as usize * 96);
+impl TryFrom<&[u8]> for VerificationKey {
+    type Error = Error;
 
-        bytes.extend_from_slice(&self.alpha.to_affine().to_compressed());
-        bytes.extend_from_slice(&beta_len.to_le_bytes());
-        for beta in self.beta.iter() {
-            bytes.extend_from_slice(&beta.to_affine().to_compressed())
-        }
-        bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<VerificationKey> {
+    fn try_from(bytes: &[u8]) -> Result<VerificationKey> {
         if bytes.len() < 96 * 2 + 8 || (bytes.len() - 8) % 96 != 0 {
             return Err(Error::new(
                 ErrorKind::Deserialization,
@@ -235,6 +225,18 @@ impl VerificationKey {
 
     pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
         aggregate_verification_keys(sigs, indices)
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let beta_len = self.beta.len() as u64;
+        let mut bytes = Vec::with_capacity(8 + (beta_len + 1) as usize * 96);
+
+        bytes.extend_from_slice(&self.alpha.to_affine().to_compressed());
+        bytes.extend_from_slice(&beta_len.to_le_bytes());
+        for beta in self.beta.iter() {
+            bytes.extend_from_slice(&beta.to_affine().to_compressed())
+        }
+        bytes
     }
 }
 
@@ -373,7 +375,7 @@ pub struct KeyPair {
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
-pub fn keygen(params: &mut Parameters) -> KeyPair {
+pub fn keygen(params: &Parameters) -> KeyPair {
     let attributes = params.gen_hs().len();
 
     let x = params.random_scalar();
@@ -476,18 +478,18 @@ mod tests {
         let mut params1 = setup(1).unwrap();
         let mut params5 = setup(5).unwrap();
 
-        let keypair1 = keygen(&mut params1);
-        let keypair5 = keygen(&mut params5);
+        let keypair1 = &keygen(&mut params1);
+        let keypair5 = &keygen(&mut params5);
 
-        let bytes1 = keypair1.verification_key.to_bytes();
-        let bytes5 = keypair5.verification_key.to_bytes();
+        let bytes1: Vec<u8> = keypair1.verification_key.to_bytes();
+        let bytes5: Vec<u8> = keypair5.verification_key.to_bytes();
 
         assert_eq!(
-            VerificationKey::from_bytes(&bytes1).unwrap(),
+            VerificationKey::try_from(bytes1.as_slice()).unwrap(),
             keypair1.verification_key
         );
         assert_eq!(
-            VerificationKey::from_bytes(&bytes5).unwrap(),
+            VerificationKey::try_from(bytes5.as_slice()).unwrap(),
             keypair5.verification_key
         );
     }

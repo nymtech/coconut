@@ -22,6 +22,7 @@ use crate::Attribute;
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
 use core::ops::Neg;
 use group::{Curve, Group};
+use std::convert::TryFrom;
 use std::convert::TryInto;
 
 // TODO NAMING: this whole thing
@@ -37,6 +38,36 @@ pub struct Theta {
     credential: Signature,
     // pi_v
     pi_v: ProofKappaNu,
+}
+
+impl TryFrom<&[u8]> for Theta {
+    type Error = Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Theta> {
+        if bytes.len() < 240 {
+            return Err(Error::new(
+                ErrorKind::Deserialization,
+                "tried to deserialize theta with insufficient number of bytes",
+            ));
+        }
+
+        let kappa_bytes = bytes[..96].try_into().unwrap();
+        let kappa = try_deserialize_g2_projective(&kappa_bytes, || "failed to deserialize kappa")?;
+
+        let nu_bytes = bytes[96..144].try_into().unwrap();
+        let nu = try_deserialize_g1_projective(&nu_bytes, || "failed to deserialize kappa")?;
+
+        let credential = Signature::try_from(&bytes[144..240])?;
+
+        let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
+
+        Ok(Theta {
+            kappa,
+            nu,
+            credential,
+            pi_v,
+        })
+    }
 }
 
 impl Theta {
@@ -67,33 +98,6 @@ impl Theta {
         bytes.extend_from_slice(&proof_bytes);
 
         bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<Theta> {
-        if bytes.len() < 240 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize theta with insufficient number of bytes",
-            ));
-        }
-
-        let kappa_bytes = bytes[..96].try_into().unwrap();
-        let kappa = try_deserialize_g2_projective(&kappa_bytes, || "failed to deserialize kappa")?;
-
-        let nu_bytes = bytes[96..144].try_into().unwrap();
-        let nu = try_deserialize_g1_projective(&nu_bytes, || "failed to deserialize kappa")?;
-
-        let credential_bytes = bytes[144..240].try_into().unwrap();
-        let credential = Signature::from_bytes(&credential_bytes)?;
-
-        let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
-
-        Ok(Theta {
-            kappa,
-            nu,
-            credential,
-            pi_v,
-        })
     }
 }
 
@@ -252,7 +256,7 @@ mod tests {
         .unwrap();
 
         let bytes = theta.to_bytes();
-        assert_eq!(Theta::from_bytes(&bytes).unwrap(), theta);
+        assert_eq!(Theta::try_from(bytes.as_slice()).unwrap(), theta);
 
         let mut params = setup(4).unwrap();
 
@@ -268,6 +272,6 @@ mod tests {
         .unwrap();
 
         let bytes = theta.to_bytes();
-        assert_eq!(Theta::from_bytes(&bytes).unwrap(), theta);
+        assert_eq!(Theta::try_from(bytes.as_slice()).unwrap(), theta);
     }
 }

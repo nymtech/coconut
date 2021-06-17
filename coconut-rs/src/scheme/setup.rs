@@ -71,13 +71,13 @@ impl Parameters {
         &self.hs
     }
 
-    pub(crate) fn random_scalar(&mut self) -> Scalar {
+    pub(crate) fn random_scalar(&self) -> Scalar {
         // lazily-initialized thread-local random number generator, seeded by the system
         let mut rng = thread_rng();
         Scalar::random(&mut rng)
     }
 
-    pub(crate) fn n_random_scalars(&mut self, n: usize) -> Vec<Scalar> {
+    pub(crate) fn n_random_scalars(&self, n: usize) -> Vec<Scalar> {
         (0..n).map(|_| self.random_scalar()).collect()
     }
 }
