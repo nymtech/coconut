@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::proofs::ProofKappaNu;
 use crate::scheme::setup::Parameters;
 use crate::scheme::Signature;
@@ -41,21 +41,27 @@ pub struct Theta {
 }
 
 impl TryFrom<&[u8]> for Theta {
-    type Error = Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<Theta> {
         if bytes.len() < 240 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize theta with insufficient number of bytes",
+            return Err(
+                CoconutError::Deserialization(
+                format!("Tried to deserialize theta with insufficient number of bytes, expected >= 240, got {}", bytes.len()),
             ));
         }
 
         let kappa_bytes = bytes[..96].try_into().unwrap();
-        let kappa = try_deserialize_g2_projective(&kappa_bytes, || "failed to deserialize kappa")?;
+        let kappa = try_deserialize_g2_projective(
+            &kappa_bytes,
+            CoconutError::Deserialization("failed to deserialize kappa".to_string()),
+        )?;
 
         let nu_bytes = bytes[96..144].try_into().unwrap();
-        let nu = try_deserialize_g1_projective(&nu_bytes, || "failed to deserialize kappa")?;
+        let nu = try_deserialize_g1_projective(
+            &nu_bytes,
+            CoconutError::Deserialization("failed to deserialize nu".to_string()),
+        )?;
 
         let credential = Signature::try_from(&bytes[144..240])?;
 
@@ -101,7 +107,7 @@ impl Theta {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Theta> {
-        Theta::try_from(bytes) 
+        Theta::try_from(bytes)
     }
 }
 
@@ -112,15 +118,14 @@ pub fn prove_credential(
     private_attributes: &[Attribute],
 ) -> Result<Theta> {
     if private_attributes.is_empty() {
-        return Err(Error::new(
-            ErrorKind::Verification,
-            "tried to prove a credential with an empty set of private attributes",
+        return Err(CoconutError::Verification(
+            "Tried to prove a credential with an empty set of private attributes".to_string(),
         ));
     }
 
     if private_attributes.len() > verification_key.beta.len() {
-        return Err(Error::new(
-            ErrorKind::Verification,
+        return Err(
+            CoconutError::Verification(
             format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
                     verification_key.beta.len(),
                     private_attributes.len()

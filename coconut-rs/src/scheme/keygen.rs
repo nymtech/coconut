@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
@@ -45,14 +45,17 @@ pub struct SecretKey {
 }
 
 impl TryFrom<&[u8]> for SecretKey {
-    type Error = Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<SecretKey> {
         if bytes.len() < 32 * 2 + 8 || (bytes.len() - 8) % 32 != 0 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize secret key with bytes of invalid length",
-            ));
+            return Err(CoconutError::DeserializationInvalidLength {
+                actual: bytes.len(),
+                modulus_target: bytes.len() - 8,
+                target: 32 * 2 + 8,
+                modulus: 32,
+                object: "secret key".to_string(),
+            });
         }
 
         // this conversion will not fail as we are taking the same length of data
@@ -61,17 +64,21 @@ impl TryFrom<&[u8]> for SecretKey {
         let actual_ys_len = (bytes.len() - 40) / 32;
 
         if ys_len as usize != actual_ys_len {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                format!("tried to deserialize secret key with inconsistent ys len (expected {}, got {})",
-                        ys_len, actual_ys_len
-                )));
+            return Err(CoconutError::Deserialization(format!(
+                "Tried to deserialize secret key with inconsistent ys len (expected {}, got {})",
+                ys_len, actual_ys_len
+            )));
         }
 
-        let x = try_deserialize_scalar(&x_bytes, || "failed to deserialize secret key scalar")?;
-        let ys = try_deserialize_scalar_vec(ys_len, &bytes[40..], || {
-            "failed to deserialize secret key scalars"
-        })?;
+        let x = try_deserialize_scalar(
+            &x_bytes,
+            CoconutError::Deserialization("Failed to deserialize secret key scalar".to_string()),
+        )?;
+        let ys = try_deserialize_scalar_vec(
+            ys_len,
+            &bytes[40..],
+            CoconutError::Deserialization("Failed to deserialize secret key scalars".to_string()),
+        )?;
 
         Ok(SecretKey { x, ys })
     }
@@ -101,7 +108,7 @@ impl SecretKey {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey> {
-       SecretKey::try_from(bytes)
+        SecretKey::try_from(bytes)
     }
 }
 
@@ -115,14 +122,17 @@ pub struct VerificationKey {
 }
 
 impl TryFrom<&[u8]> for VerificationKey {
-    type Error = Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<VerificationKey> {
         if bytes.len() < 96 * 2 + 8 || (bytes.len() - 8) % 96 != 0 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize verification key with bytes of invalid length",
-            ));
+            return Err(CoconutError::DeserializationInvalidLength {
+                actual: bytes.len(),
+                modulus_target: bytes.len() - 8,
+                target: 96 * 2 + 8,
+                modulus: 96,
+                object: "secret key".to_string(),
+            });
         }
 
         // this conversion will not fail as we are taking the same length of data
@@ -131,25 +141,31 @@ impl TryFrom<&[u8]> for VerificationKey {
         let actual_beta_len = (bytes.len() - 104) / 96;
 
         if beta_len as usize != actual_beta_len {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                format!("tried to deserialize verification key with inconsistent beta len (expected {}, got {})",
+            return Err(
+                CoconutError::Deserialization(
+                format!("Tried to deserialize verification key with inconsistent beta len (expected {}, got {})",
                         beta_len, actual_beta_len
                 )));
         }
 
-        let alpha = try_deserialize_g2_projective(&alpha_bytes, || {
-            "failed to deserialize verification key G2 point (alpha)"
-        })?;
+        let alpha = try_deserialize_g2_projective(
+            &alpha_bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize verification key G2 point (alpha)".to_string(),
+            ),
+        )?;
 
         let mut beta = Vec::with_capacity(actual_beta_len);
         for i in 0..actual_beta_len {
             let start = 104 + i * 96;
             let end = start + 96;
             let beta_i_bytes = bytes[start..end].try_into().unwrap();
-            let beta_i = try_deserialize_g2_projective(&beta_i_bytes, || {
-                "failed to deserialize verification key G2 point (beta)"
-            })?;
+            let beta_i = try_deserialize_g2_projective(
+                &beta_i_bytes,
+                CoconutError::Deserialization(
+                    "Failed to deserialize verification key G2 point (beta)".to_string(),
+                ),
+            )?;
 
             beta.push(beta_i)
         }
@@ -412,16 +428,15 @@ pub fn ttp_keygen(
     num_authorities: u64,
 ) -> Result<Vec<KeyPair>> {
     if threshold == 0 {
-        return Err(Error::new(
-            ErrorKind::Setup,
-            "tried to generate threshold keys with a 0 threshold value",
+        return Err(CoconutError::Setup(
+            "Tried to generate threshold keys with a 0 threshold value".to_string(),
         ));
     }
 
     if threshold > num_authorities {
-        return Err(Error::new(
-            ErrorKind::Setup,
-            "tried to generate threshold keys for threshold value being higher than number of the signing authorities",
+        return Err(
+            CoconutError::Setup(
+            "Tried to generate threshold keys for threshold value being higher than number of the signing authorities".to_string(),
         ));
     }
 

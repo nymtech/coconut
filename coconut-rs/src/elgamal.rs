@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
@@ -35,23 +35,27 @@ pub type EphemeralKey = Scalar;
 pub struct Ciphertext(pub(crate) G1Projective, pub(crate) G1Projective);
 
 impl TryFrom<&[u8]> for Ciphertext {
-    type Error = crate::error::Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<Ciphertext> {
         if bytes.len() != 96 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                format!("Ciphertext must be exactly 96 bytes, got {}", bytes.len()),
-            ));
+            return Err(CoconutError::Deserialization(format!(
+                "Ciphertext must be exactly 96 bytes, got {}",
+                bytes.len()
+            )));
         }
 
         let c1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
         let c2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
-        let c1 =
-            try_deserialize_g1_projective(&c1_bytes, || "failed to deserialize compressed c1")?;
-        let c2 =
-            try_deserialize_g1_projective(&c2_bytes, || "failed to deserialize compressed c2")?;
+        let c1 = try_deserialize_g1_projective(
+            &c1_bytes,
+            CoconutError::Deserialization("Failed to deserialize compressed c1".to_string()),
+        )?;
+        let c2 = try_deserialize_g1_projective(
+            &c2_bytes,
+            CoconutError::Deserialization("Failed to deserialize compressed c2".to_string()),
+        )?;
 
         Ok(Ciphertext(c1, c2))
     }
@@ -102,9 +106,13 @@ impl PrivateKey {
     }
 
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<PrivateKey> {
-        try_deserialize_scalar(bytes, || {
-            "failed to deserialize ElGamal private key - it was not in the canonical form"
-        })
+        try_deserialize_scalar(
+            bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize ElGamal private key - it was not in the canonical form"
+                    .to_string(),
+            ),
+        )
         .map(PrivateKey)
     }
 }
@@ -140,9 +148,12 @@ impl PublicKey {
     }
 
     pub fn from_bytes(bytes: &[u8; 48]) -> Result<PublicKey> {
-        try_deserialize_g1_projective(bytes, || {
-            "failed to deserialize compressed ElGamal public key"
-        })
+        try_deserialize_g1_projective(
+            bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize compressed ElGamal public key".to_string(),
+            ),
+        )
         .map(PublicKey)
     }
 }

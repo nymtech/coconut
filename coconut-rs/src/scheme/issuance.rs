@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::elgamal::Ciphertext;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SecretKey;
@@ -39,27 +39,30 @@ pub struct BlindSignRequest {
 }
 
 impl TryFrom<&[u8]> for BlindSignRequest {
-    type Error = Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<BlindSignRequest> {
         if bytes.len() < 48 + 8 + 96 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize blind sign request with insufficient number of bytes",
-            ));
+            return Err(CoconutError::DeserializationMinLength {
+                min: 48 + 8 + 9,
+                actual: bytes.len(),
+            });
         }
 
         let cm_bytes = bytes[..48].try_into().unwrap();
-        let commitment = try_deserialize_g1_projective(&cm_bytes, || {
-            "failed to deserialize compressed commitment"
-        })?;
+        let commitment = try_deserialize_g1_projective(
+            &cm_bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize compressed commitment".to_string(),
+            ),
+        )?;
 
         let c_len = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
         if bytes[56..].len() < c_len as usize * 96 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize blind sign request with insufficient number of bytes",
-            ));
+            return Err(CoconutError::DeserializationMinLength {
+                min: c_len as usize * 96,
+                actual: bytes[56..].len(),
+            });
         }
 
         let mut attributes_ciphertexts = Vec::with_capacity(c_len as usize);
@@ -124,20 +127,18 @@ pub fn prepare_blind_sign(
     public_attributes: &[Attribute],
 ) -> Result<BlindSignRequest> {
     if private_attributes.is_empty() {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            "tried to prepare blind sign request for an empty set of private attributes",
+        return Err(CoconutError::Issuance(
+            "Tried to prepare blind sign request for an empty set of private attributes"
+                .to_string(),
         ));
     }
 
     let hs = params.gen_hs();
     if private_attributes.len() + public_attributes.len() > hs.len() {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            format!("tried to prepare blind sign request for higher than specified in setup number of attributes (max: {}, requested: {})",
-                    hs.len(),
-                    private_attributes.len() + public_attributes.len()
-            )));
+        return Err(CoconutError::IssuanceMaxAttributes {
+            max: hs.len(),
+            requested: private_attributes.len() + public_attributes.len(),
+        });
     }
 
     // prepare commitment
@@ -187,18 +188,15 @@ pub fn blind_sign(
     let hs = params.gen_hs();
 
     if num_private + public_attributes.len() > hs.len() {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            format!("tried to perform blind sign for higher than specified in setup number of attributes (max: {}, requested: {})",
-                    hs.len(),
-                    num_private + public_attributes.len()
-            )));
+        return Err(CoconutError::IssuanceMaxAttributes {
+            max: hs.len(),
+            requested: num_private + public_attributes.len(),
+        });
     }
 
     if !blind_sign_request.verify_proof(params, pub_key) {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            "failed to verify the proof of knowledge",
+        return Err(CoconutError::Issuance(
+            "Failed to verify the proof of knowledge".to_string(),
         ));
     }
 
@@ -246,12 +244,10 @@ pub fn sign(
     public_attributes: &[Attribute],
 ) -> Result<Signature> {
     if public_attributes.len() > secret_key.ys.len() {
-        return Err(Error::new(
-            ErrorKind::Issuance,
-            format!("tried to sign more attributes than allowed by the secret key (max: {}, requested: {})",
-                    secret_key.ys.len(),
-                    public_attributes.len()
-            )));
+        return Err(CoconutError::IssuanceMaxAttributes {
+            max: secret_key.ys.len(),
+            requested: public_attributes.len(),
+        });
     }
 
     // TODO: why in the python implementation this hash onto the curve is present

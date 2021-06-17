@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::utils::hash_g1;
 use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
@@ -37,9 +37,8 @@ pub struct Parameters {
 impl Parameters {
     pub fn new(num_attributes: u32) -> Result<Parameters> {
         if num_attributes == 0 {
-            return Err(Error::new(
-                ErrorKind::Setup,
-                "tried to setup the scheme for 0 attributes",
+            return Err(CoconutError::Setup(
+                "Tried to setup the scheme for 0 attributes".to_string(),
             ));
         }
 

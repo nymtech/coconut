@@ -14,7 +14,7 @@
 
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::{Signature, VerificationKey};
 use crate::utils::{hash_g1, try_deserialize_scalar, try_deserialize_scalar_vec};
@@ -282,38 +282,47 @@ impl ProofCmCs {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         // at the very minimum there must be a single attribute being proven
         if bytes.len() < 32 * 4 + 16 || (bytes.len() - 16) % 32 != 0 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize proof of ciphertexts and commitment with bytes of invalid length",
-            ));
+            return Err(
+                CoconutError::Deserialization(
+                "tried to deserialize proof of ciphertexts and commitment with bytes of invalid length".to_string())
+            );
         }
 
         let challenge_bytes = bytes[..32].try_into().unwrap();
         let rr_bytes = bytes[32..64].try_into().unwrap();
 
-        let challenge =
-            try_deserialize_scalar(&challenge_bytes, || "failed to deserialize challenge")?;
-        let response_random = try_deserialize_scalar(&rr_bytes, || {
-            "failed to deserialize the response to the random"
-        })?;
+        let challenge = try_deserialize_scalar(
+            &challenge_bytes,
+            CoconutError::Deserialization("Failed to deserialize challenge".to_string()),
+        )?;
+        let response_random = try_deserialize_scalar(
+            &rr_bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize the response to the random".to_string(),
+            ),
+        )?;
 
         let rk_len = u64::from_le_bytes(bytes[64..72].try_into().unwrap());
         if bytes[72..].len() < rk_len as usize * 32 + 8 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided",
-            ));
+            return Err(
+                CoconutError::Deserialization(
+                "tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided".to_string()),
+            );
         }
 
         let rk_end = 72 + rk_len as usize * 32;
-        let response_keys = try_deserialize_scalar_vec(rk_len, &bytes[72..rk_end], || {
-            "failed to deserialize keys response"
-        })?;
+        let response_keys = try_deserialize_scalar_vec(
+            rk_len,
+            &bytes[72..rk_end],
+            CoconutError::Deserialization("Failed to deserialize keys response".to_string()),
+        )?;
 
         let rm_len = u64::from_le_bytes(bytes[rk_end..rk_end + 8].try_into().unwrap());
-        let response_attributes = try_deserialize_scalar_vec(rm_len, &bytes[rk_end + 8..], || {
-            "failed to deserialize attributes response"
-        })?;
+        let response_attributes = try_deserialize_scalar_vec(
+            rm_len,
+            &bytes[rk_end + 8..],
+            CoconutError::Deserialization("Failed to deserialize attributes response".to_string()),
+        )?;
 
         Ok(ProofCmCs {
             challenge,
@@ -476,32 +485,42 @@ impl ProofKappaNu {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         // at the very minimum there must be a single attribute being proven
         if bytes.len() < 32 * 3 + 8 || (bytes.len() - 8) % 32 != 0 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize proof of kappa and nu with bytes of invalid length",
-            ));
+            return Err(CoconutError::DeserializationInvalidLength {
+                actual: bytes.len(),
+                modulus_target: bytes.len() - 8,
+                modulus: 32,
+                object: "kappa and nu".to_string(),
+                target: 32 * 3 + 8,
+            });
         }
 
         let challenge_bytes = bytes[..32].try_into().unwrap();
-        let challenge =
-            try_deserialize_scalar(&challenge_bytes, || "failed to deserialize challenge")?;
+        let challenge = try_deserialize_scalar(
+            &challenge_bytes,
+            CoconutError::Deserialization("Failed to deserialize challenge".to_string()),
+        )?;
 
         let rm_len = u64::from_le_bytes(bytes[32..40].try_into().unwrap());
         if bytes[40..].len() != (rm_len + 1) as usize * 32 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                "tried to deserialize proof of kappa and nu with insufficient number of bytes provided",
-            ));
+            return Err(
+                CoconutError::Deserialization(
+                    format!("Tried to deserialize proof of kappa and nu with insufficient number of bytes provided, expected {} got {}.", (rm_len + 1) as usize * 32, bytes[40..].len())
+                )
+            );
         }
 
         let rm_end = 40 + rm_len as usize * 32;
-        let response_attributes = try_deserialize_scalar_vec(rm_len, &bytes[40..rm_end], || {
-            "failed to deserialize attributes response"
-        })?;
+        let response_attributes = try_deserialize_scalar_vec(
+            rm_len,
+            &bytes[40..rm_end],
+            CoconutError::Deserialization("Failed to deserialize attributes response".to_string()),
+        )?;
 
         let blinder_bytes = bytes[rm_end..].try_into().unwrap();
-        let response_blinder =
-            try_deserialize_scalar(&blinder_bytes, || "failed to deserialize the blinder")?;
+        let response_blinder = try_deserialize_scalar(
+            &blinder_bytes,
+            CoconutError::Deserialization("failed to deserialize the blinder".to_string()),
+        )?;
 
         Ok(ProofKappaNu {
             challenge,
