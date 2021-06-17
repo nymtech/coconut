@@ -44,30 +44,10 @@ pub struct SecretKey {
     pub(crate) ys: Vec<Scalar>,
 }
 
-impl SecretKey {
-    /// Derive verification key using this secret key.
-    pub fn verification_key(&self, params: &Parameters) -> VerificationKey {
-        let g2 = params.gen2();
-        VerificationKey {
-            alpha: g2 * self.x,
-            beta: self.ys.iter().map(|y| g2 * y).collect(),
-        }
-    }
+impl TryFrom<&[u8]> for SecretKey {
+    type Error = Error;
 
-    // x || ys.len() || ys
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let ys_len = self.ys.len() as u64;
-        let mut bytes = Vec::with_capacity(8 + (ys_len + 1) as usize * 32);
-
-        bytes.extend_from_slice(&self.x.to_bytes());
-        bytes.extend_from_slice(&ys_len.to_le_bytes());
-        for y in self.ys.iter() {
-            bytes.extend_from_slice(&y.to_bytes())
-        }
-        bytes
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey> {
+    fn try_from(bytes: &[u8]) -> Result<SecretKey> {
         if bytes.len() < 32 * 2 + 8 || (bytes.len() - 8) % 32 != 0 {
             return Err(Error::new(
                 ErrorKind::Deserialization,
@@ -94,6 +74,34 @@ impl SecretKey {
         })?;
 
         Ok(SecretKey { x, ys })
+    }
+}
+
+impl SecretKey {
+    /// Derive verification key using this secret key.
+    pub fn verification_key(&self, params: &Parameters) -> VerificationKey {
+        let g2 = params.gen2();
+        VerificationKey {
+            alpha: g2 * self.x,
+            beta: self.ys.iter().map(|y| g2 * y).collect(),
+        }
+    }
+
+    // x || ys.len() || ys
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let ys_len = self.ys.len() as u64;
+        let mut bytes = Vec::with_capacity(8 + (ys_len + 1) as usize * 32);
+
+        bytes.extend_from_slice(&self.x.to_bytes());
+        bytes.extend_from_slice(&ys_len.to_le_bytes());
+        for y in self.ys.iter() {
+            bytes.extend_from_slice(&y.to_bytes())
+        }
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey> {
+       SecretKey::try_from(bytes)
     }
 }
 
@@ -237,6 +245,10 @@ impl VerificationKey {
             bytes.extend_from_slice(&beta.to_affine().to_compressed())
         }
         bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<VerificationKey> {
+        VerificationKey::try_from(bytes)
     }
 }
 

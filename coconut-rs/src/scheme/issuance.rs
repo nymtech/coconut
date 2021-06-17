@@ -110,6 +110,10 @@ impl BlindSignRequest {
 
         bytes
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<BlindedSignature> {
+        BlindedSignature::try_from(bytes)
+    }
 }
 
 /// Builds cryptographic material required for blind sign.

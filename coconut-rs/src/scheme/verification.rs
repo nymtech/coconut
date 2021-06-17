@@ -99,6 +99,10 @@ impl Theta {
 
         bytes
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Theta> {
+        Theta::try_from(bytes) 
+    }
 }
 
 pub fn prove_credential(

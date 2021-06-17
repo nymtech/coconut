@@ -91,6 +91,10 @@ impl Signature {
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Signature> {
+        Signature::try_from(bytes)
+    }
 }
 
 #[derive(Debug)]
@@ -131,6 +135,10 @@ impl BlindedSignature {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_bytes());
         bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<BlindedSignature> {
+        BlindedSignature::try_from(bytes)
     }
 }
 

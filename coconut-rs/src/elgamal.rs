@@ -72,6 +72,10 @@ impl Ciphertext {
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Ciphertext> {
+        Ciphertext::try_from(bytes)
+    }
 }
 
 /// PrivateKey used in the ElGamal encryption scheme to recover the plaintext
