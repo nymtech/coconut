@@ -16,7 +16,7 @@
 
 use crate::elgamal;
 use crate::elgamal::Ciphertext;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
 use crate::utils::try_deserialize_g1_projective;
@@ -44,24 +44,28 @@ pub type Credential = Signature;
 pub type PartialSignature = Signature;
 
 impl TryFrom<&[u8]> for Signature {
-    type Error = crate::error::Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<Signature> {
         if bytes.len() != 96 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                format!("Signature must be exactly 96 bytes, got {}", bytes.len()),
-            ));
+            return Err(CoconutError::Deserialization(format!(
+                "Signature must be exactly 96 bytes, got {}",
+                bytes.len()
+            )));
         }
 
         let sig1_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
         let sig2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
-        let sig1 =
-            try_deserialize_g1_projective(&sig1_bytes, || "failed to deserialize compressed sig1")?;
+        let sig1 = try_deserialize_g1_projective(
+            &sig1_bytes,
+            CoconutError::Deserialization("Failed to deserialize compressed sig1".to_string()),
+        )?;
 
-        let sig2 =
-            try_deserialize_g1_projective(&sig2_bytes, || "failed to deserialize compressed sig2")?;
+        let sig2 = try_deserialize_g1_projective(
+            &sig2_bytes,
+            CoconutError::Deserialization("Failed to deserialize compressed sig2".to_string()),
+        )?;
 
         Ok(Signature(sig1, sig2))
     }
@@ -91,6 +95,10 @@ impl Signature {
         bytes[48..].copy_from_slice(&self.1.to_affine().to_compressed());
         bytes
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Signature> {
+        Signature::try_from(bytes)
+    }
 }
 
 #[derive(Debug)]
@@ -98,22 +106,22 @@ impl Signature {
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
 
 impl TryFrom<&[u8]> for BlindedSignature {
-    type Error = Error;
+    type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<BlindedSignature> {
         if bytes.len() != 144 {
-            return Err(Error::new(
-                ErrorKind::Deserialization,
-                format!(
-                    "BlindedSignature must be exactly 144 bytes, got {}",
-                    bytes.len()
-                ),
-            ));
+            return Err(CoconutError::Deserialization(format!(
+                "BlindedSignature must be exactly 144 bytes, got {}",
+                bytes.len()
+            )));
         }
 
         let h_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
 
-        let h = try_deserialize_g1_projective(&h_bytes, || "failed to deserialize compressed h")?;
+        let h = try_deserialize_g1_projective(
+            &h_bytes,
+            CoconutError::Deserialization("Failed to deserialize compressed h".to_string()),
+        )?;
         let c_tilde = Ciphertext::try_from(&bytes[48..])?;
 
         Ok(BlindedSignature(h, c_tilde))
@@ -131,6 +139,10 @@ impl BlindedSignature {
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());
         bytes[48..].copy_from_slice(&self.1.to_bytes());
         bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<BlindedSignature> {
+        BlindedSignature::try_from(bytes)
     }
 }
 

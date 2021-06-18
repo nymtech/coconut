@@ -12,74 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::{self, Display, Formatter};
-
+use thiserror::Error;
 /// A `Result` alias where the `Err` case is `coconut_rs::Error`.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, CoconutError>;
 
-/// Possible Coconut errors
-#[derive(Debug)]
-pub struct Error {
-    kind: ErrorKind,
-    error: Box<dyn std::error::Error + Send + Sync>,
-}
-
-impl std::error::Error for Error {}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum ErrorKind {
-    /// Error originating from the 'setup' phase of the protocol.
-    Setup,
-
-    /// Error originating from the 'keygen' phase of the protocol.
+#[derive(Error, Debug)]
+pub enum CoconutError {
+    #[error("Setup error: {0}")]
+    Setup(String),
+    #[error("encountered error during keygen")]
     Keygen,
-
-    /// Error originating from the 'issuance' phase of the protocol.
-    Issuance,
-
-    /// Error originating from the 'interpolation' phase of the protocol.
-    Interpolation,
-
-    /// Error originating from the 'aggregation' phase of the protocol.
-    Aggregation,
-
-    /// Error originating from the 'verification' phase of the protocol.
-    Verification,
-
-    /// Error originating from deserialization of elements.
-    Deserialization,
-}
-
-impl Display for ErrorKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ErrorKind::Setup => write!(f, "encountered error during setup"),
-            ErrorKind::Keygen => write!(f, "encountered error during keygen"),
-            ErrorKind::Issuance => write!(f, "encountered error during signature issuance"),
-            ErrorKind::Interpolation => {
-                write!(f, "encountered error during lagrange interpolation")
-            }
-            ErrorKind::Aggregation => write!(f, "encountered error during aggregation"),
-            ErrorKind::Verification => write!(f, "encountered error during verification"),
-            ErrorKind::Deserialization => write!(f, "encountered error during deserialization"),
-        }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} - {}", self.kind, self.error)
-    }
-}
-
-impl Error {
-    pub fn new<E>(kind: ErrorKind, error: E) -> Self
-    where
-        E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    {
-        Error {
-            kind,
-            error: error.into(),
-        }
-    }
+    #[error("Issuance related error: {0}")]
+    Issuance(String),
+    #[error("Tried to prepare blind sign request for higher than specified number of attributes (max: {}, requested: {})", max, requested)]
+    IssuanceMaxAttributes { max: usize, requested: usize },
+    #[error("Interpolation error: {0}")]
+    Interpolation(String),
+    #[error("Aggregation error: {0}")]
+    Aggregation(String),
+    #[error("Verification error: {0}")]
+    Verification(String),
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+    #[error(
+        "Deserailization error, expected at least {} bytes, got {}",
+        min,
+        actual
+    )]
+    DeserializationMinLength { min: usize, actual: usize },
+    #[error("Tried to deserialize {object} with bytes of invalid length. Expected {actual} < {} or {modulus_target} % {modulus} == 0")]
+    DeserializationInvalidLength {
+        actual: usize,
+        target: usize,
+        modulus_target: usize,
+        modulus: usize,
+        object: String,
+    },
 }

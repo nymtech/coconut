@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::{PartialSignature, Signature, SignatureShare, SignerIndex, VerificationKey};
 use crate::utils::perform_lagrangian_interpolation_at_origin;
 use bls12_381::Scalar;
@@ -38,18 +38,12 @@ where
 {
     fn aggregate(aggregatable: &[T], indices: Option<&[u64]>) -> Result<T> {
         if aggregatable.is_empty() {
-            return Err(Error::new(
-                ErrorKind::Aggregation,
-                "tried to perform aggregation of an empty set of values",
-            ));
+            return Err(CoconutError::Aggregation("Empty set of values".to_string()));
         }
 
         if let Some(indices) = indices {
             if !Self::check_unique_indices(indices) {
-                return Err(Error::new(
-                    ErrorKind::Aggregation,
-                    "tried to perform aggregation on a set of non-unique indices",
-                ));
+                return Err(CoconutError::Aggregation("Non-unique indices".to_string()));
             }
             perform_lagrangian_interpolation_at_origin(indices, aggregatable)
         } else {
@@ -63,12 +57,7 @@ impl Aggregatable for PartialSignature {
     fn aggregate(sigs: &[PartialSignature], indices: Option<&[u64]>) -> Result<Signature> {
         let h = sigs
             .get(0)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Aggregation,
-                    "tried to aggregate empty set of signatures",
-                )
-            })?
+            .ok_or_else(|| CoconutError::Aggregation("Empty set of signatures".to_string()))?
             .sig1();
 
         // TODO: is it possible to avoid this allocation?
@@ -89,9 +78,8 @@ pub fn aggregate_verification_keys(
     indices: Option<&[SignerIndex]>,
 ) -> Result<VerificationKey> {
     if !check_same_key_size(keys) {
-        return Err(Error::new(
-            ErrorKind::Aggregation,
-            "tried to aggregate verification keys of different sizes",
+        return Err(CoconutError::Aggregation(
+            "Verification keys are of different sizes".to_string(),
         ));
     }
     Aggregatable::aggregate(keys, indices)

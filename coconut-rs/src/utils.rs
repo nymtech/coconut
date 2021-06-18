@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::G1HashDigest;
@@ -98,16 +98,15 @@ where
     for<'a> &'a T: Mul<Scalar, Output = T>,
 {
     if points.is_empty() || values.is_empty() {
-        return Err(Error::new(
-            ErrorKind::Interpolation,
-            "tried to perform lagrangian interpolation for an empty set of coordinates",
+        return Err(CoconutError::Interpolation(
+            "Tried to perform lagrangian interpolation for an empty set of coordinates".to_string(),
         ));
     }
 
     if points.len() != values.len() {
-        return Err(Error::new(
-            ErrorKind::Interpolation,
-            "tried to perform lagrangian interpolation for an incomplete set of coordinates",
+        return Err(CoconutError::Interpolation(
+            "Tried to perform lagrangian interpolation for an incomplete set of coordinates"
+                .to_string(),
         ));
     }
 
@@ -178,24 +177,20 @@ where
     }
 }
 
-pub(crate) fn try_deserialize_scalar_vec<E, F>(
+pub(crate) fn try_deserialize_scalar_vec(
     expected_len: u64,
     bytes: &[u8],
-    err: F,
-) -> Result<Vec<Scalar>>
-where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    F: FnOnce() -> E,
-{
+    err: CoconutError,
+) -> Result<Vec<Scalar>> {
     if bytes.len() != expected_len as usize * 32 {
-        return Err(Error::new(ErrorKind::Deserialization, err()));
+        return Err(err);
     }
 
     let mut out = Vec::with_capacity(expected_len as usize);
     for i in 0..expected_len as usize {
         let s_bytes = bytes[i * 32..(i + 1) * 32].try_into().unwrap();
         let s = match Into::<Option<Scalar>>::into(Scalar::from_bytes(&s_bytes)) {
-            None => return Err(Error::new(ErrorKind::Deserialization, err())),
+            None => return Err(err),
             Some(scalar) => scalar,
         };
         out.push(s)
@@ -204,32 +199,25 @@ where
     Ok(out)
 }
 
-pub(crate) fn try_deserialize_scalar<E, F>(bytes: &[u8; 32], err: F) -> Result<Scalar>
-where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    F: FnOnce() -> E,
-{
-    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes))
-        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
+pub(crate) fn try_deserialize_scalar(bytes: &[u8; 32], err: CoconutError) -> Result<Scalar> {
+    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes)).ok_or(err)
 }
 
-pub(crate) fn try_deserialize_g1_projective<E, F>(bytes: &[u8; 48], err: F) -> Result<G1Projective>
-where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    F: FnOnce() -> E,
-{
+pub(crate) fn try_deserialize_g1_projective(
+    bytes: &[u8; 48],
+    err: CoconutError,
+) -> Result<G1Projective> {
     Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
-        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
+        .ok_or(err)
         .map(G1Projective::from)
 }
 
-pub(crate) fn try_deserialize_g2_projective<E, F>(bytes: &[u8; 96], err: F) -> Result<G2Projective>
-where
-    E: Into<Box<dyn std::error::Error + Send + Sync>>,
-    F: FnOnce() -> E,
-{
+pub(crate) fn try_deserialize_g2_projective(
+    bytes: &[u8; 96],
+    err: CoconutError,
+) -> Result<G2Projective> {
     Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&bytes))
-        .ok_or_else(|| Error::new(ErrorKind::Deserialization, err()))
+        .ok_or(err)
         .map(G2Projective::from)
 }
 
