@@ -30,7 +30,7 @@ fn main() -> Result<(), CoconutError> {
         .collect();
 
     // aggregate verification keys
-    let verification_key = aggregate_verification_keys(&verification_keys, Some(&[1,2,3]))?;
+    let verification_key = aggregate_verification_keys(&verification_keys, Some(&[1, 2, 3]))?;
 
     // generate blinded signatures
     let mut blinded_signatures = Vec::new();
@@ -65,12 +65,7 @@ fn main() -> Result<(), CoconutError> {
 
     // Randomize credentials and generate any cryptographic material to verify them
 
-    let theta = prove_credential(
-        &params,
-        &verification_key,
-        &signature,
-        &private_attributes,
-    )?;
+    let theta = prove_credential(&params, &verification_key, &signature, &private_attributes)?;
 
     // Verify credentials
 

@@ -24,22 +24,22 @@ mod tests;
 mod utils;
 
 pub use elgamal::elgamal_keygen;
+pub use elgamal::ElGamalKeyPair;
 pub use error::CoconutError;
 pub use scheme::aggregation::aggregate_signature_shares;
 pub use scheme::aggregation::aggregate_verification_keys;
 pub use scheme::issuance::blind_sign;
 pub use scheme::issuance::prepare_blind_sign;
 pub use scheme::keygen::ttp_keygen;
+pub use scheme::keygen::KeyPair;
 pub use scheme::keygen::VerificationKey;
 pub use scheme::setup::setup;
+pub use scheme::setup::Parameters;
 pub use scheme::verification::prove_credential;
 pub use scheme::verification::verify_credential;
 pub use scheme::BlindedSignature;
 pub use scheme::Signature;
 pub use scheme::SignatureShare;
-pub use scheme::keygen::KeyPair;
-pub use elgamal::ElGamalKeyPair;
-pub use scheme::setup::Parameters;
 
 pub type Attribute = Scalar;
 
