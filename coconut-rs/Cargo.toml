@@ -36,6 +36,7 @@ default-features = false
 
 [dev-dependencies]
 criterion = "0.3"
+doc-comment = "0.3"
 
 [dev-dependencies.bincode]
 version = "1"

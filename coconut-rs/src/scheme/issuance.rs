@@ -17,7 +17,7 @@ use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SecretKey;
-use crate::scheme::{BlindedSignature, Signature};
+use crate::scheme::{BlindedSignature};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, Scalar};
@@ -121,7 +121,7 @@ impl BlindSignRequest {
 
 /// Builds cryptographic material required for blind sign.
 pub fn prepare_blind_sign(
-    params: &mut Parameters,
+    params: &Parameters,
     pub_key: &elgamal::PublicKey,
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
@@ -178,7 +178,7 @@ pub fn prepare_blind_sign(
 }
 
 pub fn blind_sign(
-    params: &mut Parameters,
+    params: &Parameters,
     secret_key: &SecretKey,
     pub_key: &elgamal::PublicKey,
     blind_sign_request: &BlindSignRequest,
@@ -238,6 +238,10 @@ pub fn blind_sign(
 // They only exist to have a simpler and smaller code snippets to test
 // basic functionalities.
 /// Creates a Coconut Signature under a given secret key on a set of public attributes only.
+#[cfg(test)]
+use crate::Signature;
+
+#[cfg(test)]
 pub fn sign(
     params: &mut Parameters,
     secret_key: &SecretKey,
@@ -279,7 +283,7 @@ mod tests {
         let mut params = Parameters::new(1).unwrap();
         let public_attributes = params.n_random_scalars(0);
         let private_attributes = params.n_random_scalars(1);
-        let elgamal_keypair = elgamal::keygen(&mut params);
+        let elgamal_keypair = elgamal::elgamal_keygen(&params);
 
         let lambda = prepare_blind_sign(
             &mut params,

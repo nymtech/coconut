@@ -38,8 +38,6 @@ pub type SignerIndex = u64;
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Signature(pub(crate) G1Projective, pub(crate) G1Projective);
-// just a type alias for ease of use
-pub type Credential = Signature;
 
 pub type PartialSignature = Signature;
 
@@ -80,7 +78,7 @@ impl Signature {
         &self.1
     }
 
-    pub fn randomise(&self, params: &mut Parameters) -> Signature {
+    pub fn randomise(&self, params: &Parameters) -> Signature {
         let r = params.random_scalar();
         Signature(self.0 * r, self.1 * r)
     }
@@ -185,26 +183,26 @@ mod tests {
 
         let keypair1 = keygen(&mut params);
         let keypair2 = keygen(&mut params);
-        let sig1 = sign(&mut params, &keypair1.secret_key, &attributes).unwrap();
-        let sig2 = sign(&mut params, &keypair2.secret_key, &attributes).unwrap();
+        let sig1 = sign(&mut params, &keypair1.secret_key(), &attributes).unwrap();
+        let sig2 = sign(&mut params, &keypair2.secret_key(), &attributes).unwrap();
 
         assert!(verify(
             &params,
-            &keypair1.verification_key,
+            &keypair1.verification_key(),
             &attributes,
             &sig1,
         ));
 
         assert!(!verify(
             &params,
-            &keypair2.verification_key,
+            &keypair2.verification_key(),
             &attributes,
             &sig1,
         ));
 
         assert!(!verify(
             &params,
-            &keypair1.verification_key,
+            &keypair1.verification_key(),
             &attributes,
             &sig2,
         ));
@@ -215,7 +213,7 @@ mod tests {
         let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
-        let elgamal_keypair = elgamal::keygen(&mut params);
+        let elgamal_keypair = elgamal::elgamal_keygen(&mut params);
 
         let keypair1 = keygen(&mut params);
         let keypair2 = keygen(&mut params);
@@ -230,7 +228,7 @@ mod tests {
 
         let sig1 = blind_sign(
             &mut params,
-            &keypair1.secret_key,
+            &keypair1.secret_key(),
             elgamal_keypair.public_key(),
             &lambda,
             &public_attributes,
@@ -239,7 +237,7 @@ mod tests {
         .unblind(elgamal_keypair.private_key());
         let sig2 = blind_sign(
             &mut params,
-            &keypair2.secret_key,
+            &keypair2.secret_key(),
             elgamal_keypair.public_key(),
             &lambda,
             &public_attributes,
@@ -249,14 +247,14 @@ mod tests {
 
         let theta1 = prove_credential(
             &mut params,
-            &keypair1.verification_key,
+            &keypair1.verification_key(),
             &sig1,
             &private_attributes,
         )
         .unwrap();
         let theta2 = prove_credential(
             &mut params,
-            &keypair2.verification_key,
+            &keypair2.verification_key(),
             &sig2,
             &private_attributes,
         )
@@ -264,21 +262,21 @@ mod tests {
 
         assert!(verify_credential(
             &params,
-            &keypair1.verification_key,
+            &keypair1.verification_key(),
             &theta1,
             &public_attributes,
         ));
 
         assert!(verify_credential(
             &params,
-            &keypair2.verification_key,
+            &keypair2.verification_key(),
             &theta2,
             &public_attributes,
         ));
 
         assert!(!verify_credential(
             &params,
-            &keypair1.verification_key,
+            &keypair1.verification_key(),
             &theta2,
             &public_attributes,
         ));
@@ -289,7 +287,7 @@ mod tests {
         let mut params = Parameters::new(4).unwrap();
         let public_attributes = params.n_random_scalars(2);
         let private_attributes = params.n_random_scalars(2);
-        let elgamal_keypair = elgamal::keygen(&mut params);
+        let elgamal_keypair = elgamal::elgamal_keygen(&params);
 
         let keypairs = ttp_keygen(&mut params, 2, 3).unwrap();
 
@@ -306,7 +304,7 @@ mod tests {
             .map(|keypair| {
                 blind_sign(
                     &mut params,
-                    &keypair.secret_key,
+                    &keypair.secret_key(),
                     elgamal_keypair.public_key(),
                     &lambda,
                     &public_attributes,
@@ -318,7 +316,7 @@ mod tests {
 
         let vks = keypairs
             .into_iter()
-            .map(|keypair| keypair.verification_key)
+            .map(|keypair| keypair.verification_key())
             .collect::<Vec<_>>();
 
         let aggr_vk = aggregate_verification_keys(&vks[..2], Some(&[1, 2])).unwrap();

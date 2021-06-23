@@ -112,7 +112,7 @@ impl Theta {
 }
 
 pub fn prove_credential(
-    params: &mut Parameters,
+    params: &Parameters,
     verification_key: &VerificationKey,
     signature: &Signature,
     private_attributes: &[Attribute],
@@ -217,6 +217,8 @@ pub fn verify_credential(
     ) && !bool::from(theta.credential.0.is_identity())
 }
 
+// Used in tests only
+#[cfg(test)]
 pub fn verify(
     params: &Parameters,
     verification_key: &VerificationKey,
@@ -258,7 +260,7 @@ mod tests {
 
         let theta = prove_credential(
             &mut params,
-            &keypair.verification_key,
+            &keypair.verification_key(),
             &signature,
             &private_attributes,
         )
@@ -274,7 +276,7 @@ mod tests {
 
         let theta = prove_credential(
             &mut params,
-            &keypair.verification_key,
+            &keypair.verification_key(),
             &signature,
             &private_attributes,
         )

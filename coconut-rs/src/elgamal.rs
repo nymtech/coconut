@@ -62,11 +62,11 @@ impl TryFrom<&[u8]> for Ciphertext {
 }
 
 impl Ciphertext {
-    pub(crate) fn c1(&self) -> &G1Projective {
+    pub fn c1(&self) -> &G1Projective {
         &self.0
     }
 
-    pub(crate) fn c2(&self) -> &G1Projective {
+    pub fn c2(&self) -> &G1Projective {
         &self.1
     }
 
@@ -130,7 +130,7 @@ impl PublicKey {
     /// as it is required by the Coconut Scheme to create proofs of knowledge.
     pub fn encrypt(
         &self,
-        params: &mut Parameters,
+        params: &Parameters,
         h: &G1Projective,
         msg: &Scalar,
     ) -> (Ciphertext, EphemeralKey) {
@@ -175,12 +175,12 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a PublicKey {
 }
 
 /// A convenient wrapper for both keys of the ElGamal keypair
-pub struct KeyPair {
+pub struct ElGamalKeyPair {
     private_key: PrivateKey,
     public_key: PublicKey,
 }
 
-impl KeyPair {
+impl ElGamalKeyPair {
     pub fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
@@ -191,11 +191,11 @@ impl KeyPair {
 }
 
 /// Generate a fresh ElGamal keypair using the group generator specified by the provided [Parameters]
-pub fn keygen(params: &mut Parameters) -> KeyPair {
+pub fn elgamal_keygen(params: &Parameters) -> ElGamalKeyPair {
     let private_key = params.random_scalar();
     let gamma = params.gen1() * private_key;
 
-    KeyPair {
+    ElGamalKeyPair {
         private_key: PrivateKey(private_key),
         public_key: PublicKey(gamma),
     }
@@ -372,8 +372,8 @@ mod tests {
 
     #[test]
     fn keygen() {
-        let mut params = Parameters::default();
-        let keypair = super::keygen(&mut params);
+        let params = Parameters::default();
+        let keypair = super::elgamal_keygen(&params);
 
         let expected = params.gen1() * keypair.private_key.0;
         let gamma = keypair.public_key.0;
@@ -385,14 +385,14 @@ mod tests {
 
     #[test]
     fn encryption() {
-        let mut params = Parameters::default();
-        let keypair = super::keygen(&mut params);
+        let params = Parameters::default();
+        let keypair = super::elgamal_keygen(&params);
 
         let r = params.random_scalar();
         let h = params.gen1() * r;
         let m = params.random_scalar();
 
-        let (ciphertext, ephemeral_key) = keypair.public_key.encrypt(&mut params, &h, &m);
+        let (ciphertext, ephemeral_key) = keypair.public_key.encrypt(&params, &h, &m);
 
         let expected_c1 = params.gen1() * ephemeral_key;
         assert_eq!(expected_c1, ciphertext.0, "c1 should be equal to g1^k");
@@ -406,14 +406,14 @@ mod tests {
 
     #[test]
     fn decryption() {
-        let mut params = Parameters::default();
-        let keypair = super::keygen(&mut params);
+        let params = Parameters::default();
+        let keypair = super::elgamal_keygen(&params);
 
         let r = params.random_scalar();
         let h = params.gen1() * r;
         let m = params.random_scalar();
 
-        let (ciphertext, _) = keypair.public_key.encrypt(&mut params, &h, &m);
+        let (ciphertext, _) = keypair.public_key.encrypt(&params, &h, &m);
         let dec = keypair.private_key.decrypt(&ciphertext);
 
         let expected = h * m;

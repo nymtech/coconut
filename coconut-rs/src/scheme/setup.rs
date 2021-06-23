@@ -76,7 +76,7 @@ impl Parameters {
         Scalar::random(&mut rng)
     }
 
-    pub(crate) fn n_random_scalars(&self, n: usize) -> Vec<Scalar> {
+    pub fn n_random_scalars(&self, n: usize) -> Vec<Scalar> {
         (0..n).map(|_| self.random_scalar()).collect()
     }
 }

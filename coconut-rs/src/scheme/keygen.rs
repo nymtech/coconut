@@ -35,7 +35,7 @@ use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 // #[cfg(feature = "serde")]
 // use crate::utils::ScalarDef;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecretKey {
@@ -269,11 +269,21 @@ impl VerificationKey {
 }
 
 pub struct KeyPair {
-    pub secret_key: SecretKey,
-    pub verification_key: VerificationKey,
+    secret_key: SecretKey,
+    verification_key: VerificationKey,
 
     /// Optional index value specifying polynomial point used during threshold key generation.
     pub index: Option<SignerIndex>,
+}
+
+impl KeyPair {
+    pub fn secret_key(&self) -> SecretKey {
+        self.secret_key.clone()
+    }
+
+    pub fn verification_key(&self) -> VerificationKey {
+        self.verification_key.clone()
+    }
 }
 
 // #[cfg(feature = "serde")]
@@ -403,6 +413,7 @@ pub struct KeyPair {
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
+#[cfg(test)]
 pub fn keygen(params: &Parameters) -> KeyPair {
     let attributes = params.gen_hs().len();
 
@@ -423,7 +434,7 @@ pub fn keygen(params: &Parameters) -> KeyPair {
 /// such that they support threshold aggregation by `threshold` number of parties.
 /// It is expected that this procedure is executed by a Trusted Third Party.
 pub fn ttp_keygen(
-    params: &mut Parameters,
+    params: &Parameters,
     threshold: u64,
     num_authorities: u64,
 ) -> Result<Vec<KeyPair>> {
