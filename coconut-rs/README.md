@@ -87,4 +87,10 @@ fn main() -> Result<(), CoconutError> {
 }
 ```
 
-+ [Interface reference](https://github.com/asonnino/coconut/blob/master/coconut/scheme.py)
+## Benchmarks
+
++ [aggretage_signature_shares](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/aggregate_signature_shares/report/index.html)
+
+## References
+
++ [Public interface](https://github.com/asonnino/coconut/blob/master/coconut/scheme.py)

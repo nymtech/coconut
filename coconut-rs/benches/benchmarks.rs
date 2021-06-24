@@ -81,7 +81,8 @@ fn bench_e2e(c: &mut Criterion) {
         &elgamal_keypair.public_key(),
         &private_attributes,
         &public_attributes,
-    ).unwrap();
+    )
+    .unwrap();
 
     c.bench_function("prepare_blind_sign", |b| {
         b.iter(|| {
@@ -90,7 +91,8 @@ fn bench_e2e(c: &mut Criterion) {
                 &elgamal_keypair.public_key(),
                 &private_attributes,
                 &public_attributes,
-            ).unwrap();
+            )
+            .unwrap();
         })
     });
 
@@ -105,7 +107,8 @@ fn bench_e2e(c: &mut Criterion) {
         .collect();
 
     // aggregate verification keys
-    let verification_key = aggregate_verification_keys(&verification_keys, Some(&[1, 2, 3])).unwrap();
+    let verification_key =
+        aggregate_verification_keys(&verification_keys, Some(&[1, 2, 3])).unwrap();
 
     c.bench_function("aggregate_verification_keys", |b| {
         b.iter(|| aggregate_verification_keys(&verification_keys, Some(&[1, 2, 3])))
@@ -124,7 +127,8 @@ fn bench_e2e(c: &mut Criterion) {
             &elgamal_keypair.public_key(),
             &blind_sign_request,
             &public_attributes,
-        ).unwrap();
+        )
+        .unwrap();
         blinded_signatures.push(blinded_signature)
     }
 
@@ -171,7 +175,8 @@ fn bench_e2e(c: &mut Criterion) {
     });
 
     // Randomize credentials and generate any cryptographic material to verify them
-    let theta = prove_credential(&params, &verification_key, &signature, &private_attributes).unwrap();
+    let theta =
+        prove_credential(&params, &verification_key, &signature, &private_attributes).unwrap();
 
     c.bench_function("prove_credential", |b| {
         b.iter(|| {
