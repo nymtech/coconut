@@ -89,7 +89,16 @@ fn main() -> Result<(), CoconutError> {
 
 ## Benchmarks
 
-+ [aggretage_signature_shares](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/aggregate_signature_shares/report/index.html)
++ [aggregate_signature_shares](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/aggregate_signature_shares/report/index.html)
++ [aggregate_verification_keys](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/aggregate_verification_keys/report/index.html)
++ [blind_sign](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/blind_sign/report/index.html)
++ [elgamal_keypair](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/elgamal_keygen/report/index.html)
++ [prepare_blind_sign](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/prepare_blind_sign/report/index.html)
++ [prove_credential](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/prove_credential/report/index.html)
++ [ttp_keygen](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/ttp_keygen/report/index.html)
++ [unblind](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/unblind/report/index.html)
++ [verify_credential](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/verify_credential/report/index.html)
+
 
 ## References
 
