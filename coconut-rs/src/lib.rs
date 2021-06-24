@@ -30,6 +30,7 @@ pub use scheme::aggregation::aggregate_signature_shares;
 pub use scheme::aggregation::aggregate_verification_keys;
 pub use scheme::issuance::blind_sign;
 pub use scheme::issuance::prepare_blind_sign;
+pub use scheme::issuance::BlindSignRequest;
 pub use scheme::keygen::ttp_keygen;
 pub use scheme::keygen::KeyPair;
 pub use scheme::keygen::VerificationKey;
