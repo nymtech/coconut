@@ -1,8 +1,8 @@
-use coconut_rs::scheme::issuance::{blind_sign, prepare_blind_sign};
-use coconut_rs::scheme::keygen::KeyPair;
-use coconut_rs::scheme::setup::Parameters;
-use coconut_rs::scheme::verification::{prove_credential, verify_credential};
-use coconut_rs::scheme::{BlindedSignature, Signature, SignatureShare, VerificationKey};
+use coconut_rs::{blind_sign, prepare_blind_sign, aggregate_signature_shares, aggregate_verification_keys, ttp_keygen};
+use coconut_rs::KeyPair;
+use coconut_rs::Parameters;
+use coconut_rs::{prove_credential, verify_credential};
+use coconut_rs::{BlindedSignature, Signature, SignatureShare, VerificationKey};
 use coconut_rs::{elgamal, Attribute};
 use digest::Digest;
 use rand::seq::SliceRandom;
@@ -21,7 +21,7 @@ struct App {
 
 impl App {
     pub fn new(mut params: Parameters, authority_keys: Vec<KeyPair>, threshold: u64) -> Self {
-        let client_elgamal = elgamal::keygen(&mut params);
+        let client_elgamal = elgamal::elgamal_keygen(&mut params);
         App {
             params,
             authority_keys,
@@ -37,7 +37,7 @@ impl App {
                 "[{}] [t = {}] - {}",
                 i + 1,
                 self.threshold,
-                format_authority(&key.verification_key)
+                format_authority(&key.verification_key())
             )
         })
     }
@@ -64,7 +64,7 @@ impl App {
         for keypair in &self.authority_keys {
             let sig = blind_sign(
                 &mut self.params,
-                &keypair.secret_key,
+                &keypair.secret_key(),
                 self.client_elgamal.public_key(),
                 &blind_sign_request,
                 &public_scalars,
@@ -86,12 +86,12 @@ impl App {
             .iter()
             .map(|&id| {
                 self.authority_keys[id as usize - 1]
-                    .verification_key
+                    .verification_key()
                     .clone()
             })
             .collect();
 
-        coconut_rs::scheme::aggregation::aggregate_verification_keys(&target_vks, Some(&indices))
+        aggregate_verification_keys(&target_vks, Some(&indices))
             .expect("failed to aggregate signatures")
     }
 
@@ -259,7 +259,7 @@ fn aggregate_signatures(unoredered_sigs: &[Signature], indices: &[u64]) -> Signa
         .map(|&id| SignatureShare::new(unoredered_sigs[id as usize - 1], id))
         .collect();
 
-    coconut_rs::scheme::aggregation::aggregate_signature_shares(&target_sigs)
+    aggregate_signature_shares(&target_sigs)
         .expect("failed to aggregate signatures")
 }
 
@@ -301,8 +301,8 @@ fn main() {
         "Generating keys for {} authorities (aggregation threshold of {}) ...",
         n, t
     );
-    let mut params = coconut_rs::scheme::setup::Parameters::new(attributes).unwrap();
-    let keys = coconut_rs::scheme::keygen::ttp_keygen(&mut params, t, n).unwrap();
+    let mut params = Parameters::new(attributes).unwrap();
+    let keys = ttp_keygen(&mut params, t, n).unwrap();
     let mut app = App::new(params, keys, t);
 
     app.print_authorities();

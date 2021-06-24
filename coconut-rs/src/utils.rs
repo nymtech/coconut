@@ -32,14 +32,14 @@ pub struct Polynomial {
 impl Polynomial {
     // for polynomial of degree n, we generate n+1 values
     // (for example for degree 1, like y = x + 2, we need [2,1])
-    pub(crate) fn new_random(params: &mut Parameters, degree: u64) -> Self {
+    pub fn new_random(params: &Parameters, degree: u64) -> Self {
         Polynomial {
             coefficients: params.n_random_scalars((degree + 1) as usize),
         }
     }
 
     /// Evaluates the polynomial at point x.
-    pub(crate) fn evaluate(&self, x: &Scalar) -> Scalar {
+    pub fn evaluate(&self, x: &Scalar) -> Scalar {
         if self.coefficients.is_empty() {
             Scalar::zero()
         // if x is zero then we can ignore most of the expensive computation and

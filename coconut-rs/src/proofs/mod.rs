@@ -96,7 +96,7 @@ where
 impl ProofCmCs {
     /// Construct non-interactive zero-knowledge proof of correctness of the ciphertexts and the commitment.
     pub(crate) fn construct(
-        params: &mut Parameters,
+        params: &Parameters,
         pub_key: &elgamal::PublicKey,
         ephemeral_keys: &[elgamal::EphemeralKey],
         commitment: &G1Projective,
@@ -349,7 +349,7 @@ pub struct ProofKappaNu {
 
 impl ProofKappaNu {
     pub(crate) fn construct(
-        params: &mut Parameters,
+        params: &Parameters,
         verification_key: &VerificationKey,
         signature: &Signature,
         private_attributes: &[Attribute],
@@ -548,7 +548,7 @@ mod tests {
         let mut rng = thread_rng();
         let mut params = setup(1).unwrap();
 
-        let elgamal_keypair = elgamal::keygen(&mut params);
+        let elgamal_keypair = elgamal::elgamal_keygen(&params);
         let private_attributes = params.n_random_scalars(1);
         let public_attributes = params.n_random_scalars(0);
 
@@ -607,7 +607,7 @@ mod tests {
         // 0 public 1 private
         let pi_v = ProofKappaNu::construct(
             &mut params,
-            &keypair.verification_key,
+            &keypair.verification_key(),
             &signature,
             &private_attributes,
             &r,
@@ -623,7 +623,7 @@ mod tests {
 
         let pi_v = ProofKappaNu::construct(
             &mut params,
-            &keypair.verification_key,
+            &keypair.verification_key(),
             &signature,
             &private_attributes,
             &r,

@@ -118,7 +118,7 @@ mod tests {
 
         let vks = keypairs
             .into_iter()
-            .map(|keypair| keypair.verification_key)
+            .map(|keypair| keypair.verification_key())
             .collect::<Vec<_>>();
 
         let aggr_vk1 = aggregate_verification_keys(&vks[..3], Some(&[1, 2, 3])).unwrap();
@@ -181,7 +181,7 @@ mod tests {
 
         let (sks, vks): (Vec<_>, Vec<_>) = keypairs
             .into_iter()
-            .map(|keypair| (keypair.secret_key, keypair.verification_key))
+            .map(|keypair| (keypair.secret_key(), keypair.verification_key()))
             .unzip();
 
         let sigs = sks
