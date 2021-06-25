@@ -146,11 +146,17 @@ fn unblind_prove_and_verify(
 struct BenchCase {
     num_authorities: u64,
     threshold_p: f32,
+    num_public_attrs: u32,
+    num_private_attrs: u32,
 }
 
 impl BenchCase {
     fn threshold(&self) -> u64 {
         (self.num_authorities as f32 * self.threshold_p).round() as u64
+    }
+
+    fn num_attrs(&self) -> u32 {
+        self.num_public_attrs + self.num_private_attrs
     }
 }
 
@@ -168,14 +174,32 @@ fn bench_e2e(c: &mut Criterion) {
         BenchCase {
             num_authorities: 10,
             threshold_p: 0.5,
+            num_public_attrs: 1,
+            num_private_attrs: 0,
+        },
+        BenchCase {
+            num_authorities: 10,
+            threshold_p: 0.5,
+            num_public_attrs: 2,
+            num_private_attrs: 1,
+        },
+        BenchCase {
+            num_authorities: 10,
+            threshold_p: 0.5,
+            num_public_attrs: 6,
+            num_private_attrs: 4,
         },
         BenchCase {
             num_authorities: 100,
             threshold_p: 0.5,
+            num_public_attrs: 1,
+            num_private_attrs: 0,
         },
         BenchCase {
             num_authorities: 200,
             threshold_p: 0.5,
+            num_public_attrs: 1,
+            num_private_attrs: 0,
         },
     ];
 
@@ -191,8 +215,9 @@ fn bench_e2e(c: &mut Criterion) {
 
         c.bench_function(
             &format!(
-                "produce_blinded_signatures_{}_authorities",
-                case.num_authorities
+                "produce_blinded_signatures_{}_authorities_{}_attributes",
+                case.num_authorities,
+                case.num_attrs()
             ),
             |b| {
                 b.iter(|| {
@@ -220,8 +245,9 @@ fn bench_e2e(c: &mut Criterion) {
 
         c.bench_function(
             &format!(
-                "unblind_prove_and_verify_{}_authorities",
-                case.num_authorities
+                "unblind_prove_and_verify_{}_authorities_{}_attributes",
+                case.num_authorities,
+                case.num_attrs()
             ),
             |b| {
                 b.iter(|| {
