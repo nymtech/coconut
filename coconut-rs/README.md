@@ -89,7 +89,7 @@ fn main() -> Result<(), CoconutError> {
 
 ## Benchmarks
 
-+ [Criterion](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/5cbbb702506d206a52e97f2207b7aec25a4005d8/coconut-rs/target/criterion/report/index.html)
++ [Criterion](https://htmlpreview.github.io/?https://github.com/nymtech/coconut/blob/benchmark/coconut-rs/target/criterion/report/index.html)
 
 ## References
 
