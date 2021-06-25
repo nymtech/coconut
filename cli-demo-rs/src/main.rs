@@ -15,7 +15,7 @@ use std::{fmt, process};
 struct App {
     params: Parameters,
     authority_keys: Vec<KeyPair>,
-    client_elgamal: elgamal::KeyPair,
+    client_elgamal: elgamal::ElGamalKeyPair,
     threshold: u64,
 }
 

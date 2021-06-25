@@ -35,7 +35,7 @@ version = "0.10"
 default-features = false
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = { version="0.3", features=["html_reports"] }
 doc-comment = "0.3"
 
 [dev-dependencies.bincode]
