@@ -190,7 +190,10 @@ fn bench_e2e(c: &mut Criterion) {
         );
 
         c.bench_function(
-            &format!("produce_blinded_signatures_{}_authorities", case.num_authorities),
+            &format!(
+                "produce_blinded_signatures_{}_authorities",
+                case.num_authorities
+            ),
             |b| {
                 b.iter(|| {
                     produce_blinded_signatures(
@@ -216,7 +219,10 @@ fn bench_e2e(c: &mut Criterion) {
         );
 
         c.bench_function(
-            &format!("unblind_prove_and_verify_{}_authorities", case.num_authorities),
+            &format!(
+                "unblind_prove_and_verify_{}_authorities",
+                case.num_authorities
+            ),
             |b| {
                 b.iter(|| {
                     unblind_prove_and_verify(
