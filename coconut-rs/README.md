@@ -89,7 +89,7 @@ fn main() -> Result<(), CoconutError> {
 
 ## Benchmarks
 
-100 iterations on 2,3 GHz 8-Core Intel Core i9 MacBook Pro
+100 iterations on a `2,3 GHz 8-Core Intel Core i9 MacBook Pro`
 
 | Name                                                    | min time  | mean time | max time  |
 | ------------------------------------------------------- | --------- | --------- | --------- |
