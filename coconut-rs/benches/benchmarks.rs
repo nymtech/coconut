@@ -23,6 +23,7 @@ use ff::Field;
 use group::{Curve, Group};
 use std::ops::Neg;
 use rand::seq::SliceRandom;
+use std::time::Duration;
 
 fn double_pairing(g11: &G1Affine, g21: &G2Affine, g12: &G1Affine, g22: &G2Affine) {
     let gt1 = bls12_381::pairing(&g11, &g21);
@@ -327,20 +328,20 @@ fn bench_pairings(c: &mut Criterion) {
 }
 
 
-fn bench_credential_issuing(c: &mut Criterion) {
-    let params = setup(5).unwrap();
-    let nr_private_attributes: usize = 3;
-    let nr_public_attributes: usize = 2;
-
+fn bench_coconut(c: &mut Criterion) {
+    let mut group = c.benchmark_group("benchmark-coconut");
+    group.measurement_time(Duration::from_secs(10));
     let case = BenchCase {
-        num_authorities: 10,
-        threshold_p: 0.5,
-        num_public_attrs: nr_public_attributes as u32,
-        num_private_attrs: nr_private_attributes as u32,
+        num_authorities: 100,
+        threshold_p: 0.7,
+        num_public_attrs: 5,
+        num_private_attrs: 5,
     };
 
-    let public_attributes = params.n_random_scalars(nr_public_attributes);
-    let private_attributes = params.n_random_scalars(nr_private_attributes);
+    let params = setup((case.num_public_attrs + case.num_private_attrs)).unwrap();
+
+    let public_attributes = params.n_random_scalars(case.num_public_attrs as usize);
+    let private_attributes = params.n_random_scalars(case.num_private_attrs as usize);
 
     let elgamal_keypair = elgamal_keygen(&params);
 
@@ -355,11 +356,12 @@ fn bench_credential_issuing(c: &mut Criterion) {
     // CLIENT BENCHMARK: Data needed to ask for a credential
     // Let's benchmark the operations the client has to perform
     // to ask for a credential
-    c.bench_function(
+    group.bench_function(
         &format!(
-            "[Client] prepare_blind_sign_{}_authorities_{}_attributes",
+            "[Client] prepare_blind_sign_{}_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
-            case.num_attrs()
+            case.num_attrs(),
+            case.threshold_p,
         ),
         |b| {
             b.iter(|| {
@@ -382,10 +384,10 @@ fn bench_credential_issuing(c: &mut Criterion) {
     let mut rng = rand::thread_rng();
     let keypair = coconut_keypairs.choose(&mut rng).unwrap();
 
-    c.bench_function(
+    group.bench_function(
         &format!(
             "[Validator] compute_single_blind_sign_for_credential_with_{}_attributes",
-            case.num_attrs()
+            case.num_attrs(),
         ),
         |b| {
             b.iter(|| {
@@ -415,31 +417,20 @@ fn bench_credential_issuing(c: &mut Criterion) {
         blinded_signatures.push(blinded_signature)
     }
 
-    // CLIENT OPERATION: Unblind singature
-    let unblinded_signatures: Vec<Signature> = blinded_signatures
-        .iter()
-        .map(|signature| signature.unblind(&elgamal_keypair.private_key()))
-        .collect();
-
-    let signature_shares: Vec<SignatureShare> = unblinded_signatures
-        .iter()
-        .enumerate()
-        .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
-        .collect();
-
-    // aggregation performed by the client
-    let aggregated_signature = aggregate_signature_shares(&signature_shares).unwrap();
+    // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
+    let aggregated_signature = unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair);
 
     // CLIENT BENCHMARK: aggregate all partial credentials
-    c.bench_function(
+    group.bench_function(
         &format!(
-            "[Client] aggregate_partial_credentials_{}_authorities_{}_attributes",
+            "[Client] unblind_and_aggregate_partial_credentials_{}_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
-            case.num_attrs()
+            case.num_attrs(),
+            case.threshold_p,
         ),
         |b| {
             b.iter(|| {
-                aggregate_signature_shares(&signature_shares).unwrap()
+                unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair)
             })
         },
     );
@@ -459,11 +450,12 @@ fn bench_credential_issuing(c: &mut Criterion) {
         prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes).unwrap();
 
     // CLIENT BENCHMARK
-    c.bench_function(
+    group.bench_function(
         &format!(
-            "[Client] randomize_and_prove_credential__{}_authorities_{}_attributes",
+            "[Client] randomize_and_prove_credential_{}_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
-            case.num_attrs()
+            case.num_attrs(),
+            case.threshold_p,
         ),
         |b| {
             b.iter(|| {
@@ -477,11 +469,12 @@ fn bench_credential_issuing(c: &mut Criterion) {
     verify_credential(&params, &verification_key, &theta, &public_attributes);
 
     // VERIFICATION BENCHMARK
-    c.bench_function(
+    group.bench_function(
         &format!(
-            "[Verifier] verify_credentials_{}_authorities_{}_attributes",
+            "[Verifier] verify_credentials_{}_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
-            case.num_attrs()
+            case.num_attrs(),
+            case.threshold_p,
         ),
         |b| {
             b.iter(|| {
@@ -495,5 +488,5 @@ fn bench_credential_issuing(c: &mut Criterion) {
 // criterion_group!(benches, bench_pairings);
 // criterion_group!(e2e, bench_e2e, bench_credential_issuing);
 // criterion_main!(benches, e2e);
-criterion_group!(benches_issuence, bench_credential_issuing);
-criterion_main!(benches_issuence);
+criterion_group!(benches, bench_coconut);
+criterion_main!(benches);
