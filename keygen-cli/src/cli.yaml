@@ -1,0 +1,12 @@
+name: myapp
+version: "0.1.0"
+about: Trusted Third Party Coconut key generation for Nym validators
+args:
+    - N_VALIDATORS:
+        help: Total number of validators to generate the keys for
+        required: true
+        index: 1
+    - THRESHOLD:
+        help: Concensus threshold, defaults to 2/3 + 1
+        required: false
+        index: 2
