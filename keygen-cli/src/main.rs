@@ -40,7 +40,11 @@ fn main() {
     fs::create_dir_all(format!("keypairs/{}", run_id.to_string())).unwrap();
 
     for keypair in keypairs {
-        debug!("Writing {:?} to keypairs/{}", keypair.index, run_id.to_string());
+        debug!(
+            "Writing {:?} to keypairs/{}",
+            keypair.index,
+            run_id.to_string()
+        );
         fs::write(
             format!("keypairs/{}/{}", run_id.to_string(), keypair.index.unwrap()),
             hex::encode(keypair.to_bytes()),

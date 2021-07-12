@@ -336,7 +336,6 @@ impl TryFrom<&[u8]> for KeyPair {
     }
 }
 
-
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
 /// that are independent of each other.
