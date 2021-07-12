@@ -27,19 +27,9 @@ use group::Curve;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-// #[cfg(feature = "serde")]
-// use crate::utils::ScalarDef;
-
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecretKey {
-    // #[cfg_attr(feature = "serde", serde(with = "ScalarSerdeHelper"))]
     pub(crate) x: Scalar,
     pub(crate) ys: Vec<Scalar>,
 }
@@ -268,6 +258,8 @@ impl VerificationKey {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct KeyPair {
     secret_key: SecretKey,
     verification_key: VerificationKey,
@@ -284,131 +276,66 @@ impl KeyPair {
     pub fn verification_key(&self) -> VerificationKey {
         self.verification_key.clone()
     }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        // Schema is coconutkeypair[14]|secret_key_len[8]|secret_key[secret_key_len]|verification_key_len[8]|verification_key[verification_key_len]|signer_index[8] - optional
+        let mut byts = vec![];
+        let marker_btyes = "coconutkeypair".as_bytes();
+        let secret_key_bytes = self.secret_key.to_bytes();
+        let secret_key_len = (secret_key_bytes.len() as u64).to_le_bytes();
+        let verification_key_bytes = self.verification_key.to_bytes();
+        let verification_key_len = (verification_key_bytes.len() as u64).to_le_bytes();
+        byts.extend_from_slice(marker_btyes);
+        byts.extend_from_slice(&secret_key_len);
+        byts.extend_from_slice(&secret_key_bytes);
+        byts.extend_from_slice(&verification_key_len);
+        byts.extend_from_slice(&verification_key_bytes);
+        if let Some(index) = self.index {
+            byts.extend_from_slice(&index.to_le_bytes())
+        }
+        byts
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        KeyPair::try_from(bytes)
+    }
 }
 
-// #[cfg(feature = "serde")]
-// impl Serialize for SecretKey {
-//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         use serde::ser::SerializeStruct;
-//         use serde::ser::SerializeTuple;
-//
-//         let mut state = serializer.serialize_struct("SecretKey", 2)?;
-//
-//         state.serialize_field("x", &self.x);
-//         state.serialize_field("ys", &self.ys);
-//
-//         // state.serialize_field("x")
-//
-//         // let mut tup = serializer.serialize_tuple(32)?;
-//         // for byte in self.to_bytes().iter() {
-//         //     tup.serialize_element(byte)?;
-//         // }
-//         state.end()
-//     }
-// }
-//
-// #[cfg(feature = "serde")]
-// impl<'de> Deserialize<'de> for SecretKey {
-//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         #[derive(Deserialize)]
-//         #[serde(field_identifier, rename_all = "lowercase")]
-//         enum Field {
-//             X,
-//             Ys,
-//         }
-//
-//         struct SecretKeyVisitor;
-//
-//         impl<'de> Visitor<'de> for SecretKeyVisitor {
-//             type Value = SecretKey;
-//
-//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-//                 formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
-//             }
-//
-//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<SecretKey, A::Error>
-//             where
-//                 A: serde::de::SeqAccess<'de>,
-//             {
-//                 let mut bytes = [0u8; 32];
-//                 // I think this way makes it way more readable than the iterator approach
-//                 #[allow(clippy::needless_range_loop)]
-//                 for i in 0..32 {
-//                     bytes[i] = seq
-//                         .next_element()?
-//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
-//                 }
-//
-//                 SecretKey::from_bytes(&bytes).ok_or_else(|| {
-//                     serde::de::Error::custom(&"private key scalar was not canonically encoded")
-//                 })
-//             }
-//         }
-//
-//         deserializer.deserialize_tuple(32, SecretKeyVisitor)
-//     }
-// }
-//
-// #[cfg(feature = "serde")]
-// impl Serialize for VerificationKey {
-//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         use serde::ser::SerializeTuple;
-//         let mut tup = serializer.serialize_tuple(48)?;
-//         for byte in self.to_bytes().iter() {
-//             tup.serialize_element(byte)?;
-//         }
-//         tup.end()
-//     }
-// }
-//
-// #[cfg(feature = "serde")]
-// impl<'de> Deserialize<'de> for VerificationKey {
-//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         struct VerificationKeyVisitor;
-//
-//         impl<'de> Visitor<'de> for VerificationKeyVisitor {
-//             type Value = VerificationKey;
-//
-//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-//                 formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
-//             }
-//
-//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<VerificationKey, A::Error>
-//             where
-//                 A: serde::de::SeqAccess<'de>,
-//             {
-//                 let mut bytes = [0u8; 48];
-//                 // I think this way makes it way more readable than the iterator approach
-//                 #[allow(clippy::needless_range_loop)]
-//                 for i in 0..48 {
-//                     bytes[i] = seq
-//                         .next_element()?
-//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
-//                 }
-//
-//                 VerificationKey::from_bytes(&bytes).ok_or_else(|| {
-//                     serde::de::Error::custom(
-//                         &"public key G1 curve point was not canonically encoded",
-//                     )
-//                 })
-//             }
-//         }
-//
-//         deserializer.deserialize_tuple(48, VerificationKeyVisitor)
-//     }
-// }
+impl TryFrom<&[u8]> for KeyPair {
+    type Error = CoconutError;
+
+    fn try_from(bytes: &[u8]) -> Result<KeyPair> {
+        let header_len = 14;
+        let secret_key_len =
+            u64::from_le_bytes(bytes[header_len..header_len + 8].try_into().unwrap()) as usize;
+        let secret_key = SecretKey::try_from(&bytes[14 + 8..14 + 8 + secret_key_len])?;
+        let verification_key_len = u64::from_le_bytes(
+            bytes[header_len + 8 + secret_key_len..header_len + 8 + secret_key_len + 8]
+                .try_into()
+                .unwrap(),
+        ) as usize;
+        let verification_key = VerificationKey::try_from(
+            &bytes[header_len + 8 + secret_key_len + 8
+                ..header_len + 8 + secret_key_len + 8 + verification_key_len],
+        )?;
+        let consumed_bytes = header_len + 8 + secret_key_len + 8 + verification_key_len;
+        let index = if consumed_bytes < bytes.len() {
+            Some(u64::from_le_bytes(
+                bytes[consumed_bytes..consumed_bytes + 8]
+                    .try_into()
+                    .unwrap(),
+            ))
+        } else {
+            None
+        };
+        Ok(KeyPair {
+            secret_key,
+            verification_key,
+            index,
+        })
+    }
+}
+
 
 /// Generate a single Coconut keypair ((x, y0, y1...), (g2^x, g2^y0, ...)).
 /// It is not suitable for threshold credentials as all subsequent calls to `keygen` generate keys
@@ -495,6 +422,21 @@ pub fn ttp_keygen(
 mod tests {
     use super::*;
     use crate::scheme::setup::setup;
+
+    #[test]
+    fn keypair_bytes_roundtrip() {
+        let mut params1 = setup(1).unwrap();
+        let mut params5 = setup(5).unwrap();
+
+        let keypair1 = keygen(&mut params1);
+        let keypair5 = keygen(&mut params5);
+
+        let bytes1 = keypair1.to_bytes();
+        let bytes5 = keypair5.to_bytes();
+
+        assert_eq!(KeyPair::from_bytes(&bytes1).unwrap(), keypair1);
+        assert_eq!(KeyPair::from_bytes(&bytes5).unwrap(), keypair5);
+    }
 
     #[test]
     fn secret_key_bytes_roundtrip() {
