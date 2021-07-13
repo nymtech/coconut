@@ -54,8 +54,8 @@ impl Bytable for Attribute {
         self.to_bytes().to_vec()
     }
 
-    fn from_byte_slice(slice: &[u8]) -> Self {
-        Attribute::from_bytes(slice.try_into().unwrap()).unwrap()
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self, CoconutError> {
+        Ok(Attribute::from_bytes(slice.try_into().unwrap()).unwrap())
     }
 }
 

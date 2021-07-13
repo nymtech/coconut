@@ -153,8 +153,8 @@ impl Bytable for PublicKey {
         self.0.to_affine().to_compressed().into()
     }
 
-    fn from_byte_slice(slice: &[u8]) -> Self {
-        PublicKey::from_bytes(slice.try_into().unwrap()).unwrap()
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        Ok(PublicKey::from_bytes(slice.try_into().unwrap()).unwrap())
     }
 }
 

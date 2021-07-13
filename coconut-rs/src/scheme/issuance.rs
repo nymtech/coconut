@@ -102,8 +102,8 @@ impl Bytable for BlindSignRequest {
         bytes
     }
 
-    fn from_byte_slice(slice: &[u8]) -> Self {
-        BlindSignRequest::from_bytes(slice).unwrap()
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        BlindSignRequest::from_bytes(slice)
     }
 }
 

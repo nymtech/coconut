@@ -109,8 +109,8 @@ impl Bytable for BlindedSignature {
         self.to_bytes().to_vec()
     }
 
-    fn from_byte_slice(slice: &[u8]) -> Self {
-        Self::from_bytes(slice).unwrap()
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        Self::from_bytes(slice)
     }
 }
 
