@@ -19,6 +19,7 @@ use crate::elgamal::Ciphertext;
 use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
+use crate::traits::{Base58, Bytable};
 use crate::utils::try_deserialize_g1_projective;
 use bls12_381::G1Projective;
 use group::Curve;
@@ -102,6 +103,18 @@ impl Signature {
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
+
+impl Bytable for BlindedSignature {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+
+    fn from_byte_slice(slice: &[u8]) -> Self {
+        Self::from_bytes(slice).unwrap()
+    }
+}
+
+impl Base58 for BlindedSignature {}
 
 impl TryFrom<&[u8]> for BlindedSignature {
     type Error = CoconutError;

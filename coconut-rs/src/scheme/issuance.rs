@@ -18,6 +18,7 @@ use crate::proofs::ProofCmCs;
 use crate::scheme::setup::Parameters;
 use crate::scheme::BlindedSignature;
 use crate::scheme::SecretKey;
+use crate::traits::{Base58, Bytable};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
 use crate::{elgamal, Attribute};
 use bls12_381::{G1Projective, Scalar};
@@ -82,21 +83,8 @@ impl TryFrom<&[u8]> for BlindSignRequest {
     }
 }
 
-impl BlindSignRequest {
-    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
-        self.pi_s.verify(
-            params,
-            pub_key,
-            &self.commitment,
-            &self.attributes_ciphertexts,
-        )
-    }
-
-    // TODO: perhaps also include pi_s.len()?
-    // to be determined once we implement serde to make sure its 1:1 compatible
-    // with bincode
-    // cm || c.len() || c || pi_s
-    pub fn to_bytes(&self) -> Vec<u8> {
+impl Bytable for BlindSignRequest {
+    fn to_byte_vec(&self) -> Vec<u8> {
         let cm_bytes = self.commitment.to_affine().to_compressed();
         let c_len = self.attributes_ciphertexts.len() as u64;
         let proof_bytes = self.pi_s.to_bytes();
@@ -114,8 +102,33 @@ impl BlindSignRequest {
         bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Result<BlindedSignature> {
-        BlindedSignature::try_from(bytes)
+    fn from_byte_slice(slice: &[u8]) -> Self {
+        BlindSignRequest::from_bytes(slice).unwrap()
+    }
+}
+
+impl Base58 for BlindSignRequest {}
+
+impl BlindSignRequest {
+    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
+        self.pi_s.verify(
+            params,
+            pub_key,
+            &self.commitment,
+            &self.attributes_ciphertexts,
+        )
+    }
+
+    // TODO: perhaps also include pi_s.len()?
+    // to be determined once we implement serde to make sure its 1:1 compatible
+    // with bincode
+    // cm || c.len() || c || pi_s
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.to_byte_vec()
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<BlindSignRequest> {
+        BlindSignRequest::try_from(bytes)
     }
 }
 
