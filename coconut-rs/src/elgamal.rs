@@ -14,17 +14,13 @@
 
 use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
+use crate::traits::{Base58, Bytable};
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
 use std::convert::TryFrom;
 use std::convert::TryInto;
-
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-#[cfg(feature = "serde")]
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -144,12 +140,30 @@ impl PublicKey {
     }
 
     pub fn to_bytes(&self) -> [u8; 48] {
-        self.0.to_affine().to_compressed()
+        self.to_byte_vec().try_into().unwrap()
     }
 
     pub fn from_bytes(bytes: &[u8; 48]) -> Result<PublicKey> {
+        Ok(PublicKey::try_from(bytes.to_vec().as_slice()).unwrap())
+    }
+}
+
+impl Bytable for PublicKey {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.0.to_affine().to_compressed().into()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        Ok(PublicKey::from_bytes(slice.try_into().unwrap()).unwrap())
+    }
+}
+
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = CoconutError;
+
+    fn try_from(slice: &[u8]) -> Result<PublicKey> {
         try_deserialize_g1_projective(
-            bytes,
+            slice.try_into().unwrap(),
             CoconutError::Deserialization(
                 "Failed to deserialize compressed ElGamal public key".to_string(),
             ),
@@ -157,6 +171,8 @@ impl PublicKey {
         .map(PublicKey)
     }
 }
+
+impl Base58 for PublicKey {}
 
 impl Deref for PublicKey {
     type Target = G1Projective;
@@ -200,172 +216,6 @@ pub fn elgamal_keygen(params: &Parameters) -> ElGamalKeyPair {
         public_key: PublicKey(gamma),
     }
 }
-
-#[cfg(feature = "serde")]
-impl Serialize for PrivateKey {
-    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(32)?;
-        for byte in self.to_bytes().iter() {
-            tup.serialize_element(byte)?;
-        }
-        tup.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for PrivateKey {
-    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct PrivateKeyVisitor;
-
-        impl<'de> Visitor<'de> for PrivateKeyVisitor {
-            type Value = PrivateKey;
-
-            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-                formatter.write_str("a 32-byte ElGamal private key on BLS12_381 curve")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<PrivateKey, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut bytes = [0u8; 32];
-                // I think this way makes it way more readable than the iterator approach
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..32 {
-                    bytes[i] = seq
-                        .next_element()?
-                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
-                }
-
-                PrivateKey::from_bytes(&bytes).map_err(|_| {
-                    serde::de::Error::custom(&"private key scalar was not canonically encoded")
-                })
-            }
-        }
-
-        deserializer.deserialize_tuple(32, PrivateKeyVisitor)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        use serde::ser::SerializeTuple;
-        let mut tup = serializer.serialize_tuple(48)?;
-        for byte in self.to_bytes().iter() {
-            tup.serialize_element(byte)?;
-        }
-        tup.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct PublicKeyVisitor;
-
-        impl<'de> Visitor<'de> for PublicKeyVisitor {
-            type Value = PublicKey;
-
-            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-                formatter.write_str("a 48-byte compressed ElGamal public key on BLS12_381 curve")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> core::result::Result<PublicKey, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut bytes = [0u8; 48];
-                // I think this way makes it way more readable than the iterator approach
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..48 {
-                    bytes[i] = seq
-                        .next_element()?
-                        .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 48 bytes"))?;
-                }
-
-                PublicKey::from_bytes(&bytes).map_err(|_| {
-                    serde::de::Error::custom(
-                        &"public key G1 curve point was not canonically encoded",
-                    )
-                })
-            }
-        }
-
-        deserializer.deserialize_tuple(48, PublicKeyVisitor)
-    }
-}
-
-// TODO: I think that is wrong and should rather serialize both elements separately
-//
-// #[cfg(feature = "serde")]
-// impl Serialize for Ciphertext {
-//     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         use serde::ser::SerializeTuple;
-//         let mut tup = serializer.serialize_tuple(96)?;
-//         for byte in self.to_bytes().iter() {
-//             tup.serialize_element(byte)?;
-//         }
-//         tup.end()
-//     }
-// }
-//
-// #[cfg(feature = "serde")]
-// impl<'de> Deserialize<'de> for Ciphertext {
-//     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         struct CiphertextVisitor;
-//
-//         impl<'de> Visitor<'de> for CiphertextVisitor {
-//             type Value = Ciphertext;
-//
-//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-//                 formatter.write_str("a 96-byte ElGamal ciphertext consisting of two compressed G1 points on BLS12_381 curve")
-//             }
-//
-//             fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Ciphertext, A::Error>
-//             where
-//                 A: serde::de::SeqAccess<'de>,
-//             {
-//                 let mut bytes = [0u8; 96];
-//                 // I think this way makes it way more readable than the iterator approach
-//                 #[allow(clippy::needless_range_loop)]
-//                 for i in 0..96 {
-//                     bytes[i] = seq
-//                         .next_element()?
-//                         .ok_or_else(|| serde::de::Error::invalid_length(i, &"expected 96 bytes"))?;
-//                 }
-//
-//                 Ciphertext::from_bytes(&bytes).map_err(|_| {
-//                     serde::de::Error::custom(
-//                         &"the ciphertext G1 curve points were not canonically encoded",
-//                     )
-//                 })
-//             }
-//         }
-//
-//         deserializer.deserialize_tuple(96, CiphertextVisitor)
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
