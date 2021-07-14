@@ -1,5 +1,5 @@
 use clap::{load_yaml, value_t, App};
-use coconut_rs::{ttp_keygen, Parameters};
+use coconut_rs::{Base58, Parameters, ttp_keygen};
 use log::{debug, error, info};
 use std::fs;
 
@@ -47,7 +47,7 @@ fn main() {
         );
         fs::write(
             format!("keypairs/{}/{}", run_id.to_string(), keypair.index.unwrap()),
-            hex::encode(keypair.to_bytes()),
+            keypair.to_bs58(),
         )
         .unwrap();
     }
