@@ -14,6 +14,7 @@
 
 use bls12_381::Scalar;
 use sha3::Sha3_384;
+use std::convert::TryInto;
 
 pub mod elgamal;
 mod error;
@@ -21,10 +22,13 @@ mod proofs;
 mod scheme;
 #[cfg(test)]
 mod tests;
+mod traits;
 mod utils;
 
+use crate::traits::Bytable;
 pub use elgamal::elgamal_keygen;
 pub use elgamal::ElGamalKeyPair;
+pub use elgamal::PublicKey;
 pub use error::CoconutError;
 pub use scheme::aggregation::aggregate_signature_shares;
 pub use scheme::aggregation::aggregate_verification_keys;
@@ -41,8 +45,21 @@ pub use scheme::verification::verify_credential;
 pub use scheme::BlindedSignature;
 pub use scheme::Signature;
 pub use scheme::SignatureShare;
+pub use traits::Base58;
 
 pub type Attribute = Scalar;
+
+impl Bytable for Attribute {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self, CoconutError> {
+        Ok(Attribute::from_bytes(slice.try_into().unwrap()).unwrap())
+    }
+}
+
+impl Base58 for Attribute {}
 
 // reason for sha3 384 is for the 48 bytes output and it's a good enough solution
 // for the temporary use it has
