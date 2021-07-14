@@ -13,8 +13,8 @@ pub trait Base58
 where
     Self: Bytable,
 {
-    fn try_from_bs58(x: &str) -> Result<Self, CoconutError> {
-        Self::try_from_byte_slice(&bs58::decode(x).into_vec().unwrap())
+    fn try_from_bs58<S: AsRef<str>>(x: S) -> Result<Self, CoconutError> {
+        Self::try_from_byte_slice(&bs58::decode(x.as_ref()).into_vec().unwrap())
     }
     fn to_bs58(&self) -> String {
         bs58::encode(self.to_byte_vec()).into_string()
