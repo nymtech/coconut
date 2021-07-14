@@ -16,9 +16,11 @@ use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
+use crate::traits::Bytable;
 use crate::utils::{
     try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec, Polynomial,
 };
+use crate::Base58;
 use bls12_381::{G2Projective, Scalar};
 use core::borrow::Borrow;
 use core::iter::Sum;
@@ -279,6 +281,17 @@ impl KeyPair {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         // Schema is coconutkeypair[14]|secret_key_len[8]|secret_key[secret_key_len]|verification_key_len[8]|verification_key[verification_key_len]|signer_index[8] - optional
+        self.to_byte_vec()
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        KeyPair::try_from_byte_slice(bytes)
+    }
+}
+
+impl Bytable for KeyPair {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        // Schema is coconutkeypair[14]|secret_key_len[8]|secret_key[secret_key_len]|verification_key_len[8]|verification_key[verification_key_len]|signer_index[8] - optional
         let mut byts = vec![];
         let marker_btyes = "coconutkeypair".as_bytes();
         let secret_key_bytes = self.secret_key.to_bytes();
@@ -296,10 +309,12 @@ impl KeyPair {
         byts
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        KeyPair::try_from(bytes)
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        KeyPair::try_from(slice)
     }
 }
+
+impl Base58 for KeyPair {}
 
 impl TryFrom<&[u8]> for KeyPair {
     type Error = CoconutError;
