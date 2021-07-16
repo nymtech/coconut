@@ -100,6 +100,18 @@ impl Signature {
     }
 }
 
+impl Bytable for Signature {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        Signature::from_bytes(slice)
+    }
+}
+
+impl Base58 for Signature {}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct BlindedSignature(G1Projective, elgamal::Ciphertext);
