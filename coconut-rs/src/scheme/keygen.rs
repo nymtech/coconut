@@ -28,6 +28,7 @@ use core::ops::{Add, Mul};
 use group::Curve;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -103,6 +104,18 @@ impl SecretKey {
         SecretKey::try_from(bytes)
     }
 }
+
+impl Bytable for SecretKey {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        SecretKey::try_from(slice)
+    }
+}
+
+impl Base58 for SecretKey {}
 
 // TODO: perhaps change points to affine representation
 // to make verification slightly more efficient?
@@ -260,7 +273,19 @@ impl VerificationKey {
     }
 }
 
-#[derive(Debug)]
+impl Bytable for VerificationKey {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        VerificationKey::try_from(slice)
+    }
+}
+
+impl Base58 for VerificationKey {}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct KeyPair {
     secret_key: SecretKey,

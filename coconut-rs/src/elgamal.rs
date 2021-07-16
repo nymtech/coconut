@@ -21,6 +21,7 @@ use core::ops::{Deref, Mul};
 use group::Curve;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use serde_derive::{Serialize, Deserialize};
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -113,6 +114,18 @@ impl PrivateKey {
     }
 }
 
+impl Bytable for PrivateKey {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        PrivateKey::from_bytes(slice.try_into().unwrap())
+    }
+}
+
+impl Base58 for PrivateKey {}
+
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
 /// PublicKey used in the ElGamal encryption scheme to produce the ciphertext
 #[derive(Debug)]
@@ -190,6 +203,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a PublicKey {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 /// A convenient wrapper for both keys of the ElGamal keypair
 pub struct ElGamalKeyPair {
     private_key: PrivateKey,

@@ -24,6 +24,7 @@ mod scheme;
 mod tests;
 mod traits;
 mod utils;
+mod serde;
 
 use crate::traits::Bytable;
 pub use elgamal::elgamal_keygen;
