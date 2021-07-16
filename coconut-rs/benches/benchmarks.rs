@@ -21,8 +21,8 @@ use coconut_rs::{
 use criterion::{criterion_group, criterion_main, Criterion};
 use ff::Field;
 use group::{Curve, Group};
-use std::ops::Neg;
 use rand::seq::SliceRandom;
+use std::ops::Neg;
 use std::time::Duration;
 
 fn double_pairing(g11: &G1Affine, g21: &G2Affine, g12: &G1Affine, g22: &G2Affine) {
@@ -70,8 +70,8 @@ fn multi_miller_pairing_with_semi_prepared(
 fn unblind_and_aggregate(
     params: &Parameters,
     blinded_signatures: &[BlindedSignature],
-    elgamal_keypair: &ElGamalKeyPair) -> Signature{
-
+    elgamal_keypair: &ElGamalKeyPair,
+) -> Signature {
     // Unblind all partial signatures
     let unblinded_signatures: Vec<Signature> = blinded_signatures
         .iter()
@@ -86,7 +86,6 @@ fn unblind_and_aggregate(
 
     // Aggregate all partial credentials into a single one
     aggregate_signature_shares(&signature_shares).unwrap()
-
 }
 
 struct BenchCase {
@@ -139,7 +138,6 @@ fn bench_pairings(c: &mut Criterion) {
     });
 }
 
-
 fn bench_coconut(c: &mut Criterion) {
     let mut group = c.benchmark_group("benchmark-coconut");
     group.measurement_time(Duration::from_secs(10));
@@ -163,7 +161,8 @@ fn bench_coconut(c: &mut Criterion) {
         &elgamal_keypair.public_key(),
         &private_attributes,
         &public_attributes,
-    ).unwrap();
+    )
+    .unwrap();
 
     // CLIENT BENCHMARK: Data needed to ask for a credential
     // Let's benchmark the operations the client has to perform
@@ -182,7 +181,8 @@ fn bench_coconut(c: &mut Criterion) {
                     &elgamal_keypair.public_key(),
                     &private_attributes,
                     &public_attributes,
-                ).unwrap()
+                )
+                .unwrap()
             })
         },
     );
@@ -209,7 +209,8 @@ fn bench_coconut(c: &mut Criterion) {
                     &elgamal_keypair.public_key(),
                     &blind_sign_request,
                     &public_attributes,
-                ).unwrap()
+                )
+                .unwrap()
             })
         },
     );
@@ -225,12 +226,13 @@ fn bench_coconut(c: &mut Criterion) {
             &blind_sign_request,
             &public_attributes,
         )
-            .unwrap();
+        .unwrap();
         blinded_signatures.push(blinded_signature)
     }
 
     // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
-    let aggregated_signature = unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair);
+    let aggregated_signature =
+        unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair);
 
     // CLIENT BENCHMARK: aggregate all partial credentials
     group.bench_function(
@@ -258,8 +260,13 @@ fn bench_coconut(c: &mut Criterion) {
     let verification_key = aggregate_verification_keys(&verification_keys, Some(&indices)).unwrap();
 
     // Randomize credentials and generate any cryptographic material to verify them
-    let theta =
-        prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes).unwrap();
+    let theta = prove_credential(
+        &params,
+        &verification_key,
+        &aggregated_signature,
+        &private_attributes,
+    )
+    .unwrap();
 
     // CLIENT BENCHMARK
     group.bench_function(
@@ -271,7 +278,13 @@ fn bench_coconut(c: &mut Criterion) {
         ),
         |b| {
             b.iter(|| {
-                prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes).unwrap()
+                prove_credential(
+                    &params,
+                    &verification_key,
+                    &aggregated_signature,
+                    &private_attributes,
+                )
+                .unwrap()
             })
         },
     );
@@ -288,13 +301,8 @@ fn bench_coconut(c: &mut Criterion) {
             case.num_attrs(),
             case.threshold_p,
         ),
-        |b| {
-            b.iter(|| {
-                verify_credential(&params, &verification_key, &theta, &public_attributes)
-            })
-        },
+        |b| b.iter(|| verify_credential(&params, &verification_key, &theta, &public_attributes)),
     );
-
 }
 criterion_group!(benches, bench_coconut);
 criterion_main!(benches);
