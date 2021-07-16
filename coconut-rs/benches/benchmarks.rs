@@ -296,9 +296,5 @@ fn bench_coconut(c: &mut Criterion) {
     );
 
 }
-
-// criterion_group!(benches, bench_pairings);
-// criterion_group!(e2e, bench_e2e, bench_credential_issuing);
-// criterion_main!(benches, e2e);
 criterion_group!(benches, bench_coconut);
 criterion_main!(benches);
