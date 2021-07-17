@@ -18,6 +18,7 @@ thiserror = "1.0"
 #features = ["zeroize_derive"]
 serde = "1.0"
 serde_derive = "1.0"
+gensym = "0.1.0"
 bs58 = "0.4.0"
 sha2 = "0.9"
 sha3 = "0.9"
