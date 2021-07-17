@@ -19,9 +19,9 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
+use serde_derive::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::convert::TryInto;
-use serde_derive::{Serialize, Deserialize};
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -128,7 +128,7 @@ impl Base58 for PrivateKey {}
 
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
 /// PublicKey used in the ElGamal encryption scheme to produce the ciphertext
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct PublicKey(G1Projective);
 

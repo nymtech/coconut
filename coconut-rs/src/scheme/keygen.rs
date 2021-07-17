@@ -26,9 +26,9 @@ use core::borrow::Borrow;
 use core::iter::Sum;
 use core::ops::{Add, Mul};
 use group::Curve;
+use serde_derive::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::convert::TryInto;
-use serde_derive::{Serialize, Deserialize};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
