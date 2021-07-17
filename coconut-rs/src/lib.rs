@@ -18,9 +18,9 @@ use std::convert::TryInto;
 
 pub mod elgamal;
 mod error;
+mod impls;
 mod proofs;
 mod scheme;
-mod serde;
 #[cfg(test)]
 mod tests;
 mod traits;
