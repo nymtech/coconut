@@ -1,6 +1,6 @@
 use crate::elgamal::PrivateKey;
 use crate::scheme::SecretKey;
-use crate::{Base58, BlindSignRequest, BlindedSignature, PublicKey, VerificationKey};
+use crate::{Base58, BlindSignRequest, BlindedSignature, PublicKey, VerificationKey, Signature};
 use serde::de::Unexpected;
 use serde::{de::Error, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -56,3 +56,4 @@ impl_serde!(PublicKey);
 impl_serde!(PrivateKey);
 impl_serde!(BlindSignRequest);
 impl_serde!(BlindedSignature);
+impl_serde!(Signature);
