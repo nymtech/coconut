@@ -61,9 +61,10 @@ fn main() -> Result<(), CoconutError> {
         .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
         .collect();
 
+    // Randomize credentials and generate any cryptographic material to verify them
     let signature = aggregate_signature_shares(&signature_shares)?;
 
-    // Randomize credentials and generate any cryptographic material to verify them
+    // Generate cryptographic material to verify them
 
     let theta = prove_credential(&params, &verification_key, &signature, &private_attributes)?;
 

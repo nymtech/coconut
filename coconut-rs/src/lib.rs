@@ -43,6 +43,7 @@ pub use scheme::setup::setup;
 pub use scheme::setup::Parameters;
 pub use scheme::verification::prove_credential;
 pub use scheme::verification::verify_credential;
+pub use scheme::verification::Theta;
 pub use scheme::BlindedSignature;
 pub use scheme::Signature;
 pub use scheme::SignatureShare;
