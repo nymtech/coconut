@@ -1,10 +1,10 @@
-use crate::{Base58, BlindSignRequest, BlindedSignature, Theta};
+use crate::{BlindSignRequest, BlindedSignature, Bytable, Theta};
 
 macro_rules! impl_clone {
     ($struct:ident) => {
         impl Clone for $struct {
             fn clone(&self) -> Self {
-                Self::try_from_bs58(self.to_bs58()).unwrap()
+                Self::try_from_byte_slice(&self.to_byte_vec()).unwrap()
             }
         }
     };
