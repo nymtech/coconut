@@ -19,6 +19,7 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
 use bls12_381::{G1Projective, Scalar};
 use core::ops::{Deref, Mul};
 use group::Curve;
+use serde_derive::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
@@ -113,9 +114,21 @@ impl PrivateKey {
     }
 }
 
+impl Bytable for PrivateKey {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        PrivateKey::from_bytes(slice.try_into().unwrap())
+    }
+}
+
+impl Base58 for PrivateKey {}
+
 // TODO: perhaps be more explicit and apart from gamma also store generator and group order?
 /// PublicKey used in the ElGamal encryption scheme to produce the ciphertext
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct PublicKey(G1Projective);
 
@@ -190,6 +203,7 @@ impl<'a, 'b> Mul<&'b Scalar> for &'a PublicKey {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 /// A convenient wrapper for both keys of the ElGamal keypair
 pub struct ElGamalKeyPair {
     private_key: PrivateKey,

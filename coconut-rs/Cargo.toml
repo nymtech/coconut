@@ -1,6 +1,6 @@
 [package]
 name = "coconut-rs"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Jędrzej Stuczyński <andrew@nymtech.net>"]
 edition = "2018"
 
@@ -13,10 +13,12 @@ digest = "0.9"
 rand = "0.8"
 getrandom = "*"
 thiserror = "1.0"
+subtle = "2.4"
 #[dependencies.zeroize]
 #version = "1.2.0"
 #features = ["zeroize_derive"]
-
+serde = "1.0"
+serde_derive = "1.0"
 bs58 = "0.4.0"
 sha2 = "0.9"
 sha3 = "0.9"

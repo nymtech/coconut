@@ -17,6 +17,7 @@ use crate::proofs::ProofKappaNu;
 use crate::scheme::setup::Parameters;
 use crate::scheme::Signature;
 use crate::scheme::VerificationKey;
+use crate::traits::{Base58, Bytable};
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective};
 use crate::Attribute;
 use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
@@ -110,6 +111,18 @@ impl Theta {
         Theta::try_from(bytes)
     }
 }
+
+impl Bytable for Theta {
+    fn to_byte_vec(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+
+    fn try_from_byte_slice(slice: &[u8]) -> Result<Self> {
+        Theta::try_from(slice)
+    }
+}
+
+impl Base58 for Theta {}
 
 pub fn prove_credential(
     params: &Parameters,
