@@ -18,7 +18,6 @@ use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
 use ff::Field;
 use group::Curve;
 use rand::thread_rng;
-
 /// System-wide parameters used for the protocol
 pub struct Parameters {
     /// Generator of the G1 group

@@ -8,14 +8,8 @@ use serde::{de::Error, de::Visitor, Deserialize, Deserializer, Serialize, Serial
 use std::fmt;
 
 macro_rules! impl_serde {
-    ($struct:ident) => {
-        gensym::gensym! { _impl_serde!{ $struct } }
-    };
-}
-
-macro_rules! _impl_serde {
-    ($gensym:ident, $struct:ident) => {
-        pub struct $gensym {}
+    ($struct:ident, $visitor:ident) => {
+        pub struct $visitor {}
 
         impl Serialize for $struct {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -26,7 +20,7 @@ macro_rules! _impl_serde {
             }
         }
 
-        impl<'de> Visitor<'de> for $gensym {
+        impl<'de> Visitor<'de> for $visitor {
             type Value = $struct;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -46,17 +40,17 @@ macro_rules! _impl_serde {
             where
                 D: Deserializer<'de>,
             {
-                deserializer.deserialize_str($gensym {})
+                deserializer.deserialize_str($visitor {})
             }
         }
     };
 }
 
-impl_serde!(SecretKey);
-impl_serde!(VerificationKey);
-impl_serde!(PublicKey);
-impl_serde!(PrivateKey);
-impl_serde!(BlindSignRequest);
-impl_serde!(BlindedSignature);
-impl_serde!(Signature);
-impl_serde!(Theta);
+impl_serde!(SecretKey, V1);
+impl_serde!(VerificationKey, V2);
+impl_serde!(PublicKey, V3);
+impl_serde!(PrivateKey, V4);
+impl_serde!(BlindSignRequest, V5);
+impl_serde!(BlindedSignature, V6);
+impl_serde!(Signature, V7);
+impl_serde!(Theta, V8);
