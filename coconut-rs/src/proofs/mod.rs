@@ -164,7 +164,7 @@ impl ProofCmCs {
         );
 
         // responses
-        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
+        let response_blinder = produce_response(&witness_blinder, &challenge, blinding_factor);
 
         // TODO: maybe make `produce_responses` take an iterator instead?
         let response_keys = produce_responses(&witness_keys, &challenge, ephemeral_keys);
@@ -398,7 +398,7 @@ impl ProofKappaNu {
         );
 
         // responses
-        let response_blinder = produce_response(&witness_blinder, &challenge, &blinding_factor);
+        let response_blinder = produce_response(&witness_blinder, &challenge, blinding_factor);
         let response_attributes =
             produce_responses(&witness_attributes, &challenge, private_attributes);
 

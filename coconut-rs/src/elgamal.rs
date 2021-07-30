@@ -46,11 +46,11 @@ impl TryFrom<&[u8]> for Ciphertext {
         let c2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
         let c1 = try_deserialize_g1_projective(
-            &c1_bytes,
+            c1_bytes,
             CoconutError::Deserialization("Failed to deserialize compressed c1".to_string()),
         )?;
         let c2 = try_deserialize_g1_projective(
-            &c2_bytes,
+            c2_bytes,
             CoconutError::Deserialization("Failed to deserialize compressed c2".to_string()),
         )?;
 

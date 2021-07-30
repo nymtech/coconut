@@ -57,12 +57,12 @@ impl TryFrom<&[u8]> for Signature {
         let sig2_bytes: &[u8; 48] = &bytes[48..].try_into().expect("Slice size != 48");
 
         let sig1 = try_deserialize_g1_projective(
-            &sig1_bytes,
+            sig1_bytes,
             CoconutError::Deserialization("Failed to deserialize compressed sig1".to_string()),
         )?;
 
         let sig2 = try_deserialize_g1_projective(
-            &sig2_bytes,
+            sig2_bytes,
             CoconutError::Deserialization("Failed to deserialize compressed sig2".to_string()),
         )?;
 
@@ -142,7 +142,7 @@ impl TryFrom<&[u8]> for BlindedSignature {
         let h_bytes: &[u8; 48] = &bytes[..48].try_into().expect("Slice size != 48");
 
         let h = try_deserialize_g1_projective(
-            &h_bytes,
+            h_bytes,
             CoconutError::Deserialization("Failed to deserialize compressed h".to_string()),
         )?;
         let c_tilde = Ciphertext::try_from(&bytes[48..])?;

@@ -200,14 +200,14 @@ pub(crate) fn try_deserialize_scalar_vec(
 }
 
 pub(crate) fn try_deserialize_scalar(bytes: &[u8; 32], err: CoconutError) -> Result<Scalar> {
-    Into::<Option<Scalar>>::into(Scalar::from_bytes(&bytes)).ok_or(err)
+    Into::<Option<Scalar>>::into(Scalar::from_bytes(bytes)).ok_or(err)
 }
 
 pub(crate) fn try_deserialize_g1_projective(
     bytes: &[u8; 48],
     err: CoconutError,
 ) -> Result<G1Projective> {
-    Into::<Option<G1Affine>>::into(G1Affine::from_compressed(&bytes))
+    Into::<Option<G1Affine>>::into(G1Affine::from_compressed(bytes))
         .ok_or(err)
         .map(G1Projective::from)
 }
@@ -216,7 +216,7 @@ pub(crate) fn try_deserialize_g2_projective(
     bytes: &[u8; 96],
     err: CoconutError,
 ) -> Result<G2Projective> {
-    Into::<Option<G2Affine>>::into(G2Affine::from_compressed(&bytes))
+    Into::<Option<G2Affine>>::into(G2Affine::from_compressed(bytes))
         .ok_or(err)
         .map(G2Projective::from)
 }
