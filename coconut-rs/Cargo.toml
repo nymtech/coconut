@@ -11,9 +11,8 @@ bls12_381 = { version = "0.5", default-features = false, features = ["pairings",
 itertools = "0.10"
 digest = "0.9"
 rand = "0.8"
-getrandom = "*"
 thiserror = "1.0"
-subtle = "2.4"
+#subtle = "2.4"
 #[dependencies.zeroize]
 #version = "1.2.0"
 #features = ["zeroize_derive"]
@@ -21,7 +20,6 @@ serde = "1.0"
 serde_derive = "1.0"
 bs58 = "0.4.0"
 sha2 = "0.9"
-sha3 = "0.9"
 
 [dependencies.ff]
 version = "0.10"
@@ -46,4 +44,4 @@ harness = false
 default = []
 
 [target.'cfg(target_env = "wasm32-unknown-unknown")'.dependencies]
-getrandom = { version="*", features=["js"] }
+getrandom = { version="", features=["js"] }
