@@ -63,7 +63,6 @@ impl Bytable for Attribute {
 
 impl Base58 for Attribute {}
 
-
 #[cfg(doctest)]
 mod doctest {
     use doc_comment::doctest;
