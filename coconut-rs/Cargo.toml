@@ -44,4 +44,4 @@ harness = false
 default = []
 
 [target.'cfg(target_env = "wasm32-unknown-unknown")'.dependencies]
-getrandom = { version="", features=["js"] }
+getrandom = { version="0.2", features=["js"] }
