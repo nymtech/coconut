@@ -15,13 +15,10 @@
 use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
-use crate::G1HashDigest;
+use bls12_381::hash_to_curve::{ExpandMsgXmd, HashToCurve, HashToField};
 use bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 use core::iter::Sum;
 use core::ops::Mul;
-use digest::generic_array;
-use digest::generic_array::typenum::Unsigned;
-use digest::Digest;
 use ff::Field;
 use std::convert::TryInto;
 
@@ -124,57 +121,29 @@ where
 // https://github.com/poanetwork/threshold_crypto/blob/7709462f2df487ada3bb3243060504b5881f2628/src/lib.rs#L691
 // Eventually it should get replaced by, most likely, the osswu map
 // method once ideally it's implemented inside the pairing crate.
-pub(crate) fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
-    // _hash_g1::<G1HashDigest, G1HashPRNG, _>(msg)
 
-    _hash_g1_increment_and_check::<G1HashDigest, _>(msg)
+// note: I have absolutely no idea what are the correct domains for those. I just used whatever
+// was given in the test vectors of `Hashing to Elliptic Curves draft-irtf-cfrg-hash-to-curve-11`
+
+// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#appendix-J.9.1
+const G1_HASH_DOMAIN: &[u8] = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
+
+// https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-11#appendix-K.1
+const SCALAR_HASH_DOMAIN: &[u8] = b"QUUX-V01-CS02-with-expander";
+
+pub(crate) fn hash_g1<M: AsRef<[u8]>>(msg: M) -> G1Projective {
+    <G1Projective as HashToCurve<ExpandMsgXmd<sha2::Sha256>>>::hash_to_curve(msg, G1_HASH_DOMAIN)
 }
 
-// unsafe, not constant time, temporary, etc
-#[doc(hidden)]
-fn _hash_g1_increment_and_check<D, M>(msg: M) -> G1Projective
-where
-    D: Digest,
-    M: AsRef<[u8]>,
-{
-    // TODO: use blake2b??
+pub fn hash_to_scalar<M: AsRef<[u8]>>(msg: M) -> Scalar {
+    let mut output = vec![Scalar::zero()];
 
-    // TODO: when I'm less tired, do this at compile time
-    assert_eq!(D::OutputSize::to_usize(), 48);
-
-    let mut h = D::new();
-
-    let mut ctr = 0u64;
-    loop {
-        // add the counter suffix to the message
-        h.update(&msg);
-        h.update(&ctr.to_le_bytes());
-        ctr += 1;
-
-        let digest = h.finalize_reset();
-
-        // first bit must be set - otherwise it implies uncompressed form (i.e. 96 bytes)
-        // second bit must not be set - otherwise it implies the point at infinity
-        let compression_flag_set = ((digest[0] >> 7) & 1) == 1;
-        let infinity_flag_set = ((digest[0] >> 6) & 1) == 1;
-
-        // continue the loop as there's no point in attempting the point recovery
-        if !compression_flag_set || infinity_flag_set {
-            continue;
-        }
-
-        // that is actually 'safe' (relatively speaking), just not implemented by generic array directly
-        // for arrays bigger than 32. Considering that 'increment and check' method
-        // is not going to exist in the long run, I'd say it's ok to use 'unsafe' here
-        assert_eq!(digest.len(), 48);
-        let digest_array: [u8; 48] = unsafe { generic_array::transmute(digest) };
-
-        let option: Option<G1Affine> = G1Affine::from_compressed_unchecked(&digest_array).into();
-        if let Some(point) = option {
-            let point_projective: G1Projective = point.into();
-            return point_projective.clear_cofactor();
-        }
-    }
+    Scalar::hash_to_field::<ExpandMsgXmd<sha2::Sha256>>(
+        msg.as_ref(),
+        SCALAR_HASH_DOMAIN,
+        &mut output,
+    );
+    output[0]
 }
 
 pub(crate) fn try_deserialize_scalar_vec(
@@ -220,23 +189,6 @@ pub(crate) fn try_deserialize_g2_projective(
         .ok_or(err)
         .map(G2Projective::from)
 }
-
-// #[doc(hidden)]
-// fn _hash_g1_seeded_rng<D, R, M>(msg: M) -> G1Projective
-// where
-//     D: Digest,
-//     R: RngCore + SeedableRng,
-//     R::Seed: From<digest::Output<D>>,
-//     M: AsRef<[u8]>,
-// {
-//     let mut h = D::new();
-//     h.update(msg);
-//     let digest = h.finalize();
-//
-//     let mut seeded_rng = R::from_seed(digest.into());
-//
-//     G1Projective::random(&mut seeded_rng)
-// }
 
 // use core::fmt;
 // #[cfg(feature = "serde")]
@@ -425,5 +377,18 @@ mod tests {
         assert_eq!(hash_g1(msg1), hash_g1(msg1));
         assert_eq!(hash_g1(msg2), hash_g1(msg2));
         assert_ne!(hash_g1(msg1), hash_g1(msg2));
+    }
+
+    #[test]
+    fn hash_scalar_sanity_check() {
+        let mut rng = rand::thread_rng();
+        let mut msg1 = [0u8; 1024];
+        rng.fill_bytes(&mut msg1);
+        let mut msg2 = [0u8; 1024];
+        rng.fill_bytes(&mut msg2);
+
+        assert_eq!(hash_to_scalar(msg1), hash_to_scalar(msg1));
+        assert_eq!(hash_to_scalar(msg2), hash_to_scalar(msg2));
+        assert_ne!(hash_to_scalar(msg1), hash_to_scalar(msg2));
     }
 }

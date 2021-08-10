@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use bls12_381::Scalar;
-use sha3::Sha3_384;
 use std::convert::TryInto;
 
 pub mod elgamal;
@@ -48,6 +47,7 @@ pub use scheme::BlindedSignature;
 pub use scheme::Signature;
 pub use scheme::SignatureShare;
 pub use traits::Base58;
+pub use utils::hash_to_scalar;
 
 pub type Attribute = Scalar;
 
@@ -63,9 +63,6 @@ impl Bytable for Attribute {
 
 impl Base58 for Attribute {}
 
-// reason for sha3 384 is for the 48 bytes output and it's a good enough solution
-// for the temporary use it has
-type G1HashDigest = Sha3_384;
 
 #[cfg(doctest)]
 mod doctest {
