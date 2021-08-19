@@ -296,6 +296,8 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
+    const MARKER_BYTES: &'static [u8] = b"coconutkeypair";
+
     pub fn secret_key(&self) -> SecretKey {
         self.secret_key.clone()
     }
@@ -318,12 +320,11 @@ impl Bytable for KeyPair {
     fn to_byte_vec(&self) -> Vec<u8> {
         // Schema is coconutkeypair[14]|secret_key_len[8]|secret_key[secret_key_len]|verification_key_len[8]|verification_key[verification_key_len]|signer_index[8] - optional
         let mut byts = vec![];
-        let marker_btyes = "coconutkeypair".as_bytes();
         let secret_key_bytes = self.secret_key.to_bytes();
         let secret_key_len = (secret_key_bytes.len() as u64).to_le_bytes();
         let verification_key_bytes = self.verification_key.to_bytes();
         let verification_key_len = (verification_key_bytes.len() as u64).to_le_bytes();
-        byts.extend_from_slice(marker_btyes);
+        byts.extend_from_slice(Self::MARKER_BYTES);
         byts.extend_from_slice(&secret_key_len);
         byts.extend_from_slice(&secret_key_bytes);
         byts.extend_from_slice(&verification_key_len);
@@ -345,21 +346,44 @@ impl TryFrom<&[u8]> for KeyPair {
     type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<KeyPair> {
-        let header_len = 14;
+        let header_len = Self::MARKER_BYTES.len();
+
+        // we must be able to at the very least read the length of secret key which is past the header
+        // and is 8 bytes long
+        if bytes.len() < header_len + 8 {
+            return Err(CoconutError::DeserializationMinLength {
+                min: header_len + 8,
+                actual: bytes.len(),
+            });
+        }
+
         let secret_key_len =
             u64::from_le_bytes(bytes[header_len..header_len + 8].try_into().unwrap()) as usize;
-        let secret_key = SecretKey::try_from(&bytes[14 + 8..14 + 8 + secret_key_len])?;
+        let secret_key_start = header_len + 8;
+
+        let secret_key =
+            SecretKey::try_from(&bytes[secret_key_start..secret_key_start + secret_key_len])?;
+
+        // we must be able to read the length of verification key
+        if bytes.len() < secret_key_start + secret_key_len + 8 {
+            return Err(CoconutError::DeserializationMinLength {
+                min: secret_key_start + secret_key_len + 8,
+                actual: bytes.len(),
+            });
+        }
+
         let verification_key_len = u64::from_le_bytes(
-            bytes[header_len + 8 + secret_key_len..header_len + 8 + secret_key_len + 8]
+            bytes[secret_key_start + secret_key_len..secret_key_start + secret_key_len + 8]
                 .try_into()
                 .unwrap(),
         ) as usize;
+        let verification_key_start = secret_key_start + secret_key_len + 8;
+
         let verification_key = VerificationKey::try_from(
-            &bytes[header_len + 8 + secret_key_len + 8
-                ..header_len + 8 + secret_key_len + 8 + verification_key_len],
+            &bytes[verification_key_start..verification_key_start + verification_key_len],
         )?;
-        let consumed_bytes = header_len + 8 + secret_key_len + 8 + verification_key_len;
-        let index = if consumed_bytes < bytes.len() {
+        let consumed_bytes = verification_key_start + verification_key_len;
+        let index = if consumed_bytes < bytes.len() && [consumed_bytes..].len() == 8 {
             Some(u64::from_le_bytes(
                 bytes[consumed_bytes..consumed_bytes + 8]
                     .try_into()
