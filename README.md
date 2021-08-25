@@ -5,7 +5,11 @@ Coconut [[paper](https://arxiv.org/abs/1802.07344)] is a distributed cryptograph
 
 A [simple explanation](https://constructiveproof.com/posts/2020-03-24-nym-credentials-overview/) is also available in blog form. 
 
-This repo contains Go and Rust implementations of Coconut. They are interoperable - credentials created and re-randomized in Rust can be verified in Go, and vice versa.
+This repo contains Go and Rust implementations of Coconut. 
+
+Note: Currently the libraries are **not** interoperable - different methods of curve hash are being used.
+
+[comment]: <> (They are interoperable - credentials created and re-randomized in Rust can be verified in Go, and vice versa.)
 
 License
 -------
