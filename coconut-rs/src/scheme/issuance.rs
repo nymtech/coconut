@@ -19,7 +19,7 @@ use bls12_381::{G1Affine, G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
 
 use crate::{Attribute, elgamal};
-use crate::elgamal::Ciphertext;
+use crate::elgamal::{Ciphertext, EphemeralKey};
 use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
 use crate::scheme::BlindedSignature;
@@ -145,7 +145,7 @@ pub fn compute_private_attributes_commitment(
     params: &Parameters,
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
-    hs: &[G1Affine]
+    hs: &[G1Affine],
 ) -> (Scalar, G1Projective) {
     let commitment_opening = params.random_scalar();
 
@@ -157,6 +157,22 @@ pub fn compute_private_attributes_commitment(
     // Produces g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
     let commitment = params.gen1() * commitment_opening + attr_cm;
     (commitment_opening, commitment)
+}
+
+pub fn compute_commitment_hash(commitment: G1Projective) -> G1Projective {
+    hash_g1(commitment.to_bytes())
+}
+
+pub fn compute_attribute_encryption(
+    params: &Parameters,
+    private_attributes: &[Attribute],
+    pub_key: &elgamal::PublicKey,
+    commitment_hash: G1Projective,
+) -> (Vec<Ciphertext>, Vec<EphemeralKey>) {
+    private_attributes
+        .iter()
+        .map(|m| pub_key.encrypt(params, &commitment_hash, m))
+        .unzip()
 }
 
 /// Builds cryptographic material required for blind sign.
@@ -184,12 +200,10 @@ pub fn prepare_blind_sign(
     let (commitment_opening, commitment) =
         compute_private_attributes_commitment(params, private_attributes, public_attributes, hs);
 
+    // Compute the challenge as the commitment hash
+    let commitment_hash = compute_commitment_hash(commitment);
     // build ElGamal encryption
-    let commitment_hash = hash_g1(commitment.to_bytes());
-    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = private_attributes
-        .iter()
-        .map(|m| pub_key.encrypt(params, &commitment_hash, m))
-        .unzip();
+    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = compute_attribute_encryption(params, private_attributes, pub_key, commitment_hash);
 
     let pi_s = ProofCmCs::construct(
         params,
