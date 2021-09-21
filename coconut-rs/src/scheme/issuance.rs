@@ -12,19 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
+use bls12_381::{G1Affine, G1Projective, Scalar};
+use group::{Curve, GroupEncoding};
+
+use crate::{Attribute, elgamal};
 use crate::elgamal::Ciphertext;
 use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
-use crate::scheme::setup::Parameters;
 use crate::scheme::BlindedSignature;
 use crate::scheme::SecretKey;
+use crate::scheme::setup::Parameters;
+// TODO: possibly completely remove those two functions.
+// They only exist to have a simpler and smaller code snippets to test
+// basic functionalities.
+/// Creates a Coconut Signature under a given secret key on a set of public attributes only.
+#[cfg(test)]
+use crate::Signature;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
-use crate::{elgamal, Attribute};
-use bls12_381::{G1Projective, Scalar};
-use group::{Curve, GroupEncoding};
-use std::convert::TryFrom;
-use std::convert::TryInto;
 
 // TODO NAMING: double check this one
 // Lambda
@@ -132,6 +140,25 @@ impl BlindSignRequest {
     }
 }
 
+
+pub fn compute_private_attributes_commitment(
+    params: &Parameters,
+    private_attributes: &[Attribute],
+    public_attributes: &[Attribute],
+    hs: &[G1Affine]
+) -> (Scalar, G1Projective) {
+    let commitment_opening = params.random_scalar();
+
+    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
+    // where m0, m1, ...., mn are private attributes
+    let attr_cm = private_attributes
+        .iter().chain(public_attributes.iter()).zip(hs).map(|(&m, h)| h * m).sum::<G1Projective>();
+
+    // Produces g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
+    let commitment = params.gen1() * commitment_opening + attr_cm;
+    (commitment_opening, commitment)
+}
+
 /// Builds cryptographic material required for blind sign.
 pub fn prepare_blind_sign(
     params: &Parameters,
@@ -154,17 +181,8 @@ pub fn prepare_blind_sign(
         });
     }
 
-    // prepare commitment
-    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-    let attr_cm = private_attributes
-        .iter()
-        .chain(public_attributes.iter())
-        .zip(hs)
-        .map(|(&m, h)| h * m)
-        .sum::<G1Projective>();
-    let blinder = params.random_scalar();
-    // g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
-    let commitment = params.gen1() * blinder + attr_cm;
+    let (commitment_opening, commitment) =
+        compute_private_attributes_commitment(params, private_attributes, public_attributes, hs);
 
     // build ElGamal encryption
     let commitment_hash = hash_g1(commitment.to_bytes());
@@ -178,7 +196,7 @@ pub fn prepare_blind_sign(
         pub_key,
         &ephemeral_keys,
         &commitment,
-        &blinder,
+        &commitment_opening,
         private_attributes,
         public_attributes,
     );
@@ -247,13 +265,6 @@ pub fn blind_sign(
     Ok(BlindedSignature(h, elgamal::Ciphertext(sig_1, sig_2)))
 }
 
-// TODO: possibly completely remove those two functions.
-// They only exist to have a simpler and smaller code snippets to test
-// basic functionalities.
-/// Creates a Coconut Signature under a given secret key on a set of public attributes only.
-#[cfg(test)]
-use crate::Signature;
-
 #[cfg(test)]
 pub fn sign(
     params: &mut Parameters,
@@ -278,10 +289,10 @@ pub fn sign(
     // x + m0 * y0 + m1 * y1 + ... mn * yn
     let exponent = secret_key.x
         + public_attributes
-            .iter()
-            .zip(secret_key.ys.iter())
-            .map(|(m_i, y_i)| m_i * y_i)
-            .sum::<Scalar>();
+        .iter()
+        .zip(secret_key.ys.iter())
+        .map(|(m_i, y_i)| m_i * y_i)
+        .sum::<Scalar>();
 
     let sig2 = h * exponent;
     Ok(Signature(h, sig2))
@@ -304,7 +315,7 @@ mod tests {
             &private_attributes,
             &public_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let bytes = lambda.to_bytes();
         assert_eq!(
@@ -321,7 +332,7 @@ mod tests {
             &private_attributes,
             &public_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let bytes = lambda.to_bytes();
         assert_eq!(
