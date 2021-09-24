@@ -259,6 +259,12 @@ pub fn blind_sign(
         });
     }
 
+    let h = hash_g1(blind_sign_request.commitment.to_bytes());
+    if !(h == blind_sign_request.commitment_hash) {
+        return Err(CoconutError::Issuance(
+            "Failed to verify the commitment hash".to_string(),
+        ));
+    }
 
     if !blind_sign_request.verify_proof(params, pub_key) {
         return Err(CoconutError::Issuance(
@@ -266,8 +272,6 @@ pub fn blind_sign(
         ));
     }
 
-    // TODO: This should be also checked!!!
-    let h = hash_g1(blind_sign_request.commitment.to_bytes());
 
     // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
     // i.e. compute h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n]) directly (where m is number of PRIVATE attributes)
