@@ -41,6 +41,8 @@ use crate::utils::{hash_g1, try_deserialize_g1_projective};
 pub struct BlindSignRequest {
     // cm
     commitment: G1Projective,
+    // h
+    commitment_hash: G1Projective,
     // c
     attributes_ciphertexts: Vec<elgamal::Ciphertext>,
     // pi_s
@@ -51,23 +53,38 @@ impl TryFrom<&[u8]> for BlindSignRequest {
     type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<BlindSignRequest> {
-        if bytes.len() < 48 + 8 + 96 {
+        if bytes.len() < 48 + 48 + 8 + 96 {
             return Err(CoconutError::DeserializationMinLength {
-                min: 48 + 8 + 9,
+                min: 48 + 48 + 8 + 9,
                 actual: bytes.len(),
             });
         }
 
-        let cm_bytes = bytes[..48].try_into().unwrap();
+        let mut j = 0;
+        let COMMITMENT_BYTES_LEN = 48;
+        let COMMITMENT_HASH_BYTES_LEN = 48;
+
+        let cm_bytes = bytes[..j + COMMITMENT_BYTES_LEN].try_into().unwrap();
         let commitment = try_deserialize_g1_projective(
             &cm_bytes,
             CoconutError::Deserialization(
                 "Failed to deserialize compressed commitment".to_string(),
             ),
         )?;
+        j += COMMITMENT_BYTES_LEN;
 
-        let c_len = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
-        if bytes[56..].len() < c_len as usize * 96 {
+        let cm_hash_bytes = bytes[j..j + COMMITMENT_HASH_BYTES_LEN].try_into().unwrap();
+        let commitment_hash = try_deserialize_g1_projective(
+            &cm_hash_bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize compressed commitment hash".to_string(),
+            ),
+        )?;
+        j += COMMITMENT_HASH_BYTES_LEN;
+
+        let c_len = u64::from_le_bytes(bytes[j..j + 8].try_into().unwrap());
+        j += 8;
+        if bytes[j..].len() < c_len as usize * 96 {
             return Err(CoconutError::DeserializationMinLength {
                 min: c_len as usize * 96,
                 actual: bytes[56..].len(),
@@ -76,15 +93,16 @@ impl TryFrom<&[u8]> for BlindSignRequest {
 
         let mut attributes_ciphertexts = Vec::with_capacity(c_len as usize);
         for i in 0..c_len as usize {
-            let start = 56 + i * 96;
+            let start = j + i * 96;
             let end = start + 96;
             attributes_ciphertexts.push(Ciphertext::try_from(&bytes[start..end])?)
         }
 
-        let pi_s = ProofCmCs::from_bytes(&bytes[56 + c_len as usize * 96..])?;
+        let pi_s = ProofCmCs::from_bytes(&bytes[j + c_len as usize * 96..])?;
 
         Ok(BlindSignRequest {
             commitment,
+            commitment_hash,
             attributes_ciphertexts,
             pi_s,
         })
@@ -94,12 +112,14 @@ impl TryFrom<&[u8]> for BlindSignRequest {
 impl Bytable for BlindSignRequest {
     fn to_byte_vec(&self) -> Vec<u8> {
         let cm_bytes = self.commitment.to_affine().to_compressed();
+        let cm_hash_bytes = self.commitment_hash.to_affine().to_compressed();
         let c_len = self.attributes_ciphertexts.len() as u64;
         let proof_bytes = self.pi_s.to_bytes();
 
-        let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
+        let mut bytes = Vec::with_capacity(48 + 48 + 8 + c_len as usize * 96 + proof_bytes.len());
 
         bytes.extend_from_slice(&cm_bytes);
+        bytes.extend_from_slice(&cm_hash_bytes);
         bytes.extend_from_slice(&c_len.to_le_bytes());
         for c in &self.attributes_ciphertexts {
             bytes.extend_from_slice(&c.to_bytes());
@@ -216,6 +236,7 @@ pub fn prepare_blind_sign(
 
     Ok(BlindSignRequest {
         commitment,
+        commitment_hash,
         attributes_ciphertexts,
         pi_s,
     })
@@ -333,6 +354,7 @@ mod tests {
             .unwrap();
 
         let bytes = lambda.to_bytes();
+        println!("{:?}", bytes.len());
         assert_eq!(
             BlindSignRequest::try_from(bytes.as_slice()).unwrap(),
             lambda
