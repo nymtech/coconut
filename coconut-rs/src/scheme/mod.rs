@@ -14,6 +14,14 @@
 
 // TODO: implement https://crates.io/crates/signature traits?
 
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
+use bls12_381::G1Projective;
+use group::Curve;
+
+pub use keygen::{SecretKey, VerificationKey};
+
 use crate::elgamal;
 use crate::elgamal::Ciphertext;
 use crate::error::{CoconutError, Result};
@@ -21,11 +29,6 @@ use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signature
 use crate::scheme::setup::Parameters;
 use crate::traits::{Base58, Bytable};
 use crate::utils::try_deserialize_g1_projective;
-use bls12_381::G1Projective;
-use group::Curve;
-pub use keygen::{SecretKey, VerificationKey};
-use std::convert::TryFrom;
-use std::convert::TryInto;
 
 pub mod aggregation;
 pub mod issuance;
@@ -195,11 +198,12 @@ impl SignatureShare {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::scheme::aggregation::aggregate_verification_keys;
     use crate::scheme::issuance::{blind_sign, prepare_blind_sign, sign};
     use crate::scheme::keygen::{keygen, ttp_keygen};
     use crate::scheme::verification::{prove_credential, verify, verify_credential};
+
+    use super::*;
 
     #[test]
     fn verification_on_two_public_attributes() {
@@ -249,7 +253,7 @@ mod tests {
             &private_attributes,
             &public_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let sig1 = blind_sign(
             &mut params,
@@ -258,8 +262,9 @@ mod tests {
             &lambda,
             &public_attributes,
         )
-        .unwrap()
-        .unblind(elgamal_keypair.private_key());
+            .unwrap()
+            .unblind(elgamal_keypair.private_key());
+
         let sig2 = blind_sign(
             &mut params,
             &keypair2.secret_key(),
@@ -267,8 +272,8 @@ mod tests {
             &lambda,
             &public_attributes,
         )
-        .unwrap()
-        .unblind(elgamal_keypair.private_key());
+            .unwrap()
+            .unblind(elgamal_keypair.private_key());
 
         let theta1 = prove_credential(
             &mut params,
@@ -276,14 +281,14 @@ mod tests {
             &sig1,
             &private_attributes,
         )
-        .unwrap();
+            .unwrap();
         let theta2 = prove_credential(
             &mut params,
             &keypair2.verification_key(),
             &sig2,
             &private_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         assert!(verify_credential(
             &params,
@@ -322,7 +327,7 @@ mod tests {
             &private_attributes,
             &public_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let sigs = keypairs
             .iter()
@@ -334,8 +339,8 @@ mod tests {
                     &lambda,
                     &public_attributes,
                 )
-                .unwrap()
-                .unblind(elgamal_keypair.private_key())
+                    .unwrap()
+                    .unblind(elgamal_keypair.private_key())
             })
             .collect::<Vec<_>>();
 
@@ -385,7 +390,7 @@ mod tests {
             signature.0.to_affine().to_compressed(),
             signature.1.to_affine().to_compressed(),
         ]
-        .concat();
+            .concat();
         assert_eq!(expected_bytes, bytes);
         assert_eq!(signature, Signature::try_from(&bytes[..]).unwrap())
     }
@@ -405,10 +410,10 @@ mod tests {
         // also make sure it is equivalent to the internal g1 compressed bytes concatenated
         let expected_bytes = [
             blinded_sig.0.to_affine().to_compressed(),
-            blinded_sig.1 .0.to_affine().to_compressed(),
-            blinded_sig.1 .1.to_affine().to_compressed(),
+            blinded_sig.1.0.to_affine().to_compressed(),
+            blinded_sig.1.1.to_affine().to_compressed(),
         ]
-        .concat();
+            .concat();
         assert_eq!(expected_bytes, bytes);
         assert_eq!(blinded_sig, BlindedSignature::try_from(&bytes[..]).unwrap())
     }

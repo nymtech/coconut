@@ -14,19 +14,21 @@
 
 // TODO: look at https://crates.io/crates/merlin to perhaps use it instead?
 
-use crate::error::{CoconutError, Result};
-use crate::scheme::setup::Parameters;
-use crate::scheme::{Signature, VerificationKey};
-use crate::utils::{hash_g1, try_deserialize_scalar, try_deserialize_scalar_vec};
-use crate::{elgamal, Attribute};
+use std::borrow::Borrow;
+use std::convert::TryInto;
+
 use bls12_381::{G1Projective, G2Projective, Scalar};
-use digest::generic_array::typenum::Unsigned;
 use digest::Digest;
+use digest::generic_array::typenum::Unsigned;
 use group::GroupEncoding;
 use itertools::izip;
 use sha2::Sha256;
-use std::borrow::Borrow;
-use std::convert::TryInto;
+
+use crate::{Attribute, elgamal};
+use crate::error::{CoconutError, Result};
+use crate::scheme::{Signature, VerificationKey};
+use crate::scheme::setup::Parameters;
+use crate::utils::{hash_g1, try_deserialize_scalar, try_deserialize_scalar_vec};
 
 // as per the reference python implementation
 type ChallengeDigest = Sha256;
@@ -50,10 +52,10 @@ pub struct ProofCmCs {
 // and as per the bls12-381 library all elements are using big-endian form
 /// Generates a Scalar [or Fp] challenge by hashing a number of elliptic curve points.  
 fn compute_challenge<D, I, B>(iter: I) -> Scalar
-where
-    D: Digest,
-    I: Iterator<Item = B>,
-    B: AsRef<[u8]>,
+    where
+        D: Digest,
+        I: Iterator<Item=B>,
+        B: AsRef<[u8]>,
 {
     let mut h = D::new();
     for point_representation in iter {
@@ -81,8 +83,8 @@ fn produce_response(witness: &Scalar, challenge: &Scalar, secret: &Scalar) -> Sc
 
 // note: it's caller's responsibility to ensure witnesses.len() = secrets.len()
 fn produce_responses<S>(witnesses: &[Scalar], challenge: &Scalar, secrets: &[S]) -> Vec<Scalar>
-where
-    S: Borrow<Scalar>,
+    where
+        S: Borrow<Scalar>,
 {
     debug_assert_eq!(witnesses.len(), secrets.len());
 
@@ -114,7 +116,7 @@ impl ProofCmCs {
         let witness_blinder = params.random_scalar();
         let witness_keys = params.n_random_scalars(ephemeral_keys.len());
         let witness_attributes =
-            params.n_random_scalars(private_attributes.len() + public_attributes.len());
+            params.n_random_scalars(private_attributes.len());
 
         // make h
         let h = hash_g1(commitment.to_bytes());
@@ -146,10 +148,10 @@ impl ProofCmCs {
         // Cw = (wr * g1) + (wm[0] * hs[0]) + ... + (wm[i] * hs[i])
         let commitment_attributes = g1 * witness_blinder
             + witness_attributes
-                .iter()
-                .zip(params.gen_hs().iter())
-                .map(|(wm_i, hs_i)| hs_i * wm_i)
-                .sum::<G1Projective>();
+            .iter()
+            .zip(params.gen_hs().iter())
+            .map(|(wm_i, hs_i)| hs_i * wm_i)
+            .sum::<G1Projective>();
 
         // challenge ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
@@ -173,7 +175,6 @@ impl ProofCmCs {
             &challenge,
             &private_attributes
                 .iter()
-                .chain(public_attributes.iter())
                 .collect::<Vec<_>>(),
         );
 
@@ -226,19 +227,19 @@ impl ProofCmCs {
             self.response_keys.iter(),
             self.response_attributes.iter()
         )
-        .map(|(c2, res_key, res_attr)| c2 * self.challenge + pub_key * res_key + h * res_attr)
-        .map(|witness| witness.to_bytes())
-        .collect::<Vec<_>>();
+            .map(|(c2, res_key, res_attr)| c2 * self.challenge + pub_key * res_key + h * res_attr)
+            .map(|witness| witness.to_bytes())
+            .collect::<Vec<_>>();
 
         // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[n] * hs[n])
         let commitment_attributes = commitment * self.challenge
             + g1 * self.response_random
             + self
-                .response_attributes
-                .iter()
-                .zip(params.gen_hs().iter())
-                .map(|(res_attr, hs)| hs * res_attr)
-                .sum::<G1Projective>();
+            .response_attributes
+            .iter()
+            .zip(params.gen_hs().iter())
+            .map(|(res_attr, hs)| hs * res_attr)
+            .sum::<G1Projective>();
 
         // compute the challenge prime ([g1, g2, cm, h, Cw]+hs+Aw+Bw)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
@@ -284,7 +285,7 @@ impl ProofCmCs {
         if bytes.len() < 32 * 4 + 16 || (bytes.len() - 16) % 32 != 0 {
             return Err(
                 CoconutError::Deserialization(
-                "tried to deserialize proof of ciphertexts and commitment with bytes of invalid length".to_string())
+                    "tried to deserialize proof of ciphertexts and commitment with bytes of invalid length".to_string())
             );
         }
 
@@ -306,7 +307,7 @@ impl ProofCmCs {
         if bytes[72..].len() < rk_len as usize * 32 + 8 {
             return Err(
                 CoconutError::Deserialization(
-                "tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided".to_string()),
+                    "tried to deserialize proof of ciphertexts and commitment with insufficient number of bytes provided".to_string()),
             );
         }
 
@@ -380,10 +381,10 @@ impl ProofKappaNu {
         let commitment_kappa = params.gen2() * witness_blinder
             + verification_key.alpha
             + witness_attributes
-                .iter()
-                .zip(verification_key.beta.iter())
-                .map(|(wm_i, beta_i)| beta_i * wm_i)
-                .sum::<G2Projective>();
+            .iter()
+            .zip(verification_key.beta.iter())
+            .map(|(wm_i, beta_i)| beta_i * wm_i)
+            .sum::<G2Projective>();
 
         let commitment_blinder = h * witness_blinder;
 
@@ -441,11 +442,11 @@ impl ProofKappaNu {
             + params.gen2() * self.response_blinder
             + verification_key.alpha * (Scalar::one() - self.challenge)
             + self
-                .response_attributes
-                .iter()
-                .zip(verification_key.beta.iter())
-                .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-                .sum::<G2Projective>();
+            .response_attributes
+            .iter()
+            .zip(verification_key.beta.iter())
+            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+            .sum::<G2Projective>();
 
         // Bw = (c * nu) + (rt * h)
         let commitment_blinder = nu * self.challenge + signature.sig1() * self.response_blinder;
@@ -537,11 +538,13 @@ impl ProofKappaNu {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::scheme::keygen::keygen;
-    use crate::scheme::setup::setup;
     use group::Group;
     use rand::thread_rng;
+
+    use crate::scheme::keygen::keygen;
+    use crate::scheme::setup::setup;
+
+    use super::*;
 
     #[test]
     fn proof_cm_cs_bytes_roundtrip() {

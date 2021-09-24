@@ -144,7 +144,6 @@ impl BlindSignRequest {
 pub fn compute_private_attributes_commitment(
     params: &Parameters,
     private_attributes: &[Attribute],
-    public_attributes: &[Attribute],
     hs: &[G1Affine],
 ) -> (Scalar, G1Projective) {
     let commitment_opening = params.random_scalar();
@@ -152,7 +151,7 @@ pub fn compute_private_attributes_commitment(
     // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
     // where m0, m1, ...., mn are private attributes
     let attr_cm = private_attributes
-        .iter().chain(public_attributes.iter()).zip(hs).map(|(&m, h)| h * m).sum::<G1Projective>();
+        .iter().zip(hs).map(|(&m, h)| h * m).sum::<G1Projective>();
 
     // Produces g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
     let commitment = params.gen1() * commitment_opening + attr_cm;
@@ -198,7 +197,7 @@ pub fn prepare_blind_sign(
     }
 
     let (commitment_opening, commitment) =
-        compute_private_attributes_commitment(params, private_attributes, public_attributes, hs);
+        compute_private_attributes_commitment(params, private_attributes, hs);
 
     // Compute the challenge as the commitment hash
     let commitment_hash = compute_commitment_hash(commitment);
@@ -239,12 +238,14 @@ pub fn blind_sign(
         });
     }
 
+
     if !blind_sign_request.verify_proof(params, pub_key) {
         return Err(CoconutError::Issuance(
             "Failed to verify the proof of knowledge".to_string(),
         ));
     }
 
+    // TODO: This should be also checked!!!
     let h = hash_g1(blind_sign_request.commitment.to_bytes());
 
     // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
