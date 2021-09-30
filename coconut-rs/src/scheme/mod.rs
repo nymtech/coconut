@@ -156,7 +156,14 @@ impl TryFrom<&[u8]> for BlindedSignature {
 
 impl BlindedSignature {
     pub fn unblind(&self, private_key: &elgamal::PrivateKey) -> Signature {
-        let sig2 = private_key.decrypt(&self.1);
+        // parse the signature
+        let h = &self.0;
+        let c = &self.1;
+        let sig2 = private_key.decrypt(c);
+        // Verify the commitment hash
+
+        // Verify e (h, ) == e(s_i, g_2)
+
         Signature(self.0, sig2)
     }
 

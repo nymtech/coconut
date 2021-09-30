@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::ops::Neg;
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
+use bls12_381::{G1Affine, G1Projective, G2Prepared, G2Projective, multi_miller_loop};
+use group::{Curve, Group};
+
+use crate::Attribute;
 use crate::error::{CoconutError, Result};
 use crate::proofs::ProofKappaNu;
 use crate::scheme::setup::Parameters;
@@ -19,12 +27,6 @@ use crate::scheme::Signature;
 use crate::scheme::VerificationKey;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective};
-use crate::Attribute;
-use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
-use core::ops::Neg;
-use group::{Curve, Group};
-use std::convert::TryFrom;
-use std::convert::TryInto;
 
 // TODO NAMING: this whole thing
 // Theta
@@ -48,8 +50,8 @@ impl TryFrom<&[u8]> for Theta {
         if bytes.len() < 240 {
             return Err(
                 CoconutError::Deserialization(
-                format!("Tried to deserialize theta with insufficient number of bytes, expected >= 240, got {}", bytes.len()),
-            ));
+                    format!("Tried to deserialize theta with insufficient number of bytes, expected >= 240, got {}", bytes.len()),
+                ));
         }
 
         let kappa_bytes = bytes[..96].try_into().unwrap();
@@ -139,14 +141,12 @@ pub fn prove_credential(
     if private_attributes.len() > verification_key.beta.len() {
         return Err(
             CoconutError::Verification(
-            format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
-                    verification_key.beta.len(),
-                    private_attributes.len()
-            )));
+                format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
+                        verification_key.beta.len(),
+                        private_attributes.len()
+                )));
     }
 
-    // TODO: should randomization be part of this procedure or should
-    // it be up to the user?
     let signature_prime = signature.randomise(params);
 
     // TODO NAMING: 'kappa', 'nu', 'blinding factor'
@@ -154,11 +154,12 @@ pub fn prove_credential(
     let kappa = params.gen2() * blinding_factor
         + verification_key.alpha
         + private_attributes
-            .iter()
-            .zip(verification_key.beta.iter())
-            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-            .sum::<G2Projective>();
+        .iter()
+        .zip(verification_key.beta.iter())
+        .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+        .sum::<G2Projective>();
     let nu = signature_prime.sig1() * blinding_factor;
+
 
     let pi_v = ProofKappaNu::construct(
         params,
@@ -240,11 +241,11 @@ pub fn verify(
 ) -> bool {
     let kappa = (verification_key.alpha
         + public_attributes
-            .iter()
-            .zip(verification_key.beta.iter())
-            .map(|(m_i, b_i)| b_i * m_i)
-            .sum::<G2Projective>())
-    .to_affine();
+        .iter()
+        .zip(verification_key.beta.iter())
+        .map(|(m_i, b_i)| b_i * m_i)
+        .sum::<G2Projective>())
+        .to_affine();
 
     check_bilinear_pairing(
         &sig.0.to_affine(),
@@ -256,9 +257,10 @@ pub fn verify(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::scheme::keygen::keygen;
     use crate::scheme::setup::setup;
+
+    use super::*;
 
     #[test]
     fn theta_bytes_roundtrip() {
@@ -277,7 +279,7 @@ mod tests {
             &signature,
             &private_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let bytes = theta.to_bytes();
         assert_eq!(Theta::try_from(bytes.as_slice()).unwrap(), theta);
@@ -293,7 +295,7 @@ mod tests {
             &signature,
             &private_attributes,
         )
-        .unwrap();
+            .unwrap();
 
         let bytes = theta.to_bytes();
         assert_eq!(Theta::try_from(bytes.as_slice()).unwrap(), theta);
