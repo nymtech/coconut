@@ -16,7 +16,7 @@ use core::ops::Neg;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use bls12_381::{G1Affine, G1Projective, G2Prepared, G2Projective, multi_miller_loop};
+use bls12_381::{G1Affine, G1Projective, G2Prepared, G2Projective, multi_miller_loop, Scalar};
 use group::{Curve, Group};
 
 use crate::Attribute;
@@ -126,6 +126,21 @@ impl Bytable for Theta {
 
 impl Base58 for Theta {}
 
+pub fn compute_kappa(
+    params: &Parameters,
+    verification_key: &VerificationKey,
+    private_attributes: &[Attribute],
+    blinding_factor: Scalar,
+) -> G2Projective {
+    params.gen2() * blinding_factor
+        + verification_key.alpha
+        + private_attributes
+        .iter()
+        .zip(verification_key.beta.iter())
+        .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+        .sum::<G2Projective>()
+}
+
 pub fn prove_credential(
     params: &Parameters,
     verification_key: &VerificationKey,
@@ -151,13 +166,14 @@ pub fn prove_credential(
 
     // TODO NAMING: 'kappa', 'nu', 'blinding factor'
     let blinding_factor = params.random_scalar();
-    let kappa = params.gen2() * blinding_factor
-        + verification_key.alpha
-        + private_attributes
-        .iter()
-        .zip(verification_key.beta.iter())
-        .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-        .sum::<G2Projective>();
+
+    // Value kappa is needed since we want to show a signature sigma'.
+    // In order to verify sigma' we need both the varification key vk and the message m.
+    // However, we do not want to reveal m to whomever we are showing the signature.
+    // Thus, we need kappa which allows us to verify sigma'. In particular,
+    // kappa is computed on m as input, but thanks to the use or random value r,
+    // it does not reveal any information about m.
+    let kappa = compute_kappa(params, verification_key, private_attributes, blinding_factor);
     let nu = signature_prime.sig1() * blinding_factor;
 
 
