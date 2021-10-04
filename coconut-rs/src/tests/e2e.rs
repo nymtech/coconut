@@ -1,7 +1,7 @@
 use crate::{
-    aggregate_signature_shares, aggregate_verification_keys, blind_sign, elgamal_keygen,
-    prepare_blind_sign, prove_credential, setup, ttp_keygen, verify_credential, CoconutError,
-    Signature, SignatureShare, VerificationKey,
+    aggregate_signature_shares, aggregate_verification_keys, blind_sign, CoconutError,
+    elgamal_keygen, prepare_blind_sign, prove_credential, setup, Signature, SignatureShare,
+    ttp_keygen, VerificationKey, verify_credential,
 };
 
 #[test]
@@ -16,7 +16,7 @@ fn main() -> Result<(), CoconutError> {
     // generate commitment and encryption
     let blind_sign_request = prepare_blind_sign(
         &params,
-        &elgamal_keypair.public_key(),
+        &elgamal_keypair,
         &private_attributes,
         &public_attributes,
     )?;
@@ -74,7 +74,7 @@ fn main() -> Result<(), CoconutError> {
         &params,
         &verification_key,
         &theta,
-        &public_attributes
+        &public_attributes,
     ));
 
     Ok(())

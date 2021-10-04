@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::ops::{Deref, Mul};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
+use bls12_381::{G1Projective, Scalar};
+use group::Curve;
+use serde_derive::{Deserialize, Serialize};
+
 use crate::error::{CoconutError, Result};
 use crate::scheme::setup::Parameters;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_scalar};
-use bls12_381::{G1Projective, Scalar};
-use core::ops::{Deref, Mul};
-use group::Curve;
-use serde_derive::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::convert::TryInto;
 
 /// Type alias for the ephemeral key generated during ElGamal encryption
 pub type EphemeralKey = Scalar;
@@ -82,7 +84,7 @@ impl Ciphertext {
 /// PrivateKey used in the ElGamal encryption scheme to recover the plaintext
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct PrivateKey(Scalar);
+pub struct PrivateKey(pub(crate) Scalar);
 
 impl PrivateKey {
     /// Decrypt takes the ElGamal encryption of a message and returns a point on the G1 curve
@@ -110,7 +112,7 @@ impl PrivateKey {
                     .to_string(),
             ),
         )
-        .map(PrivateKey)
+            .map(PrivateKey)
     }
 }
 
@@ -181,7 +183,7 @@ impl TryFrom<&[u8]> for PublicKey {
                 "Failed to deserialize compressed ElGamal public key".to_string(),
             ),
         )
-        .map(PublicKey)
+            .map(PublicKey)
     }
 }
 
@@ -230,6 +232,7 @@ pub fn elgamal_keygen(params: &Parameters) -> ElGamalKeyPair {
         public_key: PublicKey(gamma),
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,7 +326,7 @@ mod tests {
             ciphertext.0.to_affine().to_compressed(),
             ciphertext.1.to_affine().to_compressed(),
         ]
-        .concat();
+            .concat();
         assert_eq!(expected_bytes, bytes);
         assert_eq!(ciphertext, Ciphertext::try_from(&bytes[..]).unwrap())
     }

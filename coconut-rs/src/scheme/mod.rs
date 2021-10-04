@@ -256,7 +256,7 @@ mod tests {
 
         let lambda = prepare_blind_sign(
             &mut params,
-            elgamal_keypair.public_key(),
+            &elgamal_keypair,
             &private_attributes,
             &public_attributes,
         )
@@ -330,7 +330,7 @@ mod tests {
 
         let lambda = prepare_blind_sign(
             &mut params,
-            elgamal_keypair.public_key(),
+            &elgamal_keypair,
             &private_attributes,
             &public_attributes,
         )

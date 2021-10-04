@@ -33,8 +33,8 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective}
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Theta {
-    // kappa
-    kappa: G2Projective,
+    // blinded_message (kappa)
+    blinded_message: G2Projective,
     // nu
     nu: G1Projective,
     // sigma
@@ -54,9 +54,9 @@ impl TryFrom<&[u8]> for Theta {
                 ));
         }
 
-        let kappa_bytes = bytes[..96].try_into().unwrap();
-        let kappa = try_deserialize_g2_projective(
-            &kappa_bytes,
+        let blinded_message_bytes = bytes[..96].try_into().unwrap();
+        let blinded_message = try_deserialize_g2_projective(
+            &blinded_message_bytes,
             CoconutError::Deserialization("failed to deserialize kappa".to_string()),
         )?;
 
@@ -71,7 +71,7 @@ impl TryFrom<&[u8]> for Theta {
         let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
 
         Ok(Theta {
-            kappa,
+            blinded_message,
             nu,
             credential,
             pi_v,
@@ -85,7 +85,7 @@ impl Theta {
             params,
             verification_key,
             &self.credential,
-            &self.kappa,
+            &self.blinded_message,
             &self.nu,
         )
     }
@@ -95,13 +95,13 @@ impl Theta {
     // with bincode
     // kappa || nu || credential || pi_v
     pub fn to_bytes(&self) -> Vec<u8> {
-        let kappa_bytes = self.kappa.to_affine().to_compressed();
+        let blinded_message_bytes = self.blinded_message.to_affine().to_compressed();
         let nu_bytes = self.nu.to_affine().to_compressed();
         let credential_bytes = self.credential.to_bytes();
         let proof_bytes = self.pi_v.to_bytes();
 
         let mut bytes = Vec::with_capacity(240 + proof_bytes.len());
-        bytes.extend_from_slice(&kappa_bytes);
+        bytes.extend_from_slice(&blinded_message_bytes);
         bytes.extend_from_slice(&nu_bytes);
         bytes.extend_from_slice(&credential_bytes);
         bytes.extend_from_slice(&proof_bytes);
@@ -167,13 +167,15 @@ pub fn prove_credential(
     // TODO NAMING: 'kappa', 'nu', 'blinding factor'
     let blinding_factor = params.random_scalar();
 
+    // blinded_message : kappa in the paper.
     // Value kappa is needed since we want to show a signature sigma'.
     // In order to verify sigma' we need both the varification key vk and the message m.
     // However, we do not want to reveal m to whomever we are showing the signature.
     // Thus, we need kappa which allows us to verify sigma'. In particular,
     // kappa is computed on m as input, but thanks to the use or random value r,
     // it does not reveal any information about m.
-    let kappa = compute_kappa(params, verification_key, private_attributes, blinding_factor);
+
+    let blinded_message = compute_kappa(params, verification_key, private_attributes, blinding_factor);
     let nu = signature_prime.sig1() * blinding_factor;
 
 
@@ -185,11 +187,8 @@ pub fn prove_credential(
         &blinding_factor,
     );
 
-    // kappa = alpha * beta^m * g2^r
-    // nu = h^r
-
     Ok(Theta {
-        kappa,
+        blinded_message,
         nu,
         credential: signature_prime,
         pi_v,
@@ -223,7 +222,7 @@ pub fn verify_credential(
     }
 
     let kappa = if public_attributes.is_empty() {
-        theta.kappa
+        theta.blinded_message
     } else {
         let signed_public_attributes = public_attributes
             .iter()
@@ -236,7 +235,7 @@ pub fn verify_credential(
             .map(|(pub_attr, beta_i)| beta_i * pub_attr)
             .sum::<G2Projective>();
 
-        theta.kappa + signed_public_attributes
+        theta.blinded_message + signed_public_attributes
     };
 
     check_bilinear_pairing(

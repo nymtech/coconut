@@ -18,7 +18,7 @@ fn main() -> Result<(), CoconutError> {
     // generate commitment and encryption
     let blind_sign_request = prepare_blind_sign(
         &params,
-        &elgamal_keypair.public_key(),
+        &elgamal_keypair,
         &private_attributes,
         &public_attributes,
     )?;
@@ -32,7 +32,7 @@ fn main() -> Result<(), CoconutError> {
         .collect();
 
     // aggregate verification keys
-    let verification_key = aggregate_verification_keys(&verification_keys, Some(&[1,2,3]))?;
+    let verification_key = aggregate_verification_keys(&verification_keys, Some(&[1, 2, 3]))?;
 
     // generate blinded signatures
     let mut blinded_signatures = Vec::new();
@@ -108,7 +108,6 @@ fn main() -> Result<(), CoconutError> {
 | unblind_prove_and_verify_10_authorities_10_attributes   | 129.69 ms | 130.46 ms | 131.37 ms |
 | unblind_prove_and_verify_100_authorities_1_attributes   | 1.0216 s  | 1.0237 s  | 1.0261 s  |
 | unblind_prove_and_verify_200_authorities_1_attributes   | 2.2503 s  | 2.2621 s  | 2.2740 s  |
-
 
 ## References
 

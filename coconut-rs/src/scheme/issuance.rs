@@ -18,7 +18,7 @@ use std::convert::TryInto;
 use bls12_381::{G1Affine, G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
 
-use crate::{Attribute, elgamal, VerificationKey};
+use crate::{Attribute, elgamal, ElGamalKeyPair, VerificationKey};
 use crate::elgamal::{Ciphertext, EphemeralKey};
 use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
@@ -197,7 +197,7 @@ pub fn compute_attribute_encryption(
 /// Builds cryptographic material required for blind sign.
 pub fn prepare_blind_sign(
     params: &Parameters,
-    pub_key: &elgamal::PublicKey,
+    elgamal_keypair: &ElGamalKeyPair,
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
 ) -> Result<BlindSignRequest> {
@@ -222,16 +222,16 @@ pub fn prepare_blind_sign(
     // Compute the challenge as the commitment hash
     let commitment_hash = compute_commitment_hash(commitment);
     // build ElGamal encryption
-    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = compute_attribute_encryption(params, private_attributes, pub_key, commitment_hash);
+    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = compute_attribute_encryption(params, private_attributes, elgamal_keypair.public_key(), commitment_hash);
 
     let pi_s = ProofCmCs::construct(
         params,
-        pub_key,
+        elgamal_keypair,
         &ephemeral_keys,
         &commitment,
         &commitment_opening,
         private_attributes,
-        public_attributes,
+        &*attributes_ciphertexts,
     );
 
     Ok(BlindSignRequest {
@@ -352,7 +352,7 @@ mod tests {
 
         let lambda = prepare_blind_sign(
             &mut params,
-            elgamal_keypair.public_key(),
+            &elgamal_keypair,
             &private_attributes,
             &public_attributes,
         )
@@ -370,7 +370,7 @@ mod tests {
         let private_attributes = params.n_random_scalars(2);
         let lambda = prepare_blind_sign(
             &mut params,
-            elgamal_keypair.public_key(),
+            &elgamal_keypair,
             &private_attributes,
             &public_attributes,
         )
