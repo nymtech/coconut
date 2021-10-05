@@ -411,7 +411,7 @@ impl ProofKappaNu {
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
+                // .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
@@ -439,7 +439,6 @@ impl ProofKappaNu {
         signature: &Signature,
         // TODO NAMING: kappa, nu...
         kappa: &G2Projective,
-        nu: &G1Projective,
     ) -> bool {
         let hs_bytes = params
             .gen_hs()
@@ -467,7 +466,7 @@ impl ProofKappaNu {
             .sum::<G2Projective>();
 
         // Bw = (c * nu) + (rt * h)
-        let commitment_blinder = nu * self.challenge + signature.sig1() * self.response_blinder;
+        // let commitment_blinder = nu * self.challenge + signature.sig1() * self.response_blinder;
 
         // compute the challenge prime ([g1, g2, alpha, Aw, Bw]+hs+beta)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
@@ -475,7 +474,7 @@ impl ProofKappaNu {
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
+                // .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
                 .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );

@@ -35,8 +35,6 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective}
 pub struct Theta {
     // blinded_message (kappa)
     blinded_message: G2Projective,
-    // nu
-    nu: G1Projective,
     // sigma
     credential: Signature,
     // pi_v
@@ -47,7 +45,7 @@ impl TryFrom<&[u8]> for Theta {
     type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<Theta> {
-        if bytes.len() < 240 {
+        if bytes.len() < 192 {
             return Err(
                 CoconutError::Deserialization(
                     format!("Tried to deserialize theta with insufficient number of bytes, expected >= 240, got {}", bytes.len()),
@@ -60,19 +58,12 @@ impl TryFrom<&[u8]> for Theta {
             CoconutError::Deserialization("failed to deserialize kappa".to_string()),
         )?;
 
-        let nu_bytes = bytes[96..144].try_into().unwrap();
-        let nu = try_deserialize_g1_projective(
-            &nu_bytes,
-            CoconutError::Deserialization("failed to deserialize nu".to_string()),
-        )?;
+        let credential = Signature::try_from(&bytes[96..192])?;
 
-        let credential = Signature::try_from(&bytes[144..240])?;
-
-        let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
+        let pi_v = ProofKappaNu::from_bytes(&bytes[192..])?;
 
         Ok(Theta {
             blinded_message,
-            nu,
             credential,
             pi_v,
         })
@@ -86,7 +77,6 @@ impl Theta {
             verification_key,
             &self.credential,
             &self.blinded_message,
-            &self.nu,
         )
     }
 
@@ -96,13 +86,11 @@ impl Theta {
     // kappa || nu || credential || pi_v
     pub fn to_bytes(&self) -> Vec<u8> {
         let blinded_message_bytes = self.blinded_message.to_affine().to_compressed();
-        let nu_bytes = self.nu.to_affine().to_compressed();
         let credential_bytes = self.credential.to_bytes();
         let proof_bytes = self.pi_v.to_bytes();
 
-        let mut bytes = Vec::with_capacity(240 + proof_bytes.len());
+        let mut bytes = Vec::with_capacity(192 + proof_bytes.len());
         bytes.extend_from_slice(&blinded_message_bytes);
-        bytes.extend_from_slice(&nu_bytes);
         bytes.extend_from_slice(&credential_bytes);
         bytes.extend_from_slice(&proof_bytes);
 
@@ -189,7 +177,6 @@ pub fn prove_credential(
 
     Ok(Theta {
         blinded_message,
-        nu,
         credential: signature_prime,
         pi_v,
     })
@@ -217,33 +204,33 @@ pub fn verify_credential(
         return false;
     }
 
-    if !theta.verify_proof(params, verification_key) {
-        return false;
-    }
-
-    let kappa = if public_attributes.is_empty() {
-        theta.blinded_message
-    } else {
-        let signed_public_attributes = public_attributes
-            .iter()
-            .zip(
-                verification_key
-                    .beta
-                    .iter()
-                    .skip(theta.pi_v.private_attributes()),
-            )
-            .map(|(pub_attr, beta_i)| beta_i * pub_attr)
-            .sum::<G2Projective>();
-
-        theta.blinded_message + signed_public_attributes
-    };
-
-    check_bilinear_pairing(
-        &theta.credential.0.to_affine(),
-        &G2Prepared::from(kappa.to_affine()),
-        &(theta.credential.1 + theta.nu).to_affine(),
-        params.prepared_miller_g2(),
-    ) && !bool::from(theta.credential.0.is_identity())
+    // if !theta.verify_proof(params, verification_key) {
+    //     return false;
+    // }
+    theta.verify_proof(params, verification_key)
+    // let kappa = if public_attributes.is_empty() {
+    //     theta.blinded_message
+    // } else {
+    //     let signed_public_attributes = public_attributes
+    //         .iter()
+    //         .zip(
+    //             verification_key
+    //                 .beta
+    //                 .iter()
+    //                 .skip(theta.pi_v.private_attributes()),
+    //         )
+    //         .map(|(pub_attr, beta_i)| beta_i * pub_attr)
+    //         .sum::<G2Projective>();
+    //
+    //     theta.blinded_message + signed_public_attributes
+    // };
+    //
+    // check_bilinear_pairing(
+    //     &theta.credential.0.to_affine(),
+    //     &G2Prepared::from(kappa.to_affine()),
+    //     &(theta.credential.1).to_affine(),
+    //     params.prepared_miller_g2(),
+    // ) && !bool::from(theta.credential.0.is_identity())
 }
 
 // Used in tests only
