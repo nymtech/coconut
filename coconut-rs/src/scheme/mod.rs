@@ -17,16 +17,17 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use bls12_381::{G1Projective, Scalar};
+use bls12_381::{G1Projective, G2Prepared, G2Projective, Scalar};
 use group::Curve;
 
 pub use keygen::{SecretKey, VerificationKey};
 
-use crate::elgamal;
+use crate::{Attribute, elgamal};
 use crate::elgamal::Ciphertext;
 use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::{aggregate_signature_shares, aggregate_signatures};
 use crate::scheme::setup::Parameters;
+use crate::scheme::verification::check_bilinear_pairing;
 use crate::traits::{Base58, Bytable};
 use crate::utils::try_deserialize_g1_projective;
 
@@ -158,7 +159,12 @@ impl TryFrom<&[u8]> for BlindedSignature {
 }
 
 impl BlindedSignature {
-    pub fn unblind(&self, private_key: &elgamal::PrivateKey) -> Signature {
+    pub fn unblind(&self,
+                   params: &Parameters,
+                   private_key: &elgamal::PrivateKey,
+                   partial_verification_key: &VerificationKey,
+                   private_attributes: &[Attribute],
+                   public_attributes: &[Attribute]) -> Result<Signature> {
         // parse the signature
         let h = &self.0;
         let c = &self.1;
@@ -166,8 +172,31 @@ impl BlindedSignature {
         // Verify the commitment hash
 
         // Verify e (h, ) == e(s_i, g_2)
+        let alpha = partial_verification_key.alpha;
 
-        Signature(self.0, sig2)
+        let tmp = private_attributes
+            .iter()
+            .chain(public_attributes.iter())
+            .zip(
+                partial_verification_key
+                    .beta
+                    .iter())
+            .map(|(attr, beta_i)| beta_i * attr)
+            .sum::<G2Projective>();
+
+        // Verify the signature share
+        if !check_bilinear_pairing(
+            &h.to_affine(),
+            &G2Prepared::from((alpha + tmp).to_affine()),
+            &sig2.to_affine(),
+            params.prepared_miller_g2(),
+        ) {
+            return Err(CoconutError::Unblind(
+                "Verification of signature share failed".to_string(),
+            ));
+        }
+
+        Ok(Signature(self.0, sig2))
     }
 
     pub fn to_bytes(&self) -> [u8; 144] {
@@ -240,7 +269,8 @@ mod tests {
             &[],
         )
             .unwrap()
-            .unblind(elgamal_keypair.private_key());
+            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &[]).
+            unwrap();
 
         let sig2 = blind_sign(
             &mut params,
@@ -250,7 +280,8 @@ mod tests {
             &[],
         )
             .unwrap()
-            .unblind(elgamal_keypair.private_key());
+            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &[])
+            .unwrap();
 
         let theta1 = prove_credential(
             &mut params,
@@ -348,7 +379,8 @@ mod tests {
             &public_attributes,
         )
             .unwrap()
-            .unblind(elgamal_keypair.private_key());
+            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &public_attributes)
+            .unwrap();
 
         let sig2 = blind_sign(
             &mut params,
@@ -358,7 +390,8 @@ mod tests {
             &public_attributes,
         )
             .unwrap()
-            .unblind(elgamal_keypair.private_key());
+            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &public_attributes)
+            .unwrap();
 
         let theta1 = prove_credential(
             &mut params,
@@ -426,7 +459,8 @@ mod tests {
                     &public_attributes,
                 )
                     .unwrap()
-                    .unblind(elgamal_keypair.private_key())
+                    .unblind(&params, elgamal_keypair.private_key(), &keypair.verification_key(), &private_attributes, &public_attributes)
+                    .unwrap()
             })
             .collect::<Vec<_>>();
 

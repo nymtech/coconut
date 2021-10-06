@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use thiserror::Error;
+
 /// A `Result` alias where the `Err` case is `coconut_rs::Error`.
 pub type Result<T> = std::result::Result<T, CoconutError>;
 
@@ -30,14 +31,16 @@ pub enum CoconutError {
     Interpolation(String),
     #[error("Aggregation error: {0}")]
     Aggregation(String),
+    #[error("Unblind error: {0}")]
+    Unblind(String),
     #[error("Verification error: {0}")]
     Verification(String),
     #[error("Deserialization error: {0}")]
     Deserialization(String),
     #[error(
-        "Deserailization error, expected at least {} bytes, got {}",
-        min,
-        actual
+    "Deserailization error, expected at least {} bytes, got {}",
+    min,
+    actual
     )]
     DeserializationMinLength { min: usize, actual: usize },
     #[error("Tried to deserialize {object} with bytes of invalid length. Expected {actual} < {} or {modulus_target} % {modulus} == 0")]
