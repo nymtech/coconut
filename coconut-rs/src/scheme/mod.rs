@@ -17,7 +17,7 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use bls12_381::G1Projective;
+use bls12_381::{G1Projective, Scalar};
 use group::Curve;
 
 pub use keygen::{SecretKey, VerificationKey};
@@ -82,9 +82,12 @@ impl Signature {
         &self.1
     }
 
-    pub fn randomise(&self, params: &Parameters) -> Signature {
+    pub fn randomise(&self, params: &Parameters) -> (Signature, Scalar) {
         let r = params.random_scalar();
-        Signature(self.0 * r, self.1 * r)
+        let r_prime = params.random_scalar();
+        let h_prime = self.0 * r_prime;
+        let s_prime = (self.1 * r_prime) + (h_prime * r);
+        (Signature(h_prime, s_prime), r)
     }
 
     pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
@@ -211,6 +214,81 @@ mod tests {
     use crate::scheme::verification::{prove_credential, verify, verify_credential};
 
     use super::*;
+
+    #[test]
+    fn verification_on_two_private_attributes() {
+        let mut params = Parameters::new(2).unwrap();
+        let private_attributes = params.n_random_scalars(2);
+        let elgamal_keypair = elgamal::elgamal_keygen(&mut params);
+
+        let keypair1 = keygen(&mut params);
+        let keypair2 = keygen(&mut params);
+
+        let lambda = prepare_blind_sign(
+            &mut params,
+            &elgamal_keypair,
+            &private_attributes,
+            &[],
+        )
+            .unwrap();
+
+        let sig1 = blind_sign(
+            &mut params,
+            &keypair1.secret_key(),
+            elgamal_keypair.public_key(),
+            &lambda,
+            &[],
+        )
+            .unwrap()
+            .unblind(elgamal_keypair.private_key());
+
+        let sig2 = blind_sign(
+            &mut params,
+            &keypair2.secret_key(),
+            elgamal_keypair.public_key(),
+            &lambda,
+            &[],
+        )
+            .unwrap()
+            .unblind(elgamal_keypair.private_key());
+
+        let theta1 = prove_credential(
+            &mut params,
+            &keypair1.verification_key(),
+            &sig1,
+            &private_attributes,
+        )
+            .unwrap();
+
+        let theta2 = prove_credential(
+            &mut params,
+            &keypair2.verification_key(),
+            &sig2,
+            &private_attributes,
+        )
+            .unwrap();
+
+        assert!(verify_credential(
+            &params,
+            &keypair1.verification_key(),
+            &theta1,
+            &[],
+        ));
+
+        assert!(verify_credential(
+            &params,
+            &keypair2.verification_key(),
+            &theta2,
+            &[],
+        ));
+
+        assert!(!verify_credential(
+            &params,
+            &keypair1.verification_key(),
+            &theta2,
+            &[],
+        ));
+    }
 
     #[test]
     fn verification_on_two_public_attributes() {

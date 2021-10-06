@@ -149,10 +149,10 @@ pub fn prove_credential(
                 )));
     }
 
-    let signature_prime = signature.randomise(params);
+    let (signature_prime, blinding_factor) = signature.randomise(params);
 
     // TODO NAMING: 'kappa', 'nu', 'blinding factor'
-    let blinding_factor = params.random_scalar();
+    // let blinding_factor = params.random_scalar();
 
     // blinded_message : kappa in the paper.
     // Value kappa is needed since we want to show a signature sigma'.
@@ -203,34 +203,34 @@ pub fn verify_credential(
         return false;
     }
 
-    // if !theta.verify_proof(params, verification_key) {
-    //     return false;
-    // }
-    theta.verify_proof(params, verification_key)
+    if !theta.verify_proof(params, verification_key) {
+        return false;
+    }
+    // theta.verify_proof(params, verification_key)
 
-    // let kappa = if public_attributes.is_empty() {
-    //     theta.blinded_message
-    // } else {
-    //     let signed_public_attributes = public_attributes
-    //         .iter()
-    //         .zip(
-    //             verification_key
-    //                 .beta
-    //                 .iter()
-    //                 .skip(theta.pi_v.private_attributes()),
-    //         )
-    //         .map(|(pub_attr, beta_i)| beta_i * pub_attr)
-    //         .sum::<G2Projective>();
-    //
-    //     theta.blinded_message + signed_public_attributes
-    // };
-    //
-    // check_bilinear_pairing(
-    //     &theta.credential.0.to_affine(),
-    //     &G2Prepared::from(kappa.to_affine()),
-    //     &theta.credential.1.to_affine(),
-    //     params.prepared_miller_g2(),
-    // ) && !bool::from(theta.credential.0.is_identity())
+    let kappa = if public_attributes.is_empty() {
+        theta.blinded_message
+    } else {
+        let signed_public_attributes = public_attributes
+            .iter()
+            .zip(
+                verification_key
+                    .beta
+                    .iter()
+                    .skip(theta.pi_v.private_attributes()),
+            )
+            .map(|(pub_attr, beta_i)| beta_i * pub_attr)
+            .sum::<G2Projective>();
+
+        theta.blinded_message + signed_public_attributes
+    };
+
+    check_bilinear_pairing(
+        &theta.credential.0.to_affine(),
+        &G2Prepared::from(kappa.to_affine()),
+        &(theta.credential.1).to_affine(),
+        params.prepared_miller_g2(),
+    ) && !bool::from(theta.credential.0.is_identity())
 }
 
 // Used in tests only
