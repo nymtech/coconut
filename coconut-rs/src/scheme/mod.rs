@@ -289,6 +289,7 @@ mod tests {
             &private_attributes,
         )
             .unwrap();
+
         let theta2 = prove_credential(
             &mut params,
             &keypair2.verification_key(),

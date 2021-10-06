@@ -75,7 +75,6 @@ impl Theta {
         self.pi_v.verify(
             params,
             verification_key,
-            &self.credential,
             &self.blinded_message,
         )
     }
@@ -170,9 +169,9 @@ pub fn prove_credential(
     let pi_v = ProofKappaNu::construct(
         params,
         verification_key,
-        &signature_prime,
         private_attributes,
         &blinding_factor,
+        &blinded_message,
     );
 
     Ok(Theta {
@@ -208,6 +207,7 @@ pub fn verify_credential(
     //     return false;
     // }
     theta.verify_proof(params, verification_key)
+
     // let kappa = if public_attributes.is_empty() {
     //     theta.blinded_message
     // } else {
@@ -228,7 +228,7 @@ pub fn verify_credential(
     // check_bilinear_pairing(
     //     &theta.credential.0.to_affine(),
     //     &G2Prepared::from(kappa.to_affine()),
-    //     &(theta.credential.1).to_affine(),
+    //     &theta.credential.1.to_affine(),
     //     params.prepared_miller_g2(),
     // ) && !bool::from(theta.credential.0.is_identity())
 }
