@@ -42,7 +42,7 @@ pub struct BlindSignRequest {
     // cm
     commitment: G1Projective,
     // h
-    commitment_hash: G1Projective,
+    pub commitment_hash: G1Projective,
     // c
     private_attributes_ciphertexts: Vec<elgamal::Ciphertext>,
     // pi_s

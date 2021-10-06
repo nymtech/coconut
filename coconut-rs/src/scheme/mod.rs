@@ -164,12 +164,19 @@ impl BlindedSignature {
                    private_key: &elgamal::PrivateKey,
                    partial_verification_key: &VerificationKey,
                    private_attributes: &[Attribute],
-                   public_attributes: &[Attribute]) -> Result<Signature> {
+                   public_attributes: &[Attribute],
+                   commitment_hash: G1Projective) -> Result<Signature> {
         // parse the signature
         let h = &self.0;
         let c = &self.1;
         let sig2 = private_key.decrypt(c);
+
         // Verify the commitment hash
+        if !(commitment_hash == *h) {
+            return Err(CoconutError::Unblind(
+                "Verification of commitment hash from signature failed".to_string(),
+            ));
+        }
 
         // Verify e (h, ) == e(s_i, g_2)
         let alpha = partial_verification_key.alpha;
@@ -269,7 +276,7 @@ mod tests {
             &[],
         )
             .unwrap()
-            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &[]).
+            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &[], lambda.commitment_hash).
             unwrap();
 
         let sig2 = blind_sign(
@@ -280,7 +287,7 @@ mod tests {
             &[],
         )
             .unwrap()
-            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &[])
+            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &[], lambda.commitment_hash)
             .unwrap();
 
         let theta1 = prove_credential(
@@ -379,7 +386,7 @@ mod tests {
             &public_attributes,
         )
             .unwrap()
-            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &public_attributes)
+            .unblind(&params, elgamal_keypair.private_key(), &keypair1.verification_key(), &private_attributes, &public_attributes, lambda.commitment_hash)
             .unwrap();
 
         let sig2 = blind_sign(
@@ -390,7 +397,7 @@ mod tests {
             &public_attributes,
         )
             .unwrap()
-            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &public_attributes)
+            .unblind(&params, elgamal_keypair.private_key(), &keypair2.verification_key(), &private_attributes, &public_attributes, lambda.commitment_hash)
             .unwrap();
 
         let theta1 = prove_credential(
@@ -459,7 +466,7 @@ mod tests {
                     &public_attributes,
                 )
                     .unwrap()
-                    .unblind(&params, elgamal_keypair.private_key(), &keypair.verification_key(), &private_attributes, &public_attributes)
+                    .unblind(&params, elgamal_keypair.private_key(), &keypair.verification_key(), &private_attributes, &public_attributes, lambda.commitment_hash)
                     .unwrap()
             })
             .collect::<Vec<_>>();

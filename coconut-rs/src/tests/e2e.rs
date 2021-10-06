@@ -51,7 +51,7 @@ fn main() -> Result<(), CoconutError> {
     let unblinded_signatures: Vec<Signature> = blinded_signatures
         .into_iter()
         .zip(verification_keys.iter())
-        .map(|(signature, verification_key)| signature.unblind(&params, &elgamal_keypair.private_key(), &verification_key, &private_attributes, &public_attributes).unwrap())
+        .map(|(signature, verification_key)| signature.unblind(&params, &elgamal_keypair.private_key(), &verification_key, &private_attributes, &public_attributes, blind_sign_request.commitment_hash).unwrap())
         .collect();
 
     // Aggregate signatures
