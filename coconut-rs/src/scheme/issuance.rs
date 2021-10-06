@@ -44,7 +44,7 @@ pub struct BlindSignRequest {
     // h
     commitment_hash: G1Projective,
     // c
-    attributes_ciphertexts: Vec<elgamal::Ciphertext>,
+    private_attributes_ciphertexts: Vec<elgamal::Ciphertext>,
     // pi_s
     pi_s: ProofCmCs,
 }
@@ -91,11 +91,11 @@ impl TryFrom<&[u8]> for BlindSignRequest {
             });
         }
 
-        let mut attributes_ciphertexts = Vec::with_capacity(c_len as usize);
+        let mut private_attributes_ciphertexts = Vec::with_capacity(c_len as usize);
         for i in 0..c_len as usize {
             let start = j + i * 96;
             let end = start + 96;
-            attributes_ciphertexts.push(Ciphertext::try_from(&bytes[start..end])?)
+            private_attributes_ciphertexts.push(Ciphertext::try_from(&bytes[start..end])?)
         }
 
         let pi_s = ProofCmCs::from_bytes(&bytes[j + c_len as usize * 96..])?;
@@ -103,7 +103,7 @@ impl TryFrom<&[u8]> for BlindSignRequest {
         Ok(BlindSignRequest {
             commitment,
             commitment_hash,
-            attributes_ciphertexts,
+            private_attributes_ciphertexts,
             pi_s,
         })
     }
@@ -113,7 +113,7 @@ impl Bytable for BlindSignRequest {
     fn to_byte_vec(&self) -> Vec<u8> {
         let cm_bytes = self.commitment.to_affine().to_compressed();
         let cm_hash_bytes = self.commitment_hash.to_affine().to_compressed();
-        let c_len = self.attributes_ciphertexts.len() as u64;
+        let c_len = self.private_attributes_ciphertexts.len() as u64;
         let proof_bytes = self.pi_s.to_bytes();
 
         let mut bytes = Vec::with_capacity(48 + 48 + 8 + c_len as usize * 96 + proof_bytes.len());
@@ -121,7 +121,7 @@ impl Bytable for BlindSignRequest {
         bytes.extend_from_slice(&cm_bytes);
         bytes.extend_from_slice(&cm_hash_bytes);
         bytes.extend_from_slice(&c_len.to_le_bytes());
-        for c in &self.attributes_ciphertexts {
+        for c in &self.private_attributes_ciphertexts {
             bytes.extend_from_slice(&c.to_bytes());
         }
 
@@ -143,7 +143,7 @@ impl BlindSignRequest {
             params,
             pub_key,
             &self.commitment,
-            &self.attributes_ciphertexts,
+            &self.private_attributes_ciphertexts,
         )
     }
 
@@ -222,7 +222,7 @@ pub fn prepare_blind_sign(
     // Compute the challenge as the commitment hash
     let commitment_hash = compute_commitment_hash(commitment);
     // build ElGamal encryption
-    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = compute_attribute_encryption(params, private_attributes, elgamal_keypair.public_key(), commitment_hash);
+    let (private_attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = compute_attribute_encryption(params, private_attributes, elgamal_keypair.public_key(), commitment_hash);
 
     let pi_s = ProofCmCs::construct(
         params,
@@ -231,13 +231,13 @@ pub fn prepare_blind_sign(
         &commitment,
         &commitment_opening,
         private_attributes,
-        &*attributes_ciphertexts,
+        &*private_attributes_ciphertexts,
     );
 
     Ok(BlindSignRequest {
         commitment,
         commitment_hash,
-        attributes_ciphertexts,
+        private_attributes_ciphertexts,
         pi_s,
     })
 }
@@ -249,7 +249,7 @@ pub fn blind_sign(
     blind_sign_request: &BlindSignRequest,
     public_attributes: &[Attribute],
 ) -> Result<BlindedSignature> {
-    let num_private = blind_sign_request.attributes_ciphertexts.len();
+    let num_private = blind_sign_request.private_attributes_ciphertexts.len();
     let hs = params.gen_hs();
 
     if num_private + public_attributes.len() > hs.len() {
@@ -285,7 +285,7 @@ pub fn blind_sign(
 
     // c1[0] ^ y[0] * ... * c1[m] ^ y[m]
     let sig_1 = blind_sign_request
-        .attributes_ciphertexts
+        .private_attributes_ciphertexts
         .iter()
         .map(|ciphertext| ciphertext.c1())
         .zip(secret_key.ys.iter())
@@ -294,7 +294,7 @@ pub fn blind_sign(
 
     // h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
     let sig_2 = blind_sign_request
-        .attributes_ciphertexts
+        .private_attributes_ciphertexts
         .iter()
         .map(|ciphertext| ciphertext.c2())
         .zip(secret_key.ys.iter())
