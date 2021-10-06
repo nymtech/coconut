@@ -156,6 +156,7 @@ impl ProofCmCs {
             .map(|(wm_i, hs_i)| hs_i * wm_i)
             .sum::<G1Projective>();
 
+
         // compute challenge
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
@@ -166,7 +167,8 @@ impl ProofCmCs {
                 .chain(std::iter::once(commitment_attributes.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_private_key_elgamal.to_bytes().as_ref()))
                 .chain(commitment_keys1_bytes.iter().map(|aw| aw.as_ref()))
-                .chain(commitment_keys2_bytes.iter().map(|bw| bw.as_ref())),
+                .chain(commitment_keys2_bytes.iter().map(|bw| bw.as_ref()))
+                .chain(priv_attributes_ciphertexts.iter().map(|c| c.to_bytes().as_ref())),
         );
 
         // Responses
@@ -386,8 +388,6 @@ impl ProofKappaNu {
 
         // witnesses commitments
         // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
-        // TODO: kappa commitment??
-        // TODO NAMING: Aw, Bw
         let commitment_kappa = params.gen2() * witness_blinder
             + verification_key.alpha
             + witness_attributes

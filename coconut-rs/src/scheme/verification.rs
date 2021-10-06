@@ -161,9 +161,7 @@ pub fn prove_credential(
     // Thus, we need kappa which allows us to verify sigma'. In particular,
     // kappa is computed on m as input, but thanks to the use or random value r,
     // it does not reveal any information about m.
-
     let blinded_message = compute_kappa(params, verification_key, private_attributes, blinding_factor);
-    let nu = signature_prime.sig1() * blinding_factor;
 
 
     let pi_v = ProofKappaNu::construct(
