@@ -34,11 +34,11 @@ use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective}
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Theta {
     // blinded_message (kappa)
-    blinded_message: G2Projective,
+    pub blinded_message: G2Projective,
     // sigma
-    credential: Signature,
+    pub credential: Signature,
     // pi_v
-    pi_v: ProofKappaNu,
+    pub pi_v: ProofKappaNu,
 }
 
 impl TryFrom<&[u8]> for Theta {
