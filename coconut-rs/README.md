@@ -13,6 +13,10 @@ fn main() -> Result<(), CoconutError> {
     let public_attributes = params.n_random_scalars(2);
     let private_attributes = params.n_random_scalars(3);
 
+    let mut attributes = Vec::with_capacity(private_attributes.len() + public_attributes.len());
+    attributes.extend_from_slice(&private_attributes);
+    attributes.extend_from_slice(&public_attributes);
+
     let elgamal_keypair = elgamal_keygen(&params);
 
     // generate commitment and encryption
@@ -64,7 +68,7 @@ fn main() -> Result<(), CoconutError> {
         .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
         .collect();
 
-    let signature = aggregate_signature_shares(&signature_shares)?;
+    let signature = aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)?;
 
     // Randomize credentials and generate any cryptographic material to verify them
 

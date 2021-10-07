@@ -91,9 +91,9 @@ impl Signature {
         (Signature(h_prime, s_prime), r)
     }
 
-    pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
-        aggregate_signatures(sigs, indices)
-    }
+    // pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
+    //     aggregate_signatures(sigs, indices)
+    // }
 
     pub fn to_bytes(self) -> [u8; 96] {
         let mut bytes = [0u8; 96];
@@ -178,7 +178,6 @@ impl BlindedSignature {
             ));
         }
 
-        // Verify e (h, ) == e(s_i, g_2)
         let alpha = partial_verification_key.alpha;
 
         let tmp = private_attributes
@@ -237,9 +236,9 @@ impl SignatureShare {
         self.index
     }
 
-    pub fn aggregate(shares: &[Self]) -> Result<Signature> {
-        aggregate_signature_shares(shares)
-    }
+    // pub fn aggregate(shares: &[Self]) -> Result<Signature> {
+    //     aggregate_signature_shares(shares)
+    // }
 }
 
 #[cfg(test)]
@@ -476,8 +475,12 @@ mod tests {
             .map(|keypair| keypair.verification_key())
             .collect::<Vec<_>>();
 
+        let mut attributes = Vec::with_capacity(private_attributes.len() + public_attributes.len());
+        attributes.extend_from_slice(&private_attributes);
+        attributes.extend_from_slice(&public_attributes);
+
         let aggr_vk = aggregate_verification_keys(&vks[..2], Some(&[1, 2])).unwrap();
-        let aggr_sig = aggregate_signatures(&sigs[..2], Some(&[1, 2])).unwrap();
+        let aggr_sig = aggregate_signatures(&params, &aggr_vk, &attributes, &sigs[..2], Some(&[1, 2])).unwrap();
 
         let theta =
             prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
@@ -491,7 +494,7 @@ mod tests {
 
         // taking different subset of keys and credentials
         let aggr_vk = aggregate_verification_keys(&vks[1..], Some(&[2, 3])).unwrap();
-        let aggr_sig = aggregate_signatures(&sigs[1..], Some(&[2, 3])).unwrap();
+        let aggr_sig = aggregate_signatures(&params, &aggr_vk, &attributes, &sigs[1..], Some(&[2, 3])).unwrap();
 
         let theta =
             prove_credential(&mut params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();

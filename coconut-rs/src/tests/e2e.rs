@@ -62,8 +62,12 @@ fn main() -> Result<(), CoconutError> {
         .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
         .collect();
 
+    let mut attributes = Vec::with_capacity(private_attributes.len() + public_attributes.len());
+    attributes.extend_from_slice(&private_attributes);
+    attributes.extend_from_slice(&public_attributes);
+
     // Randomize credentials and generate any cryptographic material to verify them
-    let signature = aggregate_signature_shares(&signature_shares)?;
+    let signature = aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)?;
 
     // Generate cryptographic material to verify them
 
