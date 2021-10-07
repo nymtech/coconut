@@ -97,6 +97,8 @@ pub fn aggregate_signatures(
     signatures: &[PartialSignature],
     indices: Option<&[SignerIndex]>,
 ) -> Result<Signature> {
+    // aggregate the signature
+
     let signature = match Aggregatable::aggregate(signatures, indices) {
         Ok(res) => res,
         Err(err) => return Err(err)

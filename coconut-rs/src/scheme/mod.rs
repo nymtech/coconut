@@ -91,10 +91,6 @@ impl Signature {
         (Signature(h_prime, s_prime), r)
     }
 
-    // pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
-    //     aggregate_signatures(sigs, indices)
-    // }
-
     pub fn to_bytes(self) -> [u8; 96] {
         let mut bytes = [0u8; 96];
         bytes[..48].copy_from_slice(&self.0.to_affine().to_compressed());

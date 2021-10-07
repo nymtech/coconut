@@ -143,16 +143,14 @@ pub fn prove_credential(
     if private_attributes.len() > verification_key.beta.len() {
         return Err(
             CoconutError::Verification(
-                format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
+                format!("Tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
                         verification_key.beta.len(),
                         private_attributes.len()
                 )));
     }
 
-    let (signature_prime, blinding_factor) = signature.randomise(params);
-
-    // TODO NAMING: 'kappa', 'nu', 'blinding factor'
-    // let blinding_factor = params.random_scalar();
+    // Randomize the signature
+    let (signature_prime, sign_blinding_factor) = signature.randomise(params);
 
     // blinded_message : kappa in the paper.
     // Value kappa is needed since we want to show a signature sigma'.
@@ -161,14 +159,14 @@ pub fn prove_credential(
     // Thus, we need kappa which allows us to verify sigma'. In particular,
     // kappa is computed on m as input, but thanks to the use or random value r,
     // it does not reveal any information about m.
-    let blinded_message = compute_kappa(params, verification_key, private_attributes, blinding_factor);
+    let blinded_message = compute_kappa(params, verification_key, private_attributes, sign_blinding_factor);
 
 
     let pi_v = ProofKappaNu::construct(
         params,
         verification_key,
         private_attributes,
-        &blinding_factor,
+        &sign_blinding_factor,
         &blinded_message,
     );
 
