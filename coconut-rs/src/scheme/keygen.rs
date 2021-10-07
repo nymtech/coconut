@@ -124,8 +124,8 @@ impl Base58 for SecretKey {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
-    pub alpha: G2Projective,
-    pub beta: Vec<G2Projective>,
+    pub(crate) alpha: G2Projective,
+    pub(crate) beta: Vec<G2Projective>,
 }
 
 impl TryFrom<&[u8]> for VerificationKey {
@@ -256,6 +256,14 @@ impl VerificationKey {
 
     pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
         aggregate_verification_keys(sigs, indices)
+    }
+
+    pub fn alpha(&self) -> &G2Projective {
+        &self.alpha
+    }
+
+    pub fn beta(&self) -> &Vec<G2Projective> {
+        &self.beta
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
