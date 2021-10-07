@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::borrow::Borrow;
+use core::iter::Sum;
+use core::ops::{Add, Mul};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+
+use bls12_381::{G2Projective, Scalar};
+use group::Curve;
+use serde_derive::{Deserialize, Serialize};
+
+use crate::Base58;
 use crate::error::{CoconutError, Result};
 use crate::scheme::aggregation::aggregate_verification_keys;
 use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::traits::Bytable;
 use crate::utils::{
-    try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec, Polynomial,
+    Polynomial, try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec,
 };
-use crate::Base58;
-use bls12_381::{G2Projective, Scalar};
-use core::borrow::Borrow;
-use core::iter::Sum;
-use core::ops::{Add, Mul};
-use group::Curve;
-use serde_derive::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::convert::TryInto;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -122,8 +124,8 @@ impl Base58 for SecretKey {}
 #[derive(Debug, PartialEq, Clone)]
 pub struct VerificationKey {
     // TODO add gen2 as per the paper or imply it from the fact library is using bls381?
-    pub(crate) alpha: G2Projective,
-    pub(crate) beta: Vec<G2Projective>,
+    pub alpha: G2Projective,
+    pub beta: Vec<G2Projective>,
 }
 
 impl TryFrom<&[u8]> for VerificationKey {
@@ -148,9 +150,9 @@ impl TryFrom<&[u8]> for VerificationKey {
         if beta_len as usize != actual_beta_len {
             return Err(
                 CoconutError::Deserialization(
-                format!("Tried to deserialize verification key with inconsistent beta len (expected {}, got {})",
-                        beta_len, actual_beta_len
-                )));
+                    format!("Tried to deserialize verification key with inconsistent beta len (expected {}, got {})",
+                            beta_len, actual_beta_len
+                    )));
         }
 
         let alpha = try_deserialize_g2_projective(
@@ -218,13 +220,13 @@ impl<'a> Mul<Scalar> for &'a VerificationKey {
 }
 
 impl<T> Sum<T> for VerificationKey
-where
-    T: Borrow<VerificationKey>,
+    where
+        T: Borrow<VerificationKey>,
 {
     #[inline]
     fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = T>,
+        where
+            I: Iterator<Item=T>,
     {
         let mut peekable = iter.peekable();
         let head_attributes = match peekable.peek() {
@@ -437,8 +439,8 @@ pub fn ttp_keygen(
     if threshold > num_authorities {
         return Err(
             CoconutError::Setup(
-            "Tried to generate threshold keys for threshold value being higher than number of the signing authorities".to_string(),
-        ));
+                "Tried to generate threshold keys for threshold value being higher than number of the signing authorities".to_string(),
+            ));
     }
 
     let attributes = params.gen_hs().len();
@@ -483,8 +485,9 @@ pub fn ttp_keygen(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::scheme::setup::setup;
+
+    use super::*;
 
     #[test]
     fn keypair_bytes_roundtrip() {
