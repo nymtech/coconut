@@ -15,7 +15,7 @@ fn main() {
 
     info!("-- Starting run: {}", run_id);
 
-    let parameters = Parameters::new(3).unwrap();
+    let parameters = Parameters::new(4).unwrap();
 
     let n_validators = value_t!(matches.value_of("N_VALIDATORS"), u32).unwrap();
 
