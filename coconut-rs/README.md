@@ -87,29 +87,6 @@ fn main() -> Result<(), CoconutError> {
 }
 ```
 
-## Benchmarks
-
-100 iterations on a `2,3 GHz 8-Core Intel Core i9 MacBook Pro`
-
-| Name                                                    | min time  | mean time | max time  |
-| ------------------------------------------------------- | --------- | --------- | --------- |
-| double pairing                                          | 4.3830 ms | 4.4139 ms | 4.4463 ms |
-| multi miller in affine                                  | 2.8097 ms | 2.8164 ms | 2.8235 ms |
-| multi miller with prepared g2                           | 2.3726 ms | 2.3762 ms | 2.3800 ms |
-| multi miller with semi-prepared g2                      | 2.5839 ms | 2.5913 ms | 2.6007 ms |
-| elgamal_keygen                                          | 442.61 us | 446.98 us | 452.76 us |
-| produce_blinded_signatures_10_authorities_1_attributes  | 264.89 ms | 265.54 ms | 266.27 ms |
-| produce_blinded_signatures_10_authorities_3_attributes  | 229.57 ms | 231.00 ms | 232.50 ms |
-| produce_blinded_signatures_10_authorities_10_attributes | 228.46 ms | 229.67 ms | 230.91 ms |
-| produce_blinded_signatures_100_authorities_1_attributes | 2.6077 s  | 2.6182 s  | 2.6290 s  |
-| produce_blinded_signatures_200_authorities_1_attributes | 6.4803 s  | 6.5419 s  | 6.6024 s  |
-| unblind_prove_and_verify_10_authorities_1_attributes    | 138.32 ms | 140.18 ms | 142.06 ms |
-| unblind_prove_and_verify_10_authorities_3_attributes    | 128.43 ms | 128.95 ms | 129.53 ms |
-| unblind_prove_and_verify_10_authorities_10_attributes   | 129.69 ms | 130.46 ms | 131.37 ms |
-| unblind_prove_and_verify_100_authorities_1_attributes   | 1.0216 s  | 1.0237 s  | 1.0261 s  |
-| unblind_prove_and_verify_200_authorities_1_attributes   | 2.2503 s  | 2.2621 s  | 2.2740 s  |
-
-
 ## References
 
 + [Public interface](https://github.com/asonnino/coconut/blob/master/coconut/scheme.py)
