@@ -18,7 +18,8 @@ use crate::scheme::setup::Parameters;
 use crate::scheme::SignerIndex;
 use crate::traits::Bytable;
 use crate::utils::{
-    try_deserialize_g1_projective, try_deserialize_g2_projective, try_deserialize_scalar, try_deserialize_scalar_vec, Polynomial,
+    try_deserialize_g1_projective, try_deserialize_g2_projective, try_deserialize_scalar,
+    try_deserialize_scalar_vec, Polynomial,
 };
 use crate::Base58;
 use bls12_381::{G1Projective, G2Projective, Scalar};
@@ -274,8 +275,8 @@ where
 {
     #[inline]
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = T>,
+    where
+        I: Iterator<Item = T>,
     {
         let mut peekable = iter.peekable();
         let head_attributes = match peekable.peek() {

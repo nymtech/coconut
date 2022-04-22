@@ -15,8 +15,9 @@
 // TODO: implement https://crates.io/crates/signature traits?
 
 use crate::error::{CoconutError, Result};
-use crate::scheme::aggregation::{aggregate_signatures};
+use crate::scheme::aggregation::aggregate_signatures;
 use crate::scheme::setup::Parameters;
+use crate::scheme::verification::check_bilinear_pairing;
 use crate::traits::{Base58, Bytable};
 use crate::utils::try_deserialize_g1_projective;
 use bls12_381::{G1Projective, G2Prepared, G2Projective, Scalar};
@@ -24,7 +25,6 @@ use group::Curve;
 pub use keygen::{SecretKey, VerificationKey};
 use std::convert::TryFrom;
 use std::convert::TryInto;
-use crate::scheme::verification::check_bilinear_pairing;
 pub mod aggregation;
 pub mod issuance;
 pub mod keygen;
@@ -402,9 +402,7 @@ mod tests {
             aggregate_signatures(&params, &aggr_vk, &attributes, &sigs[..2], Some(&[1, 2]))
                 .unwrap();
 
-
-        let theta =
-            prove_credential(&params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
+        let theta = prove_credential(&params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
 
         assert!(verify_credential(
             &params,
@@ -419,8 +417,7 @@ mod tests {
             aggregate_signatures(&params, &aggr_vk, &attributes, &sigs[1..], Some(&[2, 3]))
                 .unwrap();
 
-        let theta =
-            prove_credential(&params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
+        let theta = prove_credential(&params, &aggr_vk, &aggr_sig, &private_attributes).unwrap();
 
         assert!(verify_credential(
             &params,
@@ -461,7 +458,7 @@ mod tests {
             blinded_sig.0.to_affine().to_compressed(),
             blinded_sig.1.to_affine().to_compressed(),
         ]
-            .concat();
+        .concat();
         assert_eq!(expected_bytes, bytes);
         assert_eq!(blinded_sig, BlindedSignature::try_from(&bytes[..]).unwrap())
     }

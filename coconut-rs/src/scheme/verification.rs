@@ -70,11 +70,7 @@ impl TryFrom<&[u8]> for Theta {
 
 impl Theta {
     fn verify_proof(&self, params: &Parameters, verification_key: &VerificationKey) -> bool {
-        self.pi_v.verify(
-            params,
-            verification_key,
-            &self.kappa,
-        )
+        self.pi_v.verify(params, verification_key, &self.kappa)
     }
 
     // TODO: perhaps also include pi_v.len()?
@@ -120,10 +116,10 @@ pub fn compute_kappa(
     params.gen2() * blinding_factor
         + verification_key.alpha
         + private_attributes
-        .iter()
-        .zip(verification_key.beta_g2.iter())
-        .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-        .sum::<G2Projective>()
+            .iter()
+            .zip(verification_key.beta_g2.iter())
+            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+            .sum::<G2Projective>()
 }
 
 pub fn prove_credential(
@@ -183,7 +179,12 @@ pub fn prove_credential(
 }
 
 /// Checks whether e(P, Q) * e(-R, S) == id
-pub(crate) fn check_bilinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
+pub(crate) fn check_bilinear_pairing(
+    p: &G1Affine,
+    q: &G2Prepared,
+    r: &G1Affine,
+    s: &G2Prepared,
+) -> bool {
     // checking e(P, Q) * e(-R, S) == id
     // is equivalent to checking e(P, Q) == e(R, S)
     // but requires only a single final exponentiation rather than two of them

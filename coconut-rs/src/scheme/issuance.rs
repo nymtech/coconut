@@ -19,8 +19,8 @@ use crate::scheme::BlindedSignature;
 use crate::scheme::SecretKey;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
-use crate::{Attribute};
-use bls12_381::{G1Projective, Scalar, G1Affine};
+use crate::Attribute;
+use bls12_381::{G1Affine, G1Projective, Scalar};
 use group::{Curve, GroupEncoding};
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -189,7 +189,6 @@ pub fn compute_attributes_commitment(
 pub fn compute_commitment_hash(commitment: G1Projective) -> G1Projective {
     hash_g1(commitment.to_bytes())
 }
-
 
 pub fn compute_pedersen_commitments_for_private_attributes(
     params: &Parameters,

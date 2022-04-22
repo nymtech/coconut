@@ -1,7 +1,7 @@
 use crate::{
-    aggregate_signature_shares, aggregate_verification_keys, blind_sign,
-    prepare_blind_sign, prove_credential, setup, ttp_keygen, verify_credential, CoconutError,
-    Signature, SignatureShare, VerificationKey,
+    aggregate_signature_shares, aggregate_verification_keys, blind_sign, prepare_blind_sign,
+    prove_credential, setup, ttp_keygen, verify_credential, CoconutError, Signature,
+    SignatureShare, VerificationKey,
 };
 use itertools::izip;
 
@@ -54,7 +54,7 @@ fn main() -> Result<(), CoconutError> {
                     &blind_sign_request.get_commitment_hash(),
                     &commitments_openings,
                 )
-                    .unwrap()
+                .unwrap()
             })
             .collect();
 

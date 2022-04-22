@@ -16,15 +16,16 @@ use bls12_381::{multi_miller_loop, G1Affine, G2Affine, G2Prepared, Scalar};
 use coconut_rs::{
     aggregate_signature_shares, aggregate_verification_keys, blind_sign, elgamal_keygen,
     prepare_blind_sign, prove_credential, setup, ttp_keygen, verify_credential, Attribute,
-    BlindedSignature, ElGamalKeyPair, BlindSignRequest, Parameters, Signature, SignatureShare, VerificationKey,
+    BlindSignRequest, BlindedSignature, ElGamalKeyPair, Parameters, Signature, SignatureShare,
+    VerificationKey,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 use ff::Field;
 use group::{Curve, Group};
+use itertools::izip;
 use rand::seq::SliceRandom;
 use std::ops::Neg;
 use std::time::Duration;
-use itertools::izip;
 
 fn double_pairing(g11: &G1Affine, g21: &G2Affine, g12: &G1Affine, g22: &G2Affine) {
     let gt1 = bls12_381::pairing(&g11, &g21);
@@ -90,7 +91,7 @@ fn unblind_and_aggregate(
                     &blind_sign_request.get_commitment_hash(),
                     &commitments_openings,
                 )
-                    .unwrap()
+                .unwrap()
             })
             .collect();
 
@@ -107,7 +108,8 @@ fn unblind_and_aggregate(
 
     // Randomize credentials and generate any cryptographic material to verify them
     let signature =
-        aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares).unwrap();
+        aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)
+            .unwrap();
     signature
 }
 
@@ -193,10 +195,7 @@ fn bench_coconut(c: &mut Criterion) {
             case.threshold_p,
         ),
         |b| {
-            b.iter(|| {
-                prepare_blind_sign(&params, &private_attributes, &public_attributes)
-                .unwrap()
-            })
+            b.iter(|| prepare_blind_sign(&params, &private_attributes, &public_attributes).unwrap())
         },
     );
 
@@ -252,8 +251,16 @@ fn bench_coconut(c: &mut Criterion) {
     let verification_key = aggregate_verification_keys(&verification_keys, Some(&indices)).unwrap();
 
     // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
-    let aggregated_signature =
-        unblind_and_aggregate(&params, &blinded_signatures, &blind_sign_request, &commitments_openings, &private_attributes, &public_attributes, &verification_key, &verification_keys);
+    let aggregated_signature = unblind_and_aggregate(
+        &params,
+        &blinded_signatures,
+        &blind_sign_request,
+        &commitments_openings,
+        &private_attributes,
+        &public_attributes,
+        &verification_key,
+        &verification_keys,
+    );
 
     // CLIENT BENCHMARK: aggregate all partial credentials
     group.bench_function(
@@ -270,9 +277,13 @@ fn bench_coconut(c: &mut Criterion) {
         },
     );
 
-
     // Randomize credentials and generate any cryptographic material to verify them
-    let theta = prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes)
+    let theta = prove_credential(
+        &params,
+        &verification_key,
+        &aggregated_signature,
+        &private_attributes,
+    )
     .unwrap();
 
     // CLIENT BENCHMARK
@@ -285,7 +296,12 @@ fn bench_coconut(c: &mut Criterion) {
         ),
         |b| {
             b.iter(|| {
-                prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes)
+                prove_credential(
+                    &params,
+                    &verification_key,
+                    &aggregated_signature,
+                    &private_attributes,
+                )
                 .unwrap()
             })
         },
@@ -293,12 +309,7 @@ fn bench_coconut(c: &mut Criterion) {
 
     // VERIFIER OPERATION
     // Verify credentials
-    verify_credential(
-        &params,
-        &verification_key,
-        &theta,
-        &public_attributes
-    );
+    verify_credential(&params, &verification_key, &theta, &public_attributes);
 
     // VERIFICATION BENCHMARK
     group.bench_function(
@@ -308,12 +319,7 @@ fn bench_coconut(c: &mut Criterion) {
             case.num_attrs(),
             case.threshold_p,
         ),
-        |b| b.iter(|| verify_credential(
-            &params,
-            &verification_key,
-            &theta,
-            &public_attributes
-        )),
+        |b| b.iter(|| verify_credential(&params, &verification_key, &theta, &public_attributes)),
     );
 }
 criterion_group!(benches, bench_coconut);

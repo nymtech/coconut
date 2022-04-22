@@ -106,7 +106,7 @@ impl ProofCmCs {
         // we also know, due to the single call place, that ephemeral_keys.len() == private_attributes.len()
 
         // witness creation
-// witness creation
+        // witness creation
         let witness_commitment_opening = params.random_scalar();
         let witness_pedersen_commitments_openings =
             params.n_random_scalars(pedersen_commitments_openings.len());
@@ -128,10 +128,10 @@ impl ProofCmCs {
         // Ccm = (wr * g1) + (wm[0] * hs[0]) + ... + (wm[i] * hs[i])
         let commitment_attributes = g1 * witness_commitment_opening
             + witness_attributes
-            .iter()
-            .zip(params.gen_hs().iter())
-            .map(|(wm_i, hs_i)| hs_i * wm_i)
-            .sum::<G1Projective>();
+                .iter()
+                .zip(params.gen_hs().iter())
+                .map(|(wm_i, hs_i)| hs_i * wm_i)
+                .sum::<G1Projective>();
 
         // zkp commitments for the individual attributes
         let commitments_attributes = witness_pedersen_commitments_openings
@@ -208,26 +208,26 @@ impl ProofCmCs {
         // Cw = (cm * c) + (rr * g1) + (rm[0] * hs[0]) + ... + (rm[n] * hs[n])
         let commitment_attributes = (commitment
             - public_attributes
-            .iter()
-            .zip(params.gen_hs().iter().skip(self.response_attributes.len()))
-            .map(|(pub_attr, hs)| hs * pub_attr)
-            .sum::<G1Projective>())
+                .iter()
+                .zip(params.gen_hs().iter().skip(self.response_attributes.len()))
+                .map(|(pub_attr, hs)| hs * pub_attr)
+                .sum::<G1Projective>())
             * self.challenge
             + g1 * self.response_opening
             + self
-            .response_attributes
-            .iter()
-            .zip(params.gen_hs().iter())
-            .map(|(res_attr, hs)| hs * res_attr)
-            .sum::<G1Projective>();
+                .response_attributes
+                .iter()
+                .zip(params.gen_hs().iter())
+                .map(|(res_attr, hs)| hs * res_attr)
+                .sum::<G1Projective>();
 
         let commitments_attributes = izip!(
             commitments.iter(),
             self.response_openings.iter(),
             self.response_attributes.iter()
         )
-            .map(|(cm_j, r_o_j, r_m_j)| cm_j * self.challenge + g1 * r_o_j + h * r_m_j)
-            .collect::<Vec<_>>();
+        .map(|(cm_j, r_o_j, r_m_j)| cm_j * self.challenge + g1 * r_o_j + h * r_m_j)
+        .collect::<Vec<_>>();
 
         let commitments_bytes = commitments
             .iter()
@@ -334,7 +334,6 @@ impl ProofCmCs {
             response_attributes,
         })
     }
-
 }
 
 #[derive(Debug)]
@@ -362,7 +361,6 @@ impl ProofKappaNu {
         let witness_blinder = params.random_scalar();
         let witness_attributes = params.n_random_scalars(private_attributes.len());
 
-
         let beta_bytes = verification_key
             .beta_g2
             .iter()
@@ -377,7 +375,6 @@ impl ProofKappaNu {
                 .zip(verification_key.beta_g2.iter())
                 .map(|(wm_i, beta_i)| beta_i * wm_i)
                 .sum::<G2Projective>();
-
 
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
@@ -409,7 +406,6 @@ impl ProofKappaNu {
         verification_key: &VerificationKey,
         kappa: &G2Projective,
     ) -> bool {
-
         let beta_bytes = verification_key
             .beta_g2
             .iter()
@@ -553,7 +549,6 @@ mod tests {
         let bytes = pi_s.to_bytes();
         assert_eq!(ProofCmCs::from_bytes(&bytes).unwrap(), pi_s);
     }
-
 
     #[test]
     fn proof_kappa_bytes_roundtrip() {
