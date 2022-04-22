@@ -78,14 +78,13 @@ impl Signature {
         &self.1
     }
 
-    pub fn randomise(&self, params: &Parameters) -> Signature {
+    pub fn randomise(&self, params: &Parameters) -> (Signature, Scalar) {
         let r = params.random_scalar();
-        Signature(self.0 * r, self.1 * r)
+        let r_prime = params.random_scalar();
+        let h_prime = self.0 * r_prime;
+        let s_prime = (self.1 * r_prime) + (h_prime * r);
+        (Signature(h_prime, s_prime), r)
     }
-
-    // pub fn aggregate(sigs: &[Self], indices: Option<&[SignerIndex]>) -> Result<Self> {
-    //     aggregate_signatures(sigs, indices)
-    // }
 
     pub fn to_bytes(self) -> [u8; 96] {
         let mut bytes = [0u8; 96];

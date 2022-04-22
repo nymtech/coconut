@@ -20,7 +20,7 @@ use crate::scheme::VerificationKey;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{try_deserialize_g1_projective, try_deserialize_g2_projective};
 use crate::Attribute;
-use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective};
+use bls12_381::{multi_miller_loop, G1Affine, G1Projective, G2Prepared, G2Projective, Scalar};
 use core::ops::Neg;
 use group::{Curve, Group};
 use std::convert::TryFrom;
@@ -33,8 +33,6 @@ use std::convert::TryInto;
 pub struct Theta {
     // kappa
     kappa: G2Projective,
-    // nu
-    nu: G1Projective,
     // sigma
     credential: Signature,
     // pi_v
@@ -58,19 +56,12 @@ impl TryFrom<&[u8]> for Theta {
             CoconutError::Deserialization("failed to deserialize kappa".to_string()),
         )?;
 
-        let nu_bytes = bytes[96..144].try_into().unwrap();
-        let nu = try_deserialize_g1_projective(
-            &nu_bytes,
-            CoconutError::Deserialization("failed to deserialize nu".to_string()),
-        )?;
+        let credential = Signature::try_from(&bytes[96..192])?;
 
-        let credential = Signature::try_from(&bytes[144..240])?;
-
-        let pi_v = ProofKappaNu::from_bytes(&bytes[240..])?;
+        let pi_v = ProofKappaNu::from_bytes(&bytes[192..])?;
 
         Ok(Theta {
             kappa,
-            nu,
             credential,
             pi_v,
         })
@@ -82,9 +73,7 @@ impl Theta {
         self.pi_v.verify(
             params,
             verification_key,
-            &self.credential,
             &self.kappa,
-            &self.nu,
         )
     }
 
@@ -94,13 +83,11 @@ impl Theta {
     // kappa || nu || credential || pi_v
     pub fn to_bytes(&self) -> Vec<u8> {
         let kappa_bytes = self.kappa.to_affine().to_compressed();
-        let nu_bytes = self.nu.to_affine().to_compressed();
         let credential_bytes = self.credential.to_bytes();
         let proof_bytes = self.pi_v.to_bytes();
 
-        let mut bytes = Vec::with_capacity(240 + proof_bytes.len());
+        let mut bytes = Vec::with_capacity(192 + proof_bytes.len());
         bytes.extend_from_slice(&kappa_bytes);
-        bytes.extend_from_slice(&nu_bytes);
         bytes.extend_from_slice(&credential_bytes);
         bytes.extend_from_slice(&proof_bytes);
 
@@ -123,6 +110,21 @@ impl Bytable for Theta {
 }
 
 impl Base58 for Theta {}
+
+pub fn compute_kappa(
+    params: &Parameters,
+    verification_key: &VerificationKey,
+    private_attributes: &[Attribute],
+    blinding_factor: Scalar,
+) -> G2Projective {
+    params.gen2() * blinding_factor
+        + verification_key.alpha
+        + private_attributes
+        .iter()
+        .zip(verification_key.beta_g2.iter())
+        .map(|(priv_attr, beta_i)| beta_i * priv_attr)
+        .sum::<G2Projective>()
+}
 
 pub fn prove_credential(
     params: &Parameters,
@@ -147,25 +149,27 @@ pub fn prove_credential(
 
     // TODO: should randomization be part of this procedure or should
     // it be up to the user?
-    let signature_prime = signature.randomise(params);
+    let (signature_prime, sign_blinding_factor) = signature.randomise(params);
 
-    // TODO NAMING: 'kappa', 'nu', 'blinding factor'
-    let blinding_factor = params.random_scalar();
-    let kappa = params.gen2() * blinding_factor
-        + verification_key.alpha
-        + private_attributes
-            .iter()
-            .zip(verification_key.beta_g2.iter())
-            .map(|(priv_attr, beta_i)| beta_i * priv_attr)
-            .sum::<G2Projective>();
-    let nu = signature_prime.sig1() * blinding_factor;
+    // blinded_message : kappa in the paper.
+    // Value kappa is needed since we want to show a signature sigma'.
+    // In order to verify sigma' we need both the verification key vk and the message m.
+    // However, we do not want to reveal m to whomever we are showing the signature.
+    // Thus, we need kappa which allows us to verify sigma'. In particular,
+    // kappa is computed on m as input, but thanks to the use or random value r,
+    // it does not reveal any information about m.
+    let kappa = compute_kappa(
+        params,
+        verification_key,
+        private_attributes,
+        sign_blinding_factor,
+    );
 
     let pi_v = ProofKappaNu::construct(
         params,
         verification_key,
-        &signature_prime,
         private_attributes,
-        &blinding_factor,
+        &sign_blinding_factor,
     );
 
     // kappa = alpha * beta^m * g2^r
@@ -173,7 +177,6 @@ pub fn prove_credential(
 
     Ok(Theta {
         kappa,
-        nu,
         credential: signature_prime,
         pi_v,
     })
@@ -225,7 +228,7 @@ pub fn verify_credential(
     check_bilinear_pairing(
         &theta.credential.0.to_affine(),
         &G2Prepared::from(kappa.to_affine()),
-        &(theta.credential.1 + theta.nu).to_affine(),
+        &(theta.credential.1).to_affine(),
         params.prepared_miller_g2(),
     ) && !bool::from(theta.credential.0.is_identity())
 }

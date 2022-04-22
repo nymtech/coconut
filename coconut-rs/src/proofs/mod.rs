@@ -355,7 +355,6 @@ impl ProofKappaNu {
     pub(crate) fn construct(
         params: &Parameters,
         verification_key: &VerificationKey,
-        signature: &Signature,
         private_attributes: &[Attribute],
         blinding_factor: &Scalar,
     ) -> Self {
@@ -363,13 +362,6 @@ impl ProofKappaNu {
         let witness_blinder = params.random_scalar();
         let witness_attributes = params.n_random_scalars(private_attributes.len());
 
-        let h = signature.sig1();
-
-        let hs_bytes = params
-            .gen_hs()
-            .iter()
-            .map(|h| h.to_bytes())
-            .collect::<Vec<_>>();
 
         let beta_bytes = verification_key
             .beta_g2
@@ -377,10 +369,7 @@ impl ProofKappaNu {
             .map(|beta_i| beta_i.to_bytes())
             .collect::<Vec<_>>();
 
-        // witnesses commitments
-        // Aw = g2 * wt + alpha + beta[0] * wm[0] + ... + beta[i] * wm[i]
-        // TODO: kappa commitment??
-        // TODO NAMING: Aw, Bw
+        // commitments
         let commitment_kappa = params.gen2() * witness_blinder
             + verification_key.alpha
             + witness_attributes
@@ -389,15 +378,12 @@ impl ProofKappaNu {
                 .map(|(wm_i, beta_i)| beta_i * wm_i)
                 .sum::<G2Projective>();
 
-        let commitment_blinder = h * witness_blinder;
 
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
-                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
 
@@ -421,16 +407,8 @@ impl ProofKappaNu {
         &self,
         params: &Parameters,
         verification_key: &VerificationKey,
-        signature: &Signature,
-        // TODO NAMING: kappa, nu...
         kappa: &G2Projective,
-        nu: &G1Projective,
     ) -> bool {
-        let hs_bytes = params
-            .gen_hs()
-            .iter()
-            .map(|h| h.to_bytes())
-            .collect::<Vec<_>>();
 
         let beta_bytes = verification_key
             .beta_g2
@@ -451,17 +429,12 @@ impl ProofKappaNu {
                 .map(|(priv_attr, beta_i)| beta_i * priv_attr)
                 .sum::<G2Projective>();
 
-        // Bw = (c * nu) + (rt * h)
-        let commitment_blinder = nu * self.challenge + signature.sig1() * self.response_blinder;
-
         // compute the challenge prime ([g1, g2, alpha, Aw, Bw]+hs+beta)
         let challenge = compute_challenge::<ChallengeDigest, _, _>(
             std::iter::once(params.gen1().to_bytes().as_ref())
                 .chain(std::iter::once(params.gen2().to_bytes().as_ref()))
                 .chain(std::iter::once(verification_key.alpha.to_bytes().as_ref()))
                 .chain(std::iter::once(commitment_kappa.to_bytes().as_ref()))
-                .chain(std::iter::once(commitment_blinder.to_bytes().as_ref()))
-                .chain(hs_bytes.iter().map(|hs| hs.as_ref()))
                 .chain(beta_bytes.iter().map(|b| b.as_ref())),
         );
 
@@ -493,7 +466,7 @@ impl ProofKappaNu {
                 actual: bytes.len(),
                 modulus_target: bytes.len() - 8,
                 modulus: 32,
-                object: "kappa and nu".to_string(),
+                object: "kappa".to_string(),
                 target: 32 * 3 + 8,
             });
         }
@@ -591,7 +564,6 @@ mod tests {
         let s = params.random_scalar();
 
         // we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
-        let signature = Signature(params.gen1() * r, params.gen1() * s);
         let private_attributes = params.n_random_scalars(1);
         let r = params.random_scalar();
 
@@ -599,7 +571,6 @@ mod tests {
         let pi_v = ProofKappaNu::construct(
             &mut params,
             &keypair.verification_key(),
-            &signature,
             &private_attributes,
             &r,
         );
@@ -615,7 +586,6 @@ mod tests {
         let pi_v = ProofKappaNu::construct(
             &mut params,
             &keypair.verification_key(),
-            &signature,
             &private_attributes,
             &r,
         );
