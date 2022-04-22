@@ -136,11 +136,11 @@ pub fn prove_credential(
         ));
     }
 
-    if private_attributes.len() > verification_key.beta.len() {
+    if private_attributes.len() > verification_key.beta_g2.len() {
         return Err(
             CoconutError::Verification(
             format!("tried to prove a credential for higher than supported by the provided verification key number of attributes (max: {}, requested: {})",
-                    verification_key.beta.len(),
+                    verification_key.beta_g2.len(),
                     private_attributes.len()
             )));
     }
@@ -155,7 +155,7 @@ pub fn prove_credential(
         + verification_key.alpha
         + private_attributes
             .iter()
-            .zip(verification_key.beta.iter())
+            .zip(verification_key.beta_g2.iter())
             .map(|(priv_attr, beta_i)| beta_i * priv_attr)
             .sum::<G2Projective>();
     let nu = signature_prime.sig1() * blinding_factor;
@@ -197,7 +197,7 @@ pub fn verify_credential(
     theta: &Theta,
     public_attributes: &[Attribute],
 ) -> bool {
-    if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta.len() {
+    if public_attributes.len() + theta.pi_v.private_attributes() > verification_key.beta_g2.len() {
         return false;
     }
 
@@ -212,7 +212,7 @@ pub fn verify_credential(
             .iter()
             .zip(
                 verification_key
-                    .beta
+                    .beta_g2
                     .iter()
                     .skip(theta.pi_v.private_attributes()),
             )
@@ -241,7 +241,7 @@ pub fn verify(
     let kappa = (verification_key.alpha
         + public_attributes
             .iter()
-            .zip(verification_key.beta.iter())
+            .zip(verification_key.beta_g2.iter())
             .map(|(m_i, b_i)| b_i * m_i)
             .sum::<G2Projective>())
     .to_affine();

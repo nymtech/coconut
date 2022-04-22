@@ -368,7 +368,7 @@ impl ProofKappaNu {
             .collect::<Vec<_>>();
 
         let beta_bytes = verification_key
-            .beta
+            .beta_g2
             .iter()
             .map(|beta_i| beta_i.to_bytes())
             .collect::<Vec<_>>();
@@ -381,7 +381,7 @@ impl ProofKappaNu {
             + verification_key.alpha
             + witness_attributes
                 .iter()
-                .zip(verification_key.beta.iter())
+                .zip(verification_key.beta_g2.iter())
                 .map(|(wm_i, beta_i)| beta_i * wm_i)
                 .sum::<G2Projective>();
 
@@ -429,7 +429,7 @@ impl ProofKappaNu {
             .collect::<Vec<_>>();
 
         let beta_bytes = verification_key
-            .beta
+            .beta_g2
             .iter()
             .map(|beta_i| beta_i.to_bytes())
             .collect::<Vec<_>>();
@@ -443,7 +443,7 @@ impl ProofKappaNu {
             + self
                 .response_attributes
                 .iter()
-                .zip(verification_key.beta.iter())
+                .zip(verification_key.beta_g2.iter())
                 .map(|(priv_attr, beta_i)| beta_i * priv_attr)
                 .sum::<G2Projective>();
 
