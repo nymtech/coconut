@@ -556,12 +556,10 @@ mod tests {
 
 
     #[test]
-    fn proof_kappa_nu_bytes_roundtrip() {
+    fn proof_kappa_bytes_roundtrip() {
         let mut params = setup(1).unwrap();
 
         let keypair = keygen(&mut params);
-        let r = params.random_scalar();
-        let s = params.random_scalar();
 
         // we don't care about 'correctness' of the proof. only whether we can correctly recover it from bytes
         let private_attributes = params.n_random_scalars(1);

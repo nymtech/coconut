@@ -16,7 +16,7 @@ use bls12_381::{multi_miller_loop, G1Affine, G2Affine, G2Prepared, Scalar};
 use coconut_rs::{
     aggregate_signature_shares, aggregate_verification_keys, blind_sign, elgamal_keygen,
     prepare_blind_sign, prove_credential, setup, ttp_keygen, verify_credential, Attribute,
-    BlindedSignature, ElGamalKeyPair, Parameters, Signature, SignatureShare, VerificationKey,
+    BlindedSignature, ElGamalKeyPair, BlindSignRequest, Parameters, Signature, SignatureShare, VerificationKey,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
 use ff::Field;
@@ -24,6 +24,7 @@ use group::{Curve, Group};
 use rand::seq::SliceRandom;
 use std::ops::Neg;
 use std::time::Duration;
+use itertools::izip;
 
 fn double_pairing(g11: &G1Affine, g21: &G2Affine, g12: &G1Affine, g22: &G2Affine) {
     let gt1 = bls12_381::pairing(&g11, &g21);
@@ -70,22 +71,44 @@ fn multi_miller_pairing_with_semi_prepared(
 fn unblind_and_aggregate(
     params: &Parameters,
     blinded_signatures: &[BlindedSignature],
-    elgamal_keypair: &ElGamalKeyPair,
+    blind_sign_request: &BlindSignRequest,
+    commitments_openings: &[Scalar],
+    private_attributes: &[Attribute],
+    public_attributes: &[Attribute],
+    verification_key: &VerificationKey,
+    partial_verification_keys: &[VerificationKey],
 ) -> Signature {
     // Unblind all partial signatures
-    let unblinded_signatures: Vec<Signature> = blinded_signatures
-        .iter()
-        .map(|signature| signature.unblind(&elgamal_keypair.private_key()))
-        .collect();
+    let unblinded_signatures: Vec<Signature> =
+        izip!(blinded_signatures.iter(), partial_verification_keys.iter())
+            .map(|(s, vk)| {
+                s.unblind(
+                    &params,
+                    vk,
+                    &private_attributes,
+                    &public_attributes,
+                    &blind_sign_request.get_commitment_hash(),
+                    &commitments_openings,
+                )
+                    .unwrap()
+            })
+            .collect();
 
+    // Aggregate signatures
     let signature_shares: Vec<SignatureShare> = unblinded_signatures
         .iter()
         .enumerate()
         .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
         .collect();
 
-    // Aggregate all partial credentials into a single one
-    aggregate_signature_shares(&signature_shares).unwrap()
+    let mut attributes = Vec::with_capacity(private_attributes.len() + public_attributes.len());
+    attributes.extend_from_slice(&private_attributes);
+    attributes.extend_from_slice(&public_attributes);
+
+    // Randomize credentials and generate any cryptographic material to verify them
+    let signature =
+        aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares).unwrap();
+    signature
 }
 
 struct BenchCase {
@@ -148,7 +171,7 @@ fn bench_coconut(c: &mut Criterion) {
         num_private_attrs: 5,
     };
 
-    let params = setup((case.num_public_attrs + case.num_private_attrs)).unwrap();
+    let params = setup(case.num_public_attrs + case.num_private_attrs).unwrap();
 
     let public_attributes = params.n_random_scalars(case.num_public_attrs as usize);
     let private_attributes = params.n_random_scalars(case.num_private_attrs as usize);
@@ -156,13 +179,8 @@ fn bench_coconut(c: &mut Criterion) {
     let elgamal_keypair = elgamal_keygen(&params);
 
     // The prepare blind sign is performed by the user
-    let blind_sign_request = prepare_blind_sign(
-        &params,
-        &elgamal_keypair.public_key(),
-        &private_attributes,
-        &public_attributes,
-    )
-    .unwrap();
+    let (commitments_openings, blind_sign_request) =
+        prepare_blind_sign(&params, &private_attributes, &public_attributes).unwrap();
 
     // CLIENT BENCHMARK: Data needed to ask for a credential
     // Let's benchmark the operations the client has to perform
@@ -176,12 +194,7 @@ fn bench_coconut(c: &mut Criterion) {
         ),
         |b| {
             b.iter(|| {
-                prepare_blind_sign(
-                    &params,
-                    &elgamal_keypair.public_key(),
-                    &private_attributes,
-                    &public_attributes,
-                )
+                prepare_blind_sign(&params, &private_attributes, &public_attributes)
                 .unwrap()
             })
         },
@@ -206,7 +219,6 @@ fn bench_coconut(c: &mut Criterion) {
                 blind_sign(
                     &params,
                     &keypair.secret_key(),
-                    &elgamal_keypair.public_key(),
                     &blind_sign_request,
                     &public_attributes,
                 )
@@ -222,32 +234,12 @@ fn bench_coconut(c: &mut Criterion) {
         let blinded_signature = blind_sign(
             &params,
             &keypair.secret_key(),
-            &elgamal_keypair.public_key(),
             &blind_sign_request,
             &public_attributes,
         )
         .unwrap();
         blinded_signatures.push(blinded_signature)
     }
-
-    // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
-    let aggregated_signature =
-        unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair);
-
-    // CLIENT BENCHMARK: aggregate all partial credentials
-    group.bench_function(
-        &format!(
-            "[Client] unblind_and_aggregate_partial_credentials_{}_authorities_{}_attributes_{}_threshold",
-            case.num_authorities,
-            case.num_attrs(),
-            case.threshold_p,
-        ),
-        |b| {
-            b.iter(|| {
-                unblind_and_aggregate(&params, &blinded_signatures, &elgamal_keypair)
-            })
-        },
-    );
 
     let verification_keys: Vec<VerificationKey> = coconut_keypairs
         .iter()
@@ -259,13 +251,28 @@ fn bench_coconut(c: &mut Criterion) {
     // aggregate verification keys
     let verification_key = aggregate_verification_keys(&verification_keys, Some(&indices)).unwrap();
 
+    // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
+    let aggregated_signature =
+        unblind_and_aggregate(&params, &blinded_signatures, &blind_sign_request, &commitments_openings, &private_attributes, &public_attributes, &verification_key, &verification_keys);
+
+    // CLIENT BENCHMARK: aggregate all partial credentials
+    group.bench_function(
+        &format!(
+            "[Client] unblind_and_aggregate_partial_credentials_{}_authorities_{}_attributes_{}_threshold",
+            case.num_authorities,
+            case.num_attrs(),
+            case.threshold_p,
+        ),
+        |b| {
+            b.iter(|| {
+                unblind_and_aggregate(&params, &blinded_signatures, &blind_sign_request, &commitments_openings, &private_attributes, &public_attributes, &verification_key, &verification_keys)
+            })
+        },
+    );
+
+
     // Randomize credentials and generate any cryptographic material to verify them
-    let theta = prove_credential(
-        &params,
-        &verification_key,
-        &aggregated_signature,
-        &private_attributes,
-    )
+    let theta = prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes)
     .unwrap();
 
     // CLIENT BENCHMARK
@@ -278,12 +285,7 @@ fn bench_coconut(c: &mut Criterion) {
         ),
         |b| {
             b.iter(|| {
-                prove_credential(
-                    &params,
-                    &verification_key,
-                    &aggregated_signature,
-                    &private_attributes,
-                )
+                prove_credential(&params, &verification_key, &aggregated_signature, &private_attributes)
                 .unwrap()
             })
         },
@@ -291,7 +293,12 @@ fn bench_coconut(c: &mut Criterion) {
 
     // VERIFIER OPERATION
     // Verify credentials
-    verify_credential(&params, &verification_key, &theta, &public_attributes);
+    verify_credential(
+        &params,
+        &verification_key,
+        &theta,
+        &public_attributes
+    );
 
     // VERIFICATION BENCHMARK
     group.bench_function(
@@ -301,7 +308,12 @@ fn bench_coconut(c: &mut Criterion) {
             case.num_attrs(),
             case.threshold_p,
         ),
-        |b| b.iter(|| verify_credential(&params, &verification_key, &theta, &public_attributes)),
+        |b| b.iter(|| verify_credential(
+            &params,
+            &verification_key,
+            &theta,
+            &public_attributes
+        )),
     );
 }
 criterion_group!(benches, bench_coconut);
