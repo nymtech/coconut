@@ -180,7 +180,7 @@ pub fn prove_credential(
 }
 
 /// Checks whether e(P, Q) * e(-R, S) == id
-fn check_bilinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
+pub(crate) fn check_bilinear_pairing(p: &G1Affine, q: &G2Prepared, r: &G1Affine, s: &G2Prepared) -> bool {
     // checking e(P, Q) * e(-R, S) == id
     // is equivalent to checking e(P, Q) == e(R, S)
     // but requires only a single final exponentiation rather than two of them

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::elgamal::Ciphertext;
 use crate::error::{CoconutError, Result};
 use crate::proofs::ProofCmCs;
 use crate::scheme::setup::Parameters;
@@ -20,8 +19,8 @@ use crate::scheme::BlindedSignature;
 use crate::scheme::SecretKey;
 use crate::traits::{Base58, Bytable};
 use crate::utils::{hash_g1, try_deserialize_g1_projective};
-use crate::{elgamal, Attribute};
-use bls12_381::{G1Projective, Scalar};
+use crate::{Attribute};
+use bls12_381::{G1Projective, Scalar, G1Affine};
 use group::{Curve, GroupEncoding};
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -33,8 +32,10 @@ use std::convert::TryInto;
 pub struct BlindSignRequest {
     // cm
     commitment: G1Projective,
+    // h
+    commitment_hash: G1Projective,
     // c
-    attributes_ciphertexts: Vec<elgamal::Ciphertext>,
+    private_attributes_commitments: Vec<G1Projective>,
     // pi_s
     pi_s: ProofCmCs,
 }
@@ -43,41 +44,66 @@ impl TryFrom<&[u8]> for BlindSignRequest {
     type Error = CoconutError;
 
     fn try_from(bytes: &[u8]) -> Result<BlindSignRequest> {
-        if bytes.len() < 48 + 8 + 96 {
+        if bytes.len() < 48 + 48 + 8 + 48 {
             return Err(CoconutError::DeserializationMinLength {
-                min: 48 + 8 + 9,
+                min: 48 + 48 + 8 + 48,
                 actual: bytes.len(),
             });
         }
 
-        let cm_bytes = bytes[..48].try_into().unwrap();
+        let mut j = 0;
+        let commitment_bytes_len = 48;
+        let commitment_hash_bytes_len = 48;
+
+        let cm_bytes = bytes[..j + commitment_bytes_len].try_into().unwrap();
         let commitment = try_deserialize_g1_projective(
             &cm_bytes,
             CoconutError::Deserialization(
                 "Failed to deserialize compressed commitment".to_string(),
             ),
         )?;
+        j += commitment_bytes_len;
 
-        let c_len = u64::from_le_bytes(bytes[48..56].try_into().unwrap());
-        if bytes[56..].len() < c_len as usize * 96 {
+        let cm_hash_bytes = bytes[j..j + commitment_hash_bytes_len].try_into().unwrap();
+        let commitment_hash = try_deserialize_g1_projective(
+            &cm_hash_bytes,
+            CoconutError::Deserialization(
+                "Failed to deserialize compressed commitment hash".to_string(),
+            ),
+        )?;
+        j += commitment_hash_bytes_len;
+
+        let c_len = u64::from_le_bytes(bytes[j..j + 8].try_into().unwrap());
+        j += 8;
+        if bytes[j..].len() < c_len as usize * 48 {
             return Err(CoconutError::DeserializationMinLength {
-                min: c_len as usize * 96,
+                min: c_len as usize * 48,
                 actual: bytes[56..].len(),
             });
         }
 
-        let mut attributes_ciphertexts = Vec::with_capacity(c_len as usize);
+        let mut private_attributes_commitments = Vec::with_capacity(c_len as usize);
         for i in 0..c_len as usize {
-            let start = 56 + i * 96;
-            let end = start + 96;
-            attributes_ciphertexts.push(Ciphertext::try_from(&bytes[start..end])?)
+            let start = j + i * 48;
+            let end = start + 48;
+
+            let private_attributes_commitment_bytes = bytes[start..end].try_into().unwrap();
+            let private_attributes_commitment = try_deserialize_g1_projective(
+                &private_attributes_commitment_bytes,
+                CoconutError::Deserialization(
+                    "Failed to deserialize compressed commitment".to_string(),
+                ),
+            )?;
+
+            private_attributes_commitments.push(private_attributes_commitment)
         }
 
-        let pi_s = ProofCmCs::from_bytes(&bytes[56 + c_len as usize * 96..])?;
+        let pi_s = ProofCmCs::from_bytes(&bytes[j + c_len as usize * 48..])?;
 
         Ok(BlindSignRequest {
             commitment,
-            attributes_ciphertexts,
+            commitment_hash,
+            private_attributes_commitments,
             pi_s,
         })
     }
@@ -86,15 +112,17 @@ impl TryFrom<&[u8]> for BlindSignRequest {
 impl Bytable for BlindSignRequest {
     fn to_byte_vec(&self) -> Vec<u8> {
         let cm_bytes = self.commitment.to_affine().to_compressed();
-        let c_len = self.attributes_ciphertexts.len() as u64;
+        let cm_hash_bytes = self.commitment_hash.to_affine().to_compressed();
+        let c_len = self.private_attributes_commitments.len() as u64;
         let proof_bytes = self.pi_s.to_bytes();
 
-        let mut bytes = Vec::with_capacity(48 + 8 + c_len as usize * 96 + proof_bytes.len());
+        let mut bytes = Vec::with_capacity(48 + 48 + 8 + c_len as usize * 48 + proof_bytes.len());
 
         bytes.extend_from_slice(&cm_bytes);
+        bytes.extend_from_slice(&cm_hash_bytes);
         bytes.extend_from_slice(&c_len.to_le_bytes());
-        for c in &self.attributes_ciphertexts {
-            bytes.extend_from_slice(&c.to_bytes());
+        for c in &self.private_attributes_commitments {
+            bytes.extend_from_slice(&c.to_affine().to_compressed());
         }
 
         bytes.extend_from_slice(&proof_bytes);
@@ -110,19 +138,23 @@ impl Bytable for BlindSignRequest {
 impl Base58 for BlindSignRequest {}
 
 impl BlindSignRequest {
-    fn verify_proof(&self, params: &Parameters, pub_key: &elgamal::PublicKey) -> bool {
+    fn verify_proof(&self, params: &Parameters, public_attributes: &[Attribute]) -> bool {
         self.pi_s.verify(
             params,
-            pub_key,
             &self.commitment,
-            &self.attributes_ciphertexts,
+            &self.private_attributes_commitments,
+            public_attributes,
         )
     }
 
-    // TODO: perhaps also include pi_s.len()?
-    // to be determined once we implement serde to make sure its 1:1 compatible
-    // with bincode
-    // cm || c.len() || c || pi_s
+    pub fn get_commitment_hash(&self) -> G1Projective {
+        self.commitment_hash
+    }
+
+    pub fn get_private_attributes_pedersen_commitments(&self) -> Vec<G1Projective> {
+        self.private_attributes_commitments.clone()
+    }
+
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_byte_vec()
     }
@@ -132,13 +164,57 @@ impl BlindSignRequest {
     }
 }
 
+pub fn compute_attributes_commitment(
+    params: &Parameters,
+    private_attributes: &[Attribute],
+    public_attributes: &[Attribute],
+    hs: &[G1Affine],
+) -> (Scalar, G1Projective) {
+    let commitment_opening = params.random_scalar();
+
+    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
+    // where m0, m1, ...., mn are attributes
+    let attr_cm = private_attributes
+        .iter()
+        .chain(public_attributes.iter())
+        .zip(hs)
+        .map(|(&m, h)| h * m)
+        .sum::<G1Projective>();
+
+    // Produces g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
+    let commitment = params.gen1() * commitment_opening + attr_cm;
+    (commitment_opening, commitment)
+}
+
+pub fn compute_commitment_hash(commitment: G1Projective) -> G1Projective {
+    hash_g1(commitment.to_bytes())
+}
+
+
+pub fn compute_pedersen_commitments_for_private_attributes(
+    params: &Parameters,
+    private_attributes: &[Attribute],
+    h: &G1Projective,
+) -> (Vec<Scalar>, Vec<G1Projective>) {
+    // Generate openings for Pedersen commitment for each private attribute
+    let commitments_openings = params.n_random_scalars(private_attributes.len());
+
+    // Compute Pedersen commitment for each private attribute
+    let pedersen_commitments = commitments_openings
+        .iter()
+        .zip(private_attributes.iter())
+        .map(|(o_j, m_j)| params.gen1() * o_j + h * m_j)
+        .collect::<Vec<_>>();
+
+    (commitments_openings, pedersen_commitments)
+}
+
 /// Builds cryptographic material required for blind sign.
 pub fn prepare_blind_sign(
     params: &Parameters,
-    pub_key: &elgamal::PublicKey,
     private_attributes: &[Attribute],
     public_attributes: &[Attribute],
-) -> Result<BlindSignRequest> {
+) -> Result<(Vec<Scalar>, BlindSignRequest)> {
     if private_attributes.is_empty() {
         return Err(CoconutError::Issuance(
             "Tried to prepare blind sign request for an empty set of private attributes"
@@ -154,50 +230,46 @@ pub fn prepare_blind_sign(
         });
     }
 
-    // prepare commitment
-    // Produces h0 ^ m0 * h1^m1 * .... * hn^mn
-    let attr_cm = private_attributes
-        .iter()
-        .chain(public_attributes.iter())
-        .zip(hs)
-        .map(|(&m, h)| h * m)
-        .sum::<G1Projective>();
-    let blinder = params.random_scalar();
-    // g1^r * h0 ^ m0 * h1^m1 * .... * hn^mn
-    let commitment = params.gen1() * blinder + attr_cm;
+    let (commitment_opening, commitment) =
+        compute_attributes_commitment(params, private_attributes, public_attributes, hs);
 
-    // build ElGamal encryption
-    let commitment_hash = hash_g1(commitment.to_bytes());
-    let (attributes_ciphertexts, ephemeral_keys): (Vec<_>, Vec<_>) = private_attributes
-        .iter()
-        .map(|m| pub_key.encrypt(params, &commitment_hash, m))
-        .unzip();
+    // Compute the challenge as the commitment hash
+    let commitment_hash = compute_commitment_hash(commitment);
+
+    let (pedersen_commitments_openings, pedersen_commitments) =
+        compute_pedersen_commitments_for_private_attributes(
+            params,
+            private_attributes,
+            &commitment_hash,
+        );
 
     let pi_s = ProofCmCs::construct(
         params,
-        pub_key,
-        &ephemeral_keys,
         &commitment,
-        &blinder,
+        &commitment_opening,
+        &pedersen_commitments,
+        &pedersen_commitments_openings,
         private_attributes,
-        public_attributes,
     );
 
-    Ok(BlindSignRequest {
-        commitment,
-        attributes_ciphertexts,
-        pi_s,
-    })
+    Ok((
+        pedersen_commitments_openings,
+        BlindSignRequest {
+            commitment,
+            commitment_hash,
+            private_attributes_commitments: pedersen_commitments,
+            pi_s,
+        },
+    ))
 }
 
 pub fn blind_sign(
     params: &Parameters,
-    secret_key: &SecretKey,
-    pub_key: &elgamal::PublicKey,
+    signing_secret_key: &SecretKey,
     blind_sign_request: &BlindSignRequest,
     public_attributes: &[Attribute],
 ) -> Result<BlindedSignature> {
-    let num_private = blind_sign_request.attributes_ciphertexts.len();
+    let num_private = blind_sign_request.private_attributes_commitments.len();
     let hs = params.gen_hs();
 
     if num_private + public_attributes.len() > hs.len() {
@@ -207,44 +279,41 @@ pub fn blind_sign(
         });
     }
 
-    if !blind_sign_request.verify_proof(params, pub_key) {
+    // Verify the commitment hash
+    let h = hash_g1(blind_sign_request.commitment.to_bytes());
+    if !(h == blind_sign_request.commitment_hash) {
+        return Err(CoconutError::Issuance(
+            "Failed to verify the commitment hash".to_string(),
+        ));
+    }
+
+    // Verify the ZK proof
+    if !blind_sign_request.verify_proof(params, public_attributes) {
         return Err(CoconutError::Issuance(
             "Failed to verify the proof of knowledge".to_string(),
         ));
     }
-
-    let h = hash_g1(blind_sign_request.commitment.to_bytes());
 
     // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
     // i.e. compute h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n]) directly (where m is number of PRIVATE attributes)
     // rather than ((h ^ pub_m[0]) ^ y[m + 1] , (h ^ pub_m[1]) ^ y[m + 2] , ...).sum() separately
     let signed_public = h * public_attributes
         .iter()
-        .zip(secret_key.ys.iter().skip(num_private))
+        .zip(signing_secret_key.ys.iter().skip(num_private))
         .map(|(attr, yi)| attr * yi)
         .sum::<Scalar>();
 
-    // c1[0] ^ y[0] * ... * c1[m] ^ y[m]
-    let sig_1 = blind_sign_request
-        .attributes_ciphertexts
+    // h ^ x + c[0] ^ y[0] + ... c[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
+    let sig = blind_sign_request
+        .private_attributes_commitments
         .iter()
-        .map(|ciphertext| ciphertext.c1())
-        .zip(secret_key.ys.iter())
-        .map(|(c1, yi)| c1 * yi)
-        .sum();
-
-    // h ^ x + c2[0] ^ y[0] + ... c2[m] ^ y[m] + h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n])
-    let sig_2 = blind_sign_request
-        .attributes_ciphertexts
-        .iter()
-        .map(|ciphertext| ciphertext.c2())
-        .zip(secret_key.ys.iter())
-        .map(|(c2, yi)| c2 * yi)
-        .chain(std::iter::once(h * secret_key.x))
+        .zip(signing_secret_key.ys.iter())
+        .map(|(c, yi)| c * yi)
+        .chain(std::iter::once(h * signing_secret_key.x))
         .chain(std::iter::once(signed_public))
         .sum();
 
-    Ok(BlindedSignature(h, elgamal::Ciphertext(sig_1, sig_2)))
+    Ok(BlindedSignature(h, sig))
 }
 
 // TODO: possibly completely remove those two functions.
@@ -293,18 +362,13 @@ mod tests {
 
     #[test]
     fn blind_sign_request_bytes_roundtrip() {
-        let mut params = Parameters::new(1).unwrap();
-        let public_attributes = params.n_random_scalars(0);
+        // 0 public and 1 private attribute
+        let params = Parameters::new(1).unwrap();
         let private_attributes = params.n_random_scalars(1);
-        let elgamal_keypair = elgamal::elgamal_keygen(&params);
+        let public_attributes = params.n_random_scalars(0);
 
-        let lambda = prepare_blind_sign(
-            &mut params,
-            elgamal_keypair.public_key(),
-            &private_attributes,
-            &public_attributes,
-        )
-        .unwrap();
+        let (_commitments_openings, lambda) =
+            prepare_blind_sign(&params, &private_attributes, &public_attributes).unwrap();
 
         let bytes = lambda.to_bytes();
         assert_eq!(
@@ -312,16 +376,13 @@ mod tests {
             lambda
         );
 
-        let mut params = Parameters::new(4).unwrap();
-        let public_attributes = params.n_random_scalars(2);
+        // 2 public and 2 private attributes
+        let params = Parameters::new(4).unwrap();
         let private_attributes = params.n_random_scalars(2);
-        let lambda = prepare_blind_sign(
-            &mut params,
-            elgamal_keypair.public_key(),
-            &private_attributes,
-            &public_attributes,
-        )
-        .unwrap();
+        let public_attributes = params.n_random_scalars(2);
+
+        let (_commitments_openings, lambda) =
+            prepare_blind_sign(&params, &private_attributes, &public_attributes).unwrap();
 
         let bytes = lambda.to_bytes();
         assert_eq!(

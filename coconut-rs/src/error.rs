@@ -28,6 +28,8 @@ pub enum CoconutError {
     IssuanceMaxAttributes { max: usize, requested: usize },
     #[error("Interpolation error: {0}")]
     Interpolation(String),
+    #[error("Unblind error: {0}")]
+    Unblind(String),
     #[error("Aggregation error: {0}")]
     Aggregation(String),
     #[error("Verification error: {0}")]
