@@ -11,6 +11,32 @@ Note: Currently the libraries are **not** interoperable - different methods of c
 
 [comment]: <> (They are interoperable - credentials created and re-randomized in Rust can be verified in Go, and vice versa.)
 
+
+Running the demo
+================
+
+First, install Rust for your operating system. Instructions can be found at the [Rust](https://rust-lang.org) website.
+
+Once Rust is installed:
+
+```
+git clone https://github.com/nymtech/coconut.git
+
+cd coconut/cli-demo-rs
+cargo run 
+```
+
+Follow the prompts to demonstrate Coconut functionality.
+
+We suggest: 
+
+4 issuing authorities
+Threshold of 3
+2 public attributes
+1 private attribute
+
+
+
 License
 -------
 
