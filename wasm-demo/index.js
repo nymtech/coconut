@@ -17,8 +17,6 @@ import {CoconutDemoState, set_panic_hook} from "@nymproject/coconut-wasm-wrapper
 // hehe, javascript globals
 let appState = null
 
-
-
 function disableById(id) {
     const element = document.getElementById(id)
     element.setAttribute('disabled', 'true')
@@ -125,7 +123,7 @@ function aggregateIssuedPartialSignatures() {
     randomiseButton.setAttribute('id', 'randomise-credential-btn')
     randomiseButton.innerText = 'Randomise the credential'
     randomiseButton.onclick = () => {
-        span.innerText = document.getElementById('credential-span')
+        span.innerText = appState.randomise_credential()
     }
 
     fieldset.appendChild(legend)
@@ -280,7 +278,7 @@ function onVerificationAttributesSubmit() {
 
     const attributes = collectSubmittedAttributes('attributes-verification', false)
     const aggregatedVk = aggregateVerificationKeys()
-    const credential = appState.current_credential()
+    const credential = appState.current_credential
 
     verifyCredential(attributes, aggregatedVk, credential)
 }
@@ -288,6 +286,7 @@ function onVerificationAttributesSubmit() {
 function createAttributesInput(wrapperDivId, confirmCallback) {
     const numAttributes = document.getElementById('num-attributes').value
     const inputDiv = document.getElementById(wrapperDivId)
+    const innerDiv = document.createElement('div')
 
     for (let i = 1; i <= numAttributes; i++) {
         // hehe, that's so disgusting
@@ -312,7 +311,7 @@ function createAttributesInput(wrapperDivId, confirmCallback) {
         fieldset.appendChild(checkboxText)
 
         wrapperDiv.appendChild(fieldset)
-        inputDiv.appendChild(wrapperDiv)
+        innerDiv.appendChild(wrapperDiv)
     }
 
     const wrapperPara = document.createElement('p')
@@ -322,7 +321,8 @@ function createAttributesInput(wrapperDivId, confirmCallback) {
     submitButton.onclick = confirmCallback
 
     wrapperPara.appendChild(submitButton)
-    inputDiv.appendChild(wrapperPara)
+    innerDiv.appendChild(wrapperPara)
+    inputDiv.replaceChildren(innerDiv)
 }
 
 function main() {
