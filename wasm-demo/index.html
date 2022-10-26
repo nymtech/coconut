@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nym WebAssembly Coconut Demo</title>
+</head>
+
+<style>
+table, th, td {
+    border: 1px solid;
+}
+table {
+    width: 80%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+</style>
+
+<body>
+<div>
+    <p>Welcome to the Nym Credential Library Demo.</p>
+    <p>This generates demo outputs a number of identity attributes attributes (claims) and has a set of authorities sign them using the Coconut signature scheme.</p>
+    <p>At each step, you may have options. Press ENTER to go to the next stage.  </p>
+    <p>1) First, you will be prompted for the number of attributes. You need to enter the total number of attributes. </p>
+    <p>Then you will be asked to enter the values of 2) public attributes and then 3) private attributes (proofs of claims). </p>
+    <p>These values of these attributes can be any number or string, and so can be W3C DIDs like \"did:example:12345abcde.\" </p>
+    <p>4) Then you will be asked for a number of authorities that are authorized to verify your claims.</p>
+    <p>5) Lastly, you will be asked for a threshold value, which is the number of authorities that must be online to verify your claims at any given instance. </p>
+    <p>6) You may then \"re-randomize\" your credential as many times a you want to preserve your privacy. </p>
+    <p>Then in the final step 7) you will be asked to type in the values entered for your attributes in Step 2 and Step 3 again. At the end, the demo will output a credential composed of elliptic curve points.</p>
+</div>
+
+<div>
+    <p>
+        <fieldset>
+            <legend>Maximum number of attributes:</legend>
+            <input type="number" name="num-attributes" id="num-attributes" required>
+        </fieldset>
+    </p>
+
+    <p>
+        <fieldset>
+            <legend>Number of signing authorities:</legend>
+            <input type="number" name="num-authorities" id="num-authorities" required>
+        </fieldset>
+    </p>
+
+    <p>
+        <fieldset>
+            <legend>Signing threshold:</legend>
+            <input type="number" name="threshold" id="threshold" required>
+        </fieldset>
+    </p>
+
+    <p>
+        <button id="form-confirm-btn">Confirm</button>
+    </p>
+</div>
+
+<table id="authorities" hidden>
+    <caption>Coconut Signing Authorities</caption>
+    <thead>
+    <tr>
+        <th>
+            Signer
+        </th>
+        <th>
+            Public Verification Key
+        </th>
+    </tr>
+    </thead>
+</table>
+
+<h1 id="issuance-header" hidden>Credential Issuance</h1>
+
+<div id="attributes-issuance"></div>
+
+<table id="partial-signatures" hidden>
+    <caption>Coconut Partial Signatures</caption>
+    <thead>
+    <tr>
+        <th>
+            From signer
+        </th>
+        <th>
+            Partial Blinded signature
+        </th>
+        <th>
+            Partial Unblinded signature
+        </th>
+    </tr>
+    </thead>
+</table>
+
+<div id="sig-aggregation-text" hidden></div>
+<div id="aggregated-signature" hidden></div>
+
+<button id="start-verification-btn" style="margin-top: 10px" hidden>Start credential verification</button>
+<div id="verification-steps-div" hidden>
+    <h1 id="verification-header">Credential Verification</h1>
+
+    <p>Please re-enter the attributes you used for your credential</p>
+    <div id="attributes-verification"></div>
+    <div id="vk-aggregation-text"></div>
+    <div id="aggregated-vk"></div>
+    <div id="credential-validity"></div>
+</div>
+
+
+<div>
+    <span style='color: red;'><p id="error-msg"></p></span>
+</div>
+
+
+<script src="./bootstrap.js"></script>
+</body>
+
+</html>
