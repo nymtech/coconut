@@ -3,3 +3,5 @@ coconut-rs/.idea
 CoconutGo/.idea
 cli-demo-rs/target
 keypairs/
+wasm-demo/node_modules
+wasm-demo/coconut-wasm-wrapper/target

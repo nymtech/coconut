@@ -1,9 +1,12 @@
-use coconut_rs::{blind_sign, prepare_blind_sign, aggregate_signature_shares, aggregate_verification_keys, ttp_keygen};
 use coconut_rs::KeyPair;
 use coconut_rs::Parameters;
+use coconut_rs::{
+    aggregate_signature_shares, aggregate_verification_keys, blind_sign, prepare_blind_sign,
+    ttp_keygen,
+};
+use coconut_rs::{elgamal, Attribute};
 use coconut_rs::{prove_credential, verify_credential};
 use coconut_rs::{BlindedSignature, Signature, SignatureShare, VerificationKey};
-use coconut_rs::{elgamal, Attribute};
 use digest::Digest;
 use rand::seq::SliceRandom;
 use read_input::prelude::*;
@@ -92,7 +95,7 @@ impl App {
             .collect();
 
         aggregate_verification_keys(&target_vks, Some(&indices))
-            .expect("failed to aggregate signatures")
+            .expect("failed to aggregate verification keys")
     }
 
     #[allow(dead_code)]
@@ -259,8 +262,7 @@ fn aggregate_signatures(unoredered_sigs: &[Signature], indices: &[u64]) -> Signa
         .map(|&id| SignatureShare::new(unoredered_sigs[id as usize - 1], id))
         .collect();
 
-    aggregate_signature_shares(&target_sigs)
-        .expect("failed to aggregate signatures")
+    aggregate_signature_shares(&target_sigs).expect("failed to aggregate signatures")
 }
 
 fn main() {

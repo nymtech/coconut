@@ -1,0 +1,32 @@
+{
+  "name": "coconut-wasm-demo",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack-dev-server --port 8001"
+  },
+  "keywords": [
+    "webassembly",
+    "wasm",
+    "rust",
+    "webpack"
+  ],
+  "author": "Jedrzej Stuczynski <andrew@nymtech.net>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/nymtech/coconut/issues"
+  },
+  "homepage": "https://nymtech.net/docs",
+  "devDependencies": {
+    "copy-webpack-plugin": "^10.2.4",
+    "hello-wasm-pack": "^0.1.0",
+    "webpack": "^5.70.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.7.4"
+  },
+  "dependencies": {
+    "@nymproject/coconut-wasm-wrapper": "file:coconut-wasm-wrapper/pkg"
+  }
+}
