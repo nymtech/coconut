@@ -17,12 +17,10 @@ use coconut_rs::{
     prepare_blind_sign, prove_credential, ttp_keygen, verify_credential, BlindedSignature, KeyPair,
     Parameters, Signature, SignatureShare, VerificationKey,
 };
-use js_sys::{Array, Promise};
+use js_sys::Array;
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::future_to_promise;
 
 mod utils;
 
