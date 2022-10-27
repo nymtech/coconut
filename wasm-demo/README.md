@@ -1,6 +1,26 @@
+Coconut Webassembly Demo
+=========================
 
-To run the demo run the following: `npm install && npm run start`
+Coconut can be run completely inside a web browser environment. 
 
-To rebuild the wasm files run `wasm-pack build --scope nymproject`
+Prerequisites
+--------------
 
-Whenever you update the used wasm code, make sure to `rm -rf node_modules`
+* [Rust](https://www.rust-lang.org/tools/install) (works with 1.64)
+* [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
+
+
+Building
+--------
+
+```
+cd coconut-wasm-wrapper
+wasm-pack build --scope nymproject
+```
+
+Running the demo
+----------------
+
+To run the demo run the following: 
+
+`npm install && npm run start`
