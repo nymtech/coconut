@@ -55,13 +55,16 @@ function setCredentialValidity(isValid) {
 }
 
 function verifyCredential(attributes, verificationKey, credential) {
+    console.log("verifying ", credential)
+    console.log("on the following attributes: ", attributes)
+    console.log("with the following aggregated verification key used in proofs: ", verificationKey)
     const validity = appState.verify_credential(attributes, credential, verificationKey)
     setCredentialValidity(validity)
 }
 
 function aggregateVerificationKeys() {
     let aggregationResult = appState.aggregate_verification_keys();
-    console.log(aggregationResult)
+    console.log("the verification keys got aggregated to", aggregationResult)
 
     let usedIndices = aggregationResult.used_indices;
     let vk = aggregationResult.aggregated_verification_key;
@@ -95,7 +98,7 @@ function aggregateVerificationKeys() {
 
 function aggregateIssuedPartialSignatures() {
     let aggregationResult = appState.aggregate_signatures();
-    console.log(aggregationResult)
+    console.log("the signatures got aggregated to", aggregationResult)
 
     let usedIndices = aggregationResult.used_indices;
     let signature = aggregationResult.aggregated_signature;
@@ -187,11 +190,12 @@ function showPartialSignatures(signatures) {
 }
 
 function createAuthorities(numAuthorities) {
+    console.log("signing authorities creation")
+
     const verificationKeys = appState.signing_authorities_public_keys()
-    console.log(verificationKeys)
+    console.log("obtained the following verification keys ", verificationKeys)
 
     const authoritiesTable = document.getElementById('authorities')
-
     const tableBody = document.createElement('tbody')
 
     for (let i = 1; i <= numAuthorities; i++) {
@@ -218,7 +222,7 @@ function createAuthorities(numAuthorities) {
 
 function collectSubmittedAttributes(wrapperDivId, disableForm) {
     resetError()
-    console.log("attributes submit")
+    console.log("attributes submission")
 
     const numAttributes = document.getElementById('num-attributes').value
     let attributes = []
@@ -332,6 +336,7 @@ function main() {
     const confirmButton = document.getElementById('form-confirm-btn');
 
     confirmButton.onclick = function () {
+        console.log("parameters submission")
         resetError()
 
         const authoritiesElement = document.getElementById('num-authorities')
