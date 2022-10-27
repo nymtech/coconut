@@ -12,7 +12,7 @@ Note: Currently the libraries are **not** interoperable - different methods of c
 [comment]: <> (They are interoperable - credentials created and re-randomized in Rust can be verified in Go, and vice versa.)
 
 
-Running the demo
+Running the Rust CLI demo
 ================
 
 First, install Rust for your operating system. Instructions can be found at the [Rust](https://rust-lang.org) website.
@@ -34,6 +34,12 @@ We suggest:
 Threshold of 3
 2 public attributes
 1 private attribute
+
+
+Running the Webassembly demo
+==================
+
+Instructions are in the [webassembly-demo README](wasm-demo)
 
 
 
