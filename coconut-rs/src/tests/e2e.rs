@@ -42,6 +42,9 @@ fn main() -> Result<(), CoconutError> {
         blinded_signatures.push(blinded_signature)
     }
 
+    // verify request
+    blind_sign_request.verify(&params, &public_attributes);
+
     // Unblind
     let unblinded_signatures: Vec<Signature> =
         izip!(blinded_signatures.iter(), verification_keys.iter())

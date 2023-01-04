@@ -138,6 +138,29 @@ impl Bytable for BlindSignRequest {
 impl Base58 for BlindSignRequest {}
 
 impl BlindSignRequest {
+    pub fn verify(
+        &self,
+        params: &Parameters,
+        public_attributes: &[Attribute],
+    ) -> Result<bool> {
+
+        // Verify the commitment hash
+        let h = hash_g1(self.commitment.to_bytes());
+        if !(h == self.commitment_hash) {
+            return Err(CoconutError::Issuance(
+                "Failed to verify the commitment hash".to_string(),
+            ));
+        }
+
+        // Verify the ZK proof
+        if !self.verify_proof(params, public_attributes) {
+            return Err(CoconutError::Issuance(
+                "Failed to verify the proof of knowledge".to_string(),
+            ));
+        }
+
+        Ok(true)
+    }
     fn verify_proof(&self, params: &Parameters, public_attributes: &[Attribute]) -> bool {
         self.pi_s.verify(
             params,
@@ -278,25 +301,10 @@ pub fn blind_sign(
         });
     }
 
-    // Verify the commitment hash
-    let h = hash_g1(blind_sign_request.commitment.to_bytes());
-    if !(h == blind_sign_request.commitment_hash) {
-        return Err(CoconutError::Issuance(
-            "Failed to verify the commitment hash".to_string(),
-        ));
-    }
-
-    // Verify the ZK proof
-    if !blind_sign_request.verify_proof(params, public_attributes) {
-        return Err(CoconutError::Issuance(
-            "Failed to verify the proof of knowledge".to_string(),
-        ));
-    }
-
     // in python implementation there are n^2 G1 multiplications, let's do it with a single one instead.
     // i.e. compute h ^ (pub_m[0] * y[m + 1] + ... + pub_m[n] * y[m + n]) directly (where m is number of PRIVATE attributes)
     // rather than ((h ^ pub_m[0]) ^ y[m + 1] , (h ^ pub_m[1]) ^ y[m + 2] , ...).sum() separately
-    let signed_public = h * public_attributes
+    let signed_public = blind_sign_request.commitment_hash * public_attributes
         .iter()
         .zip(signing_secret_key.ys.iter().skip(num_private))
         .map(|(attr, yi)| attr * yi)
@@ -308,11 +316,11 @@ pub fn blind_sign(
         .iter()
         .zip(signing_secret_key.ys.iter())
         .map(|(c, yi)| c * yi)
-        .chain(std::iter::once(h * signing_secret_key.x))
+        .chain(std::iter::once(blind_sign_request.commitment_hash * signing_secret_key.x))
         .chain(std::iter::once(signed_public))
         .sum();
 
-    Ok(BlindedSignature(h, sig))
+    Ok(BlindedSignature(blind_sign_request.commitment_hash, sig))
 }
 
 // TODO: possibly completely remove those two functions.
