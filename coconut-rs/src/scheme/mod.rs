@@ -154,7 +154,7 @@ impl TryFrom<&[u8]> for BlindedSignature {
 }
 
 impl BlindedSignature {
-    pub fn unblind(
+    pub fn verify_and_unblind(
         &self,
         params: &Parameters,
         partial_verification_key: &VerificationKey,
@@ -299,7 +299,7 @@ mod tests {
 
         let sig1 = blind_sign(&params, &keypair1.secret_key(), &lambda, &public_attributes)
             .unwrap()
-            .unblind(
+            .verify_and_unblind(
                 &params,
                 &keypair1.verification_key(),
                 &private_attributes,
@@ -311,7 +311,7 @@ mod tests {
 
         let sig2 = blind_sign(&params, &keypair2.secret_key(), &lambda, &public_attributes)
             .unwrap()
-            .unblind(
+            .verify_and_unblind(
                 &params,
                 &keypair2.verification_key(),
                 &private_attributes,
@@ -376,7 +376,7 @@ mod tests {
             .map(|keypair| {
                 blind_sign(&params, &keypair.secret_key(), &lambda, &public_attributes)
                     .unwrap()
-                    .unblind(
+                    .verify_and_unblind(
                         &params,
                         &keypair.verification_key(),
                         &private_attributes,

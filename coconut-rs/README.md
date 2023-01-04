@@ -47,7 +47,7 @@ fn main() -> Result<(), CoconutError> {
     let unblinded_signatures: Vec<Signature> =
         izip!(blinded_signatures.iter(), verification_keys.iter())
             .map(|(s, vk)| {
-                s.unblind(
+                s.verify_and_unblind(
                     &params,
                     vk,
                     &private_attributes,
