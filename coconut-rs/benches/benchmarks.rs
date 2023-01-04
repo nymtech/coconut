@@ -83,7 +83,7 @@ fn unblind_and_aggregate(
     let unblinded_signatures: Vec<Signature> =
         izip!(blinded_signatures.iter(), partial_verification_keys.iter())
             .map(|(s, vk)| {
-                s.unblind(
+                s.verify_and_unblind(
                     &params,
                     vk,
                     &private_attributes,
@@ -189,7 +189,7 @@ fn bench_coconut(c: &mut Criterion) {
     // to ask for a credential
     group.bench_function(
         &format!(
-            "[Client] prepare_blind_sign_{}_authorities_{}_attributes_{}_threshold",
+            "[Client] prepare_request_{}_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
             case.num_attrs(),
             case.threshold_p,
@@ -208,10 +208,30 @@ fn bench_coconut(c: &mut Criterion) {
     let mut rng = rand::thread_rng();
     let keypair = coconut_keypairs.choose(&mut rng).unwrap();
 
+    // verify request
+    blind_sign_request.verify(&params, &public_attributes);
+
+    // benchmark verification
     group.bench_function(
         &format!(
-            "[Validator] compute_single_blind_sign_for_credential_with_{}_attributes",
+            "[Validator] verify_single_request_for_credential_with_{}_authorities_{}_attributes_{}_threshold",
+            case.num_authorities,
             case.num_attrs(),
+            case.threshold_p,
+        ),
+        |b| {
+            b.iter(|| {
+                // verify request
+                blind_sign_request.verify(&params, &public_attributes).unwrap()
+            })
+        },
+    );
+
+    group.bench_function(
+        &format!(
+            "[Validator] compute_single_blind_sign_for_credential_with_{}_attributes_{}_threshold",
+            case.num_attrs(),
+            case.threshold_p,
         ),
         |b| {
             b.iter(|| {
@@ -250,17 +270,62 @@ fn bench_coconut(c: &mut Criterion) {
     // aggregate verification keys
     let verification_key = aggregate_verification_keys(&verification_keys, Some(&indices)).unwrap();
 
-    // CLIENT OPERATION: Unblind partial singature & aggregate into a consolidated credential
-    let aggregated_signature = unblind_and_aggregate(
-        &params,
-        &blinded_signatures,
-        &blind_sign_request,
-        &commitments_openings,
-        &private_attributes,
-        &public_attributes,
-        &verification_key,
-        &verification_keys,
+    // CLIENT OPERATION: Verify and unblind partial signature & aggregate into a consolidated credential
+    // Unblind all partial signatures
+    let unblinded_signatures: Vec<Signature> =
+        izip!(blinded_signatures.iter(), partial_verification_keys.iter())
+            .map(|(s, vk)| {
+                s.verify_and_unblind(
+                    &params,
+                    vk,
+                    &private_attributes,
+                    &public_attributes,
+                    &blind_sign_request.get_commitment_hash(),
+                    &commitments_openings,
+                )
+                    .unwrap()
+            })
+            .collect();
+
+    // benchmark a single unblind
+    let s  = blinded_signatures.clone().into_iter().nth(0);
+    group.bench_function(
+        &format!(
+            "[Client] unblind_single_credential_with_{}_authorities_{}_attributes_{}_threshold",
+            case.num_authorities,
+            case.num_attrs(),
+            case.threshold_p,
+        ),
+        |b| {
+            b.iter(|| {
+                s.verify_and_unblind(
+                    &params,
+                    vk,
+                    &private_attributes,
+                    &public_attributes,
+                    &blind_sign_request.get_commitment_hash(),
+                    &commitments_openings,
+                ).unwrap()
+            })
+        },
     );
+
+    // Aggregate signatures
+    let signature_shares: Vec<SignatureShare> = unblinded_signatures
+        .iter()
+        .enumerate()
+        .map(|(idx, signature)| SignatureShare::new(*signature, (idx + 1) as u64))
+        .collect();
+
+    let mut attributes = Vec::with_capacity(private_attributes.len() + public_attributes.len());
+    attributes.extend_from_slice(&private_attributes);
+    attributes.extend_from_slice(&public_attributes);
+
+    // Randomize credentials and generate any cryptographic material to verify them
+    let signature =
+        aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)
+            .unwrap();
+
 
     // CLIENT BENCHMARK: aggregate all partial credentials
     group.bench_function(
@@ -272,7 +337,8 @@ fn bench_coconut(c: &mut Criterion) {
         ),
         |b| {
             b.iter(|| {
-                unblind_and_aggregate(&params, &blinded_signatures, &blind_sign_request, &commitments_openings, &private_attributes, &public_attributes, &verification_key, &verification_keys)
+                aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)
+                    .unwrap();
             })
         },
     );
