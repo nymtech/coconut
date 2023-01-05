@@ -165,7 +165,8 @@ fn bench_pairings(c: &mut Criterion) {
 
 fn bench_coconut(c: &mut Criterion) {
     let mut group = c.benchmark_group("benchmark-coconut");
-    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(300);
+    group.measurement_time(Duration::from_secs(500));
     let case = BenchCase {
         num_authorities: 100,
         threshold_p: 0.7,
