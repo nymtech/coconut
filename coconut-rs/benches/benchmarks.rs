@@ -189,9 +189,9 @@ fn bench_coconut(c: &mut Criterion) {
     // to ask for a credential
     group.bench_function(
         &format!(
-            "[Client] prepare_request_{}_authorities_{}_attributes_{}_threshold",
+            "[Client] prepare_request_{}_authorities_{}_private_authorities_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
@@ -214,9 +214,9 @@ fn bench_coconut(c: &mut Criterion) {
     // benchmark verification
     group.bench_function(
         &format!(
-            "[Validator] verify_single_request_for_credential_with_{}_authorities_{}_attributes_{}_threshold",
+            "[Validator] verify_single_request_for_credential_with_{}_private_authorities_{}_attributes_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
@@ -229,8 +229,8 @@ fn bench_coconut(c: &mut Criterion) {
 
     group.bench_function(
         &format!(
-            "[Validator] compute_single_blind_sign_for_credential_with_{}_attributes_{}_threshold",
-            case.num_attrs(),
+            "[Validator] compute_single_blind_sign_for_credential_with_{}_private_authorities_{}_threshold",
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
@@ -273,7 +273,7 @@ fn bench_coconut(c: &mut Criterion) {
     // CLIENT OPERATION: Verify and unblind partial signature & aggregate into a consolidated credential
     // Unblind all partial signatures
     let unblinded_signatures: Vec<Signature> =
-        izip!(blinded_signatures.iter(), partial_verification_keys.iter())
+        izip!(blinded_signatures.iter(), verification_keys.iter())
             .map(|(s, vk)| {
                 s.verify_and_unblind(
                     &params,
@@ -288,19 +288,20 @@ fn bench_coconut(c: &mut Criterion) {
             .collect();
 
     // benchmark a single unblind
-    let s  = blinded_signatures.clone().into_iter().nth(0);
+    let s  = blinded_signatures.clone().into_iter().nth(0).unwrap();
+    let pvk = verification_keys.clone().into_iter().nth(0).unwrap();
     group.bench_function(
         &format!(
-            "[Client] unblind_single_credential_with_{}_authorities_{}_attributes_{}_threshold",
+            "[Client] unblind_single_credential_with_{}_authorities_{}_private_authorities_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
             b.iter(|| {
                 s.verify_and_unblind(
                     &params,
-                    vk,
+                    &pvk,
                     &private_attributes,
                     &public_attributes,
                     &blind_sign_request.get_commitment_hash(),
@@ -322,7 +323,7 @@ fn bench_coconut(c: &mut Criterion) {
     attributes.extend_from_slice(&public_attributes);
 
     // Randomize credentials and generate any cryptographic material to verify them
-    let signature =
+    let aggregated_signature =
         aggregate_signature_shares(&params, &verification_key, &attributes, &signature_shares)
             .unwrap();
 
@@ -330,9 +331,9 @@ fn bench_coconut(c: &mut Criterion) {
     // CLIENT BENCHMARK: aggregate all partial credentials
     group.bench_function(
         &format!(
-            "[Client] unblind_and_aggregate_partial_credentials_{}_authorities_{}_attributes_{}_threshold",
+            "[Client] unblind_and_aggregate_partial_credentials_{}_authorities_{}_private_authorities_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
@@ -355,9 +356,9 @@ fn bench_coconut(c: &mut Criterion) {
     // CLIENT BENCHMARK
     group.bench_function(
         &format!(
-            "[Client] randomize_and_prove_credential_{}_authorities_{}_attributes_{}_threshold",
+            "[Client] randomize_and_prove_credential_{}_authorities_{}_private_authorities_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| {
@@ -380,9 +381,9 @@ fn bench_coconut(c: &mut Criterion) {
     // VERIFICATION BENCHMARK
     group.bench_function(
         &format!(
-            "[Verifier] verify_credentials_{}_authorities_{}_attributes_{}_threshold",
+            "[Verifier] verify_credentials_{}_authorities_{}_private_authorities_{}_threshold",
             case.num_authorities,
-            case.num_attrs(),
+            case.num_private_attrs,
             case.threshold_p,
         ),
         |b| b.iter(|| verify_credential(&params, &verification_key, &theta, &public_attributes)),
